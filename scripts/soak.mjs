@@ -80,6 +80,7 @@ export async function main() {
   assert(Number.isSafeInteger(durationSeconds) && durationSeconds >= CHUNK_SECONDS, 'PACE_SOAK_SECONDS must be a whole number of at least 15 seconds.');
   wavHeader(durationSeconds * BYTES_PER_SECOND);
   const bridgeFile = path.resolve(process.env.PACE_E2E_BRIDGE_FILE ?? path.join(ROOT, 'artifacts/runtime/e2e-app/e2e-bridge.json'));
+  assert(bridgeFile.startsWith(path.join(ROOT, 'artifacts/runtime') + path.sep), 'Soak checks must use isolated test data under artifacts/runtime.');
   const bridge = JSON.parse(await fs.readFile(bridgeFile, 'utf8'));
   const endpoint = new URL(bridge.url);
   assert(endpoint.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname), 'The test bridge must use loopback HTTP.');

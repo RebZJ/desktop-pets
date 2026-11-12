@@ -342,14 +342,24 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
                     return Err(error);
                 }
             }
-            if let Some(pet) = app.get_webview_window("pet") {
-                if patch.get("clickThrough").is_some() {
-                    let _ = pet.set_ignore_cursor_events(updated["clickThrough"] == true);
-                }
-                if patch.get("petSize").is_some() {
-                    let size = updated["petSize"].as_f64().unwrap_or(160.0);
-                    let _ = pet.set_size(LogicalSize::new(size + 20.0, size + 40.0));
-                }
+            let click_through = patch
+                .get("clickThrough")
+                .map(|_| updated["clickThrough"] == true);
+            let size = patch
+                .get("petSize")
+                .map(|_| updated["petSize"].as_f64().unwrap_or(160.0));
+            if click_through.is_some() || size.is_some() {
+                let handle = app.clone();
+                let _ = app.run_on_main_thread(move || {
+                    if let Some(pet) = handle.get_webview_window("pet") {
+                        if let Some(click_through) = click_through {
+                            let _ = pet.set_ignore_cursor_events(click_through);
+                        }
+                        if let Some(size) = size {
+                            let _ = pet.set_size(LogicalSize::new(size + 20.0, size + 40.0));
+                        }
+                    }
+                });
             }
             emit(&app, "settings.updated", updated.clone());
             Ok(updated)
@@ -1189,6 +1199,13 @@ fn merge_segments(segments: Vec<Value>) -> Vec<Value> {
 }
 
 fn show_bubble(app: &AppHandle, text: &str) {
+    let handle = app.clone();
+    let text = text.to_string();
+    // Window queries must not hold up audio/model tasks when the desktop is locked.
+    let _ = app.run_on_main_thread(move || show_bubble_on_main(&handle, &text));
+}
+
+fn show_bubble_on_main(app: &AppHandle, text: &str) {
     let visible = app
         .state::<AppState>()
         .pet
