@@ -1,0 +1,12 @@
+{
+  "fixtureOnly": true,
+  "passed": [
+    "memory source preview",
+    "editable meeting notes",
+    "persisted action checkbox",
+    "timestamp transcript jump",
+    "rename all matching speakers",
+    "rename meeting"
+  ],
+  "errors": []
+}

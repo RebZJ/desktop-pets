@@ -1,0 +1,41 @@
+name: Checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  interface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+      - uses: actions/upload-artifact@v7.0.2
+        if: failure()
+        with:
+          name: browser-test-evidence
+          path: |
+            test-results/
+            playwright-report/
+  mac-host:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: rustup update stable --no-self-update
+      - name: Prepare generated directories for host-only tests
+        run: mkdir -p native/bin native/lib native/share
+      - run: cargo +stable fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: cargo +stable test --manifest-path src-tauri/Cargo.toml --locked

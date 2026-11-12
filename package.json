@@ -1,0 +1,38 @@
+{
+  "name": "desktop-pets",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A playful, local-first desktop companion for writing, memory and meetings.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "tauri": "tauri",
+    "desktop": "tauri dev",
+    "native:build": "bash native/build.sh && bash native/scripts/bootstrap-diarization.sh",
+    "native:diarization": "bash native/scripts/bootstrap-diarization.sh",
+    "native:test": "swift test --package-path native/PaceNative -c release -j 6 && bash native/scripts/test-bridge.sh",
+    "native:test:inference": "python3 native/scripts/test-inference.py",
+    "test": "playwright test",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "check": "npm run build && npm run test:rust && npm test"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.12.4",
+    "lucide-react": "^0.468.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@tauri-apps/cli": "2.12.4",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "typescript": "^5.9.0",
+    "vite": "8.3.8"
+  }
+}

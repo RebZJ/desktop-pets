@@ -1,0 +1,5 @@
+Original procedural critter earcons by Desktop Pets contributors.
+Generator: scripts/generate-earcons.py (deterministic Python standard library).
+Licensed Creative Commons Attribution 4.0 International.
+https://creativecommons.org/licenses/by/4.0/
+No sampled or third-party audio. No AI-generated voice.

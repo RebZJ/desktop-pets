@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T14:46:17.607014+00:00",
+  "title": "Design System: Desktop Pets",
+  "extensions": {
+    "shadows": [
+      {
+        "name": "composer",
+        "value": "0 4px 14px #5b442507",
+        "purpose": "Subtle elevation for the active writing surface."
+      },
+      {
+        "name": "notification",
+        "value": "0 8px 24px #332f2928",
+        "purpose": "Transient feedback above the workspace."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-state",
+        "value": "140ms ease",
+        "purpose": "Control hover and focus state changes."
+      },
+      {
+        "name": "pet-hide",
+        "value": "220ms ease",
+        "purpose": "A short retreat before the native pet window hides."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-desktop",
+        "value": "1100px"
+      },
+      {
+        "name": "icon-navigation",
+        "value": "820px"
+      },
+      {
+        "name": "stacked-work",
+        "value": "600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The concrete action that completes the current task.",
+      "html": "<button class=\"ds-primary\">Apply revision</button>",
+      "css": ".ds-primary{background:var(--accent,#b74930);color:#fff9f3;border:1px solid var(--accent,#b74930);border-radius:7px;padding:9px 12px;font:550 12px/1.25 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;min-height:36px;cursor:pointer;transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease,box-shadow 140ms ease}.ds-primary:hover:not(:disabled){background:var(--accent-hover,#9d3823);border-color:var(--accent-hover,#9d3823)}.ds-primary:focus-visible{outline:2px solid var(--accent,#b74930);outline-offset:3px}.ds-primary:disabled{cursor:default;opacity:.46}"
+    },
+    {
+      "name": "Text input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A labeled, low-noise field for ordinary input.",
+      "html": "<input class=\"ds-input\" aria-label=\"Meeting title\" placeholder=\"Give this meeting a name\"/>",
+      "css": ".ds-input{border:1px solid var(--line,#e5dfd5);background:var(--surface,#fffdf9);color:var(--ink,#332f29);border-radius:8px;padding:10px 12px;font:14px -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;min-width:0;caret-color:var(--accent,#b74930);transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease,box-shadow 140ms ease}.ds-input::placeholder{color:#756650;opacity:1}.ds-input:focus-visible{outline:2px solid #b7493055;outline-offset:0;border-color:var(--accent,#b74930)}"
+    },
+    {
+      "name": "Navigation item",
+      "kind": "nav",
+      "description": "Selected tool in the desktop rail.",
+      "html": "<button class=\"ds-nav\">Chat with Pace</button>",
+      "css": ".ds-nav{display:flex;align-items:center;gap:11px;background:#e9dacf;color:#954029;border:0;border-radius:8px;padding:12px 14px;font:600 13px -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;text-align:left;min-height:43px;cursor:pointer;transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease,box-shadow 140ms ease}.ds-nav:hover{background:#e9dacf;color:#954029}.ds-nav:focus-visible{outline:2px solid var(--accent,#b74930);outline-offset:3px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "A calm workspace for a playful little companion.",
+    "overview": "Pace brings the play; the workspace makes room for the task. Warm paper, brick red actions and the original cheetah artwork connect the desktop utility to its mascot without dressing up familiar controls.\n\nThe approved execution brief fixes the paper palette, orange/red character accents and quiet density. This is an operating interface: navigation, forms, transcripts, model downloads and explicit actions remain conventional. The signature interaction is the real sprite companion changing authored poses as it is petted, works and rests.",
+    "keyCharacteristics": [
+      "Warm paper surfaces",
+      "Quiet task-focused density",
+      "Original pixel sprite actions",
+      "Explicit, reviewable operations"
+    ],
+    "rules": [],
+    "dos": [
+      "Do keep the original Pace artwork, colors and authored pose timing intact.",
+      "Do use real native state and explain unavailable desktop capabilities.",
+      "Do keep generated text reviewable before applying or running it.",
+      "Do keep navigation and form controls familiar and keyboard accessible."
+    ],
+    "donts": [
+      "Don't fabricate assistant replies, transcripts, download completion or capture success.",
+      "Don't imply macOS screen-capture exclusion; expose quick hide clearly.",
+      "Don't add decorative texture, fonts or repetitive dashboard tiles to the workspace."
+    ]
+  }
+}
