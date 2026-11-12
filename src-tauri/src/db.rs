@@ -8,6 +8,7 @@ pub struct Database(Mutex<Connection>);
 
 pub fn defaults() -> Value {
     json!({
+        "onboardingCompleted":false,
         "language":"auto", "voice":"Ono_Anna", "speechEnabled":false,
         "soundEnabled":true, "petSize":160, "activePack":"pace", "volume":0.65, "pitch":1.05, "rate":1.0,
         "memoryEnabled":false, "allowedApps":[], "allowedDomains":[],
@@ -302,6 +303,34 @@ mod tests {
             db.update_settings(&json!({"language":"ja"})).unwrap()["language"],
             "ja"
         );
+    }
+    #[test]
+    fn onboarding_completion_merges_legacy_settings_and_requires_a_boolean() {
+        let db = database();
+        assert_eq!(db.settings().unwrap()["onboardingCompleted"], false);
+        let mut legacy = defaults();
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("onboardingCompleted");
+        legacy["language"] = json!("ja");
+        db.0.lock()
+            .unwrap()
+            .execute(
+                "UPDATE settings SET data=?1 WHERE id=1",
+                [legacy.to_string()],
+            )
+            .unwrap();
+        let merged = db.settings().unwrap();
+        assert_eq!(merged["onboardingCompleted"], false);
+        assert_eq!(merged["language"], "ja");
+        db.update_settings(&json!({"onboardingCompleted":true}))
+            .unwrap();
+        assert_eq!(db.settings().unwrap()["onboardingCompleted"], true);
+        assert!(db
+            .update_settings(&json!({"onboardingCompleted":"yes"}))
+            .is_err());
+        assert_eq!(db.settings().unwrap()["onboardingCompleted"], true);
     }
     #[test]
     fn concurrent_settings_patches_preserve_each_other() {

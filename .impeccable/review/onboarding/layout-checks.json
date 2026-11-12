@@ -1,0 +1,362 @@
+[
+  {
+    "name": "desktop",
+    "width": 1180,
+    "height": 780,
+    "step": 0,
+    "documentWidth": 1180,
+    "documentHeight": 780,
+    "font": true,
+    "heading": "A little adventure starts here.",
+    "primary": {
+      "x": 981.484375,
+      "y": 652,
+      "width": 138.5,
+      "height": 48,
+      "top": 652,
+      "right": 1119.984375,
+      "bottom": 700,
+      "left": 981.484375
+    },
+    "dialogue": {
+      "x": 603.75,
+      "y": 90,
+      "width": 550.234375,
+      "height": 638,
+      "top": 90,
+      "right": 1153.984375,
+      "bottom": 728,
+      "left": 603.75
+    }
+  },
+  {
+    "name": "desktop",
+    "width": 1180,
+    "height": 780,
+    "step": 1,
+    "documentWidth": 1180,
+    "documentHeight": 780,
+    "font": true,
+    "heading": "Small pack. Big possibilities.",
+    "primary": {
+      "x": 982.859375,
+      "y": 652,
+      "width": 137.125,
+      "height": 48,
+      "top": 652,
+      "right": 1119.984375,
+      "bottom": 700,
+      "left": 982.859375
+    },
+    "dialogue": {
+      "x": 603.75,
+      "y": 90,
+      "width": 550.234375,
+      "height": 638,
+      "top": 90,
+      "right": 1153.984375,
+      "bottom": 728,
+      "left": 603.75
+    }
+  },
+  {
+    "name": "desktop",
+    "width": 1180,
+    "height": 780,
+    "step": 2,
+    "documentWidth": 1180,
+    "documentHeight": 780,
+    "font": true,
+    "heading": "Good company. Your rules.",
+    "primary": {
+      "x": 982.859375,
+      "y": 652,
+      "width": 137.125,
+      "height": 48,
+      "top": 652,
+      "right": 1119.984375,
+      "bottom": 700,
+      "left": 982.859375
+    },
+    "dialogue": {
+      "x": 603.75,
+      "y": 90,
+      "width": 550.234375,
+      "height": 638,
+      "top": 90,
+      "right": 1153.984375,
+      "bottom": 728,
+      "left": 603.75
+    }
+  },
+  {
+    "name": "desktop",
+    "width": 1180,
+    "height": 780,
+    "step": 3,
+    "documentWidth": 1180,
+    "documentHeight": 780,
+    "font": true,
+    "heading": "Your desktop has a new resident.",
+    "primary": {
+      "x": 934.734375,
+      "y": 652,
+      "width": 185.25,
+      "height": 48,
+      "top": 652,
+      "right": 1119.984375,
+      "bottom": 700,
+      "left": 934.734375
+    },
+    "dialogue": {
+      "x": 603.75,
+      "y": 90,
+      "width": 550.234375,
+      "height": 638,
+      "top": 90,
+      "right": 1153.984375,
+      "bottom": 728,
+      "left": 603.75
+    }
+  },
+  {
+    "name": "minimum",
+    "width": 800,
+    "height": 560,
+    "step": 0,
+    "documentWidth": 800,
+    "documentHeight": 560,
+    "font": true,
+    "heading": "A little adventure starts here.",
+    "primary": {
+      "x": 620.5,
+      "y": 454.40625,
+      "width": 138.5,
+      "height": 47.59375,
+      "top": 454.40625,
+      "right": 759,
+      "bottom": 502,
+      "left": 620.5
+    },
+    "dialogue": {
+      "x": 345.140625,
+      "y": 65,
+      "width": 438.859375,
+      "height": 457,
+      "top": 65,
+      "right": 784,
+      "bottom": 522,
+      "left": 345.140625
+    }
+  },
+  {
+    "name": "minimum",
+    "width": 800,
+    "height": 560,
+    "step": 1,
+    "documentWidth": 800,
+    "documentHeight": 560,
+    "font": true,
+    "heading": "Small pack. Big possibilities.",
+    "primary": {
+      "x": 621.875,
+      "y": 454.40625,
+      "width": 137.125,
+      "height": 47.59375,
+      "top": 454.40625,
+      "right": 759,
+      "bottom": 502,
+      "left": 621.875
+    },
+    "dialogue": {
+      "x": 345.140625,
+      "y": 65,
+      "width": 438.859375,
+      "height": 457,
+      "top": 65,
+      "right": 784,
+      "bottom": 522,
+      "left": 345.140625
+    }
+  },
+  {
+    "name": "minimum",
+    "width": 800,
+    "height": 560,
+    "step": 2,
+    "documentWidth": 800,
+    "documentHeight": 560,
+    "font": true,
+    "heading": "Good company. Your rules.",
+    "primary": {
+      "x": 621.875,
+      "y": 454.40625,
+      "width": 137.125,
+      "height": 47.59375,
+      "top": 454.40625,
+      "right": 759,
+      "bottom": 502,
+      "left": 621.875
+    },
+    "dialogue": {
+      "x": 345.140625,
+      "y": 65,
+      "width": 438.859375,
+      "height": 457,
+      "top": 65,
+      "right": 784,
+      "bottom": 522,
+      "left": 345.140625
+    }
+  },
+  {
+    "name": "minimum",
+    "width": 800,
+    "height": 560,
+    "step": 3,
+    "documentWidth": 800,
+    "documentHeight": 560,
+    "font": true,
+    "heading": "Your desktop has a new resident.",
+    "primary": {
+      "x": 573.75,
+      "y": 454.40625,
+      "width": 185.25,
+      "height": 47.59375,
+      "top": 454.40625,
+      "right": 759,
+      "bottom": 502,
+      "left": 573.75
+    },
+    "dialogue": {
+      "x": 345.140625,
+      "y": 65,
+      "width": 438.859375,
+      "height": 457,
+      "top": 65,
+      "right": 784,
+      "bottom": 522,
+      "left": 345.140625
+    }
+  },
+  {
+    "name": "mobile",
+    "width": 390,
+    "height": 844,
+    "step": 0,
+    "documentWidth": 390,
+    "documentHeight": 1015,
+    "font": true,
+    "heading": "A little adventure starts here.",
+    "primary": {
+      "x": 231,
+      "y": 899.375,
+      "width": 124,
+      "height": 48,
+      "top": 899.375,
+      "right": 355,
+      "bottom": 947.375,
+      "left": 231
+    },
+    "dialogue": {
+      "x": 13,
+      "y": 357,
+      "width": 364,
+      "height": 613.375,
+      "top": 357,
+      "right": 377,
+      "bottom": 970.375,
+      "left": 13
+    }
+  },
+  {
+    "name": "mobile",
+    "width": 390,
+    "height": 844,
+    "step": 1,
+    "documentWidth": 390,
+    "documentHeight": 1249,
+    "font": true,
+    "heading": "Small pack. Big possibilities.",
+    "primary": {
+      "x": 232.25,
+      "y": 1132.796875,
+      "width": 122.75,
+      "height": 48,
+      "top": 1132.796875,
+      "right": 355,
+      "bottom": 1180.796875,
+      "left": 232.25
+    },
+    "dialogue": {
+      "x": 13,
+      "y": 357,
+      "width": 364,
+      "height": 846.796875,
+      "top": 357,
+      "right": 377,
+      "bottom": 1203.796875,
+      "left": 13
+    }
+  },
+  {
+    "name": "mobile",
+    "width": 390,
+    "height": 844,
+    "step": 2,
+    "documentWidth": 390,
+    "documentHeight": 1223,
+    "font": true,
+    "heading": "Good company. Your rules.",
+    "primary": {
+      "x": 232.25,
+      "y": 1106.890625,
+      "width": 122.75,
+      "height": 48,
+      "top": 1106.890625,
+      "right": 355,
+      "bottom": 1154.890625,
+      "left": 232.25
+    },
+    "dialogue": {
+      "x": 13,
+      "y": 357,
+      "width": 364,
+      "height": 820.890625,
+      "top": 357,
+      "right": 377,
+      "bottom": 1177.890625,
+      "left": 13
+    }
+  },
+  {
+    "name": "mobile",
+    "width": 390,
+    "height": 844,
+    "step": 3,
+    "documentWidth": 390,
+    "documentHeight": 1076,
+    "font": true,
+    "heading": "Your desktop has a new resident.",
+    "primary": {
+      "x": 188.5,
+      "y": 960.328125,
+      "width": 166.5,
+      "height": 48,
+      "top": 960.328125,
+      "right": 355,
+      "bottom": 1008.328125,
+      "left": 188.5
+    },
+    "dialogue": {
+      "x": 13,
+      "y": 357,
+      "width": 364,
+      "height": 674.328125,
+      "top": 357,
+      "right": 377,
+      "bottom": 1031.328125,
+      "left": 13
+    }
+  }
+]

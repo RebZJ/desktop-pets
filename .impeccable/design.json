@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-12T14:46:17.607014+00:00",
+  "generatedAt": "2026-11-12T19:09:31.923945+00:00",
   "title": "Design System: Desktop Pets",
   "extensions": {
     "shadows": [
@@ -13,6 +13,21 @@
         "name": "notification",
         "value": "0 8px 24px #332f2928",
         "purpose": "Transient feedback above the workspace."
+      },
+      {
+        "name": "onboarding-frame",
+        "value": "0 8px 18px #08180f55",
+        "purpose": "Onboarding only: soft separation between the split frame and deep forest ground."
+      },
+      {
+        "name": "onboarding-dialogue-inset",
+        "value": "inset 0 0 0 3px #faf0d6,inset 0 0 0 4px #cec49d",
+        "purpose": "Onboarding only: layered speech-box lines inside its forest border."
+      },
+      {
+        "name": "onboarding-primary",
+        "value": "inset 0 2px 0 #ca7351,0 3px 3px #203d2d22",
+        "purpose": "Onboarding only: slight highlight and soft depth for the forward action."
       }
     ],
     "motion": [
@@ -25,6 +40,11 @@
         "name": "pet-hide",
         "value": "220ms ease",
         "purpose": "A short retreat before the native pet window hides."
+      },
+      {
+        "name": "onboarding-dialogue-in",
+        "value": "250ms cubic-bezier(.16,1,.3,1)",
+        "purpose": "Onboarding only: move the new dialogue body from translateY(5px) to zero; disabled under prefers-reduced-motion."
       }
     ],
     "breakpoints": [
@@ -39,8 +59,209 @@
       {
         "name": "stacked-work",
         "value": "600px"
+      },
+      {
+        "name": "onboarding-stacked",
+        "value": "760px"
+      },
+      {
+        "name": "onboarding-compact-width",
+        "value": "900px"
+      },
+      {
+        "name": "onboarding-wide",
+        "value": "1500px"
       }
-    ]
+    ],
+    "colorMeta": {
+      "onboarding-forest": {
+        "role": "primary",
+        "displayName": "Onboarding forest frame",
+        "canonical": "#203d2d",
+        "tonalRamp": [
+          "oklch(from #203d2d 15% c h)",
+          "oklch(from #203d2d 25% c h)",
+          "oklch(from #203d2d 35% c h)",
+          "oklch(from #203d2d 45% c h)",
+          "oklch(from #203d2d 55% c h)",
+          "oklch(from #203d2d 65% c h)",
+          "oklch(from #203d2d 80% c h)",
+          "oklch(from #203d2d 95% c h)"
+        ]
+      },
+      "onboarding-deep": {
+        "role": "neutral",
+        "displayName": "Onboarding deep ground",
+        "canonical": "#152b21",
+        "tonalRamp": [
+          "oklch(from #152b21 15% c h)",
+          "oklch(from #152b21 25% c h)",
+          "oklch(from #152b21 35% c h)",
+          "oklch(from #152b21 45% c h)",
+          "oklch(from #152b21 55% c h)",
+          "oklch(from #152b21 65% c h)",
+          "oklch(from #152b21 80% c h)",
+          "oklch(from #152b21 95% c h)"
+        ]
+      },
+      "onboarding-cream": {
+        "role": "neutral",
+        "displayName": "Onboarding speech cream",
+        "canonical": "#fff5d9",
+        "tonalRamp": [
+          "oklch(from #fff5d9 15% c h)",
+          "oklch(from #fff5d9 25% c h)",
+          "oklch(from #fff5d9 35% c h)",
+          "oklch(from #fff5d9 45% c h)",
+          "oklch(from #fff5d9 55% c h)",
+          "oklch(from #fff5d9 65% c h)",
+          "oklch(from #fff5d9 80% c h)",
+          "oklch(from #fff5d9 95% c h)"
+        ]
+      },
+      "onboarding-paper": {
+        "role": "neutral",
+        "displayName": "Onboarding dialogue paper",
+        "canonical": "#faf0d6",
+        "tonalRamp": [
+          "oklch(from #faf0d6 15% c h)",
+          "oklch(from #faf0d6 25% c h)",
+          "oklch(from #faf0d6 35% c h)",
+          "oklch(from #faf0d6 45% c h)",
+          "oklch(from #faf0d6 55% c h)",
+          "oklch(from #faf0d6 65% c h)",
+          "oklch(from #faf0d6 80% c h)",
+          "oklch(from #faf0d6 95% c h)"
+        ]
+      },
+      "onboarding-ink": {
+        "role": "neutral",
+        "displayName": "Onboarding forest ink",
+        "canonical": "#233c2c",
+        "tonalRamp": [
+          "oklch(from #233c2c 15% c h)",
+          "oklch(from #233c2c 25% c h)",
+          "oklch(from #233c2c 35% c h)",
+          "oklch(from #233c2c 45% c h)",
+          "oklch(from #233c2c 55% c h)",
+          "oklch(from #233c2c 65% c h)",
+          "oklch(from #233c2c 80% c h)",
+          "oklch(from #233c2c 95% c h)"
+        ]
+      },
+      "onboarding-muted": {
+        "role": "neutral",
+        "displayName": "Onboarding muted text",
+        "canonical": "#596046",
+        "tonalRamp": [
+          "oklch(from #596046 15% c h)",
+          "oklch(from #596046 25% c h)",
+          "oklch(from #596046 35% c h)",
+          "oklch(from #596046 45% c h)",
+          "oklch(from #596046 55% c h)",
+          "oklch(from #596046 65% c h)",
+          "oklch(from #596046 80% c h)",
+          "oklch(from #596046 95% c h)"
+        ]
+      },
+      "onboarding-line": {
+        "role": "neutral",
+        "displayName": "Onboarding row divider",
+        "canonical": "#d4c9a5",
+        "tonalRamp": [
+          "oklch(from #d4c9a5 15% c h)",
+          "oklch(from #d4c9a5 25% c h)",
+          "oklch(from #d4c9a5 35% c h)",
+          "oklch(from #d4c9a5 45% c h)",
+          "oklch(from #d4c9a5 55% c h)",
+          "oklch(from #d4c9a5 65% c h)",
+          "oklch(from #d4c9a5 80% c h)",
+          "oklch(from #d4c9a5 95% c h)"
+        ]
+      },
+      "onboarding-primary": {
+        "role": "primary",
+        "displayName": "Onboarding brick action",
+        "canonical": "#a83e29",
+        "tonalRamp": [
+          "oklch(from #a83e29 15% c h)",
+          "oklch(from #a83e29 25% c h)",
+          "oklch(from #a83e29 35% c h)",
+          "oklch(from #a83e29 45% c h)",
+          "oklch(from #a83e29 55% c h)",
+          "oklch(from #a83e29 65% c h)",
+          "oklch(from #a83e29 80% c h)",
+          "oklch(from #a83e29 95% c h)"
+        ]
+      },
+      "onboarding-primary-hover": {
+        "role": "primary",
+        "displayName": "Onboarding deep brick action",
+        "canonical": "#8d2e1d",
+        "tonalRamp": [
+          "oklch(from #8d2e1d 15% c h)",
+          "oklch(from #8d2e1d 25% c h)",
+          "oklch(from #8d2e1d 35% c h)",
+          "oklch(from #8d2e1d 45% c h)",
+          "oklch(from #8d2e1d 55% c h)",
+          "oklch(from #8d2e1d 65% c h)",
+          "oklch(from #8d2e1d 80% c h)",
+          "oklch(from #8d2e1d 95% c h)"
+        ]
+      },
+      "onboarding-frame": {
+        "role": "neutral",
+        "displayName": "Onboarding sage frame",
+        "canonical": "#9da87e",
+        "tonalRamp": [
+          "oklch(from #9da87e 15% c h)",
+          "oklch(from #9da87e 25% c h)",
+          "oklch(from #9da87e 35% c h)",
+          "oklch(from #9da87e 45% c h)",
+          "oklch(from #9da87e 55% c h)",
+          "oklch(from #9da87e 65% c h)",
+          "oklch(from #9da87e 80% c h)",
+          "oklch(from #9da87e 95% c h)"
+        ]
+      },
+      "onboarding-control-border": {
+        "role": "neutral",
+        "displayName": "Onboarding control edge",
+        "canonical": "#8b9677",
+        "tonalRamp": [
+          "oklch(from #8b9677 15% c h)",
+          "oklch(from #8b9677 25% c h)",
+          "oklch(from #8b9677 35% c h)",
+          "oklch(from #8b9677 45% c h)",
+          "oklch(from #8b9677 55% c h)",
+          "oklch(from #8b9677 65% c h)",
+          "oklch(from #8b9677 80% c h)",
+          "oklch(from #8b9677 95% c h)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "onboarding-headline": {
+        "displayName": "Onboarding pixel headline",
+        "purpose": "Silkscreen regular, self-hosted unchanged; campsite headings only. Compact desktop, mobile and wide layouts use their own sizes."
+      },
+      "onboarding-lead": {
+        "displayName": "Onboarding explanation",
+        "purpose": "Platform sans for readable setup explanations; never substitute pixel display lettering for long copy."
+      },
+      "onboarding-dialogue": {
+        "displayName": "Onboarding spoken dialogue",
+        "purpose": "Platform sans carries Pace’s quoted greeting and final note."
+      },
+      "onboarding-label": {
+        "displayName": "Onboarding pixel label",
+        "purpose": "Short campsite stop labels and speaker attributions."
+      },
+      "onboarding-action": {
+        "displayName": "Onboarding forward action",
+        "purpose": "Pixel lettering for the campsite’s forward action; workspace buttons retain platform sans."
+      }
+    }
   },
   "components": [
     {
@@ -65,23 +286,64 @@
       "description": "Selected tool in the desktop rail.",
       "html": "<button class=\"ds-nav\">Chat with Pace</button>",
       "css": ".ds-nav{display:flex;align-items:center;gap:11px;background:#e9dacf;color:#954029;border:0;border-radius:8px;padding:12px 14px;font:600 13px -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;text-align:left;min-height:43px;cursor:pointer;transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease,box-shadow 140ms ease}.ds-nav:hover{background:#e9dacf;color:#954029}.ds-nav:focus-visible{outline:2px solid var(--accent,#b74930);outline-offset:3px}"
+    },
+    {
+      "name": "Onboarding forward action",
+      "kind": "button",
+      "refersTo": "onboarding-button-primary",
+      "description": "Campsite only: the current stop’s explicit forward action.",
+      "html": "<button class=\"ds-camp-primary\">Let’s pack</button>",
+      "css": "@font-face{font-family:Silkscreen;src:url(\"/fonts/silkscreen/Silkscreen-Regular.ttf\") format(\"truetype\");font-style:normal;font-weight:400;font-display:swap}.ds-camp-primary{display:flex;align-items:center;justify-content:center;gap:12px;min-height:48px;padding:13px 17px;border:2px solid #783325;border-radius:0;background:var(--camp-red,#a83e29);color:var(--camp-cream,#fff5d9);font:400 11px/1.6 Silkscreen,sans-serif;box-shadow:inset 0 2px 0 #ca7351,0 3px 3px #203d2d22;cursor:pointer}.ds-camp-primary:hover:not(:disabled){background:var(--camp-red-hover,#8d2e1d)}.ds-camp-primary:focus-visible{outline:3px solid var(--camp-red,#a83e29);outline-offset:4px}.ds-camp-primary:disabled{opacity:.55;cursor:default}"
+    },
+    {
+      "name": "Onboarding optional action",
+      "kind": "button",
+      "refersTo": "onboarding-button-secondary",
+      "description": "Campsite only: Download or Allow, each requested separately.",
+      "html": "<button class=\"ds-camp-secondary\">Download</button>",
+      "css": ".ds-camp-secondary{display:flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:8px 10px;border:1px solid #8b9677;border-radius:0;background:var(--camp-cream,#fff5d9);color:var(--camp-ink,#233c2c);font:400 11px -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;cursor:pointer}.ds-camp-secondary:hover:not(:disabled){background:#eadfb7;border-color:var(--camp-forest,#203d2d)}.ds-camp-secondary:focus-visible{outline:3px solid var(--camp-red,#a83e29);outline-offset:4px}.ds-camp-secondary:disabled{opacity:.55;cursor:default}"
+    },
+    {
+      "name": "Onboarding speech dialogue",
+      "kind": "custom",
+      "refersTo": "onboarding-dialogue",
+      "description": "Campsite only: a short attributed greeting with readable sans dialogue.",
+      "html": "<div class=\"ds-camp-dialogue\"><span class=\"ds-camp-speaker\">PACE</span><p>“I brought the enthusiasm.<br>You bring the snacks.”</p></div>",
+      "css": "@font-face{font-family:Silkscreen;src:url(\"/fonts/silkscreen/Silkscreen-Regular.ttf\") format(\"truetype\");font-style:normal;font-weight:400;font-display:swap}.ds-camp-dialogue{padding:18px 20px 24px;border:3px solid var(--camp-forest,#203d2d);border-radius:0;background:var(--camp-cream,#fff5d9);box-shadow:inset 0 0 0 3px var(--camp-paper,#faf0d6),inset 0 0 0 4px #cec49d}.ds-camp-speaker{display:block;font:400 10px/1.5 Silkscreen,sans-serif;color:var(--camp-red,#a83e29);margin-bottom:12px}.ds-camp-dialogue p{margin:0;color:var(--camp-ink,#233c2c);font:500 19px/1.6 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}"
+    },
+    {
+      "name": "Onboarding stop navigation",
+      "kind": "nav",
+      "refersTo": "onboarding-stop",
+      "description": "Campsite only: named stops remain directly navigable; the active marker is filled brick red.",
+      "html": "<nav class=\"ds-camp-stops\" aria-label=\"Adventure stops\"><ol><li><button aria-current=\"step\"><span>1</span>Meet</button></li><li><button><span>2</span>Pack</button></li><li><button><span>3</span>Access</button></li><li><button><span>4</span>Home</button></li></ol></nav>",
+      "css": "@font-face{font-family:Silkscreen;src:url(\"/fonts/silkscreen/Silkscreen-Regular.ttf\") format(\"truetype\");font-style:normal;font-weight:400;font-display:swap}.ds-camp-stops ol{display:flex;gap:0;justify-content:space-between;list-style:none;padding:0;margin:0}.ds-camp-stops li{position:relative;flex:1}.ds-camp-stops li:not(:last-child):after{content:\"\";position:absolute;left:25px;right:5px;top:11px;height:2px;background:var(--camp-line,#d4c9a5)}.ds-camp-stops button{position:relative;z-index:1;display:flex;align-items:flex-start;flex-direction:column;gap:8px;padding:0;border:0;border-radius:0;background:transparent;color:var(--camp-muted,#596046);font:400 10px/1.5 Silkscreen,sans-serif;cursor:pointer}.ds-camp-stops span{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:2px solid #8b9677;background:var(--camp-paper,#faf0d6);color:var(--camp-forest,#203d2d);font:400 11px/1 Silkscreen,sans-serif}.ds-camp-stops [aria-current=step]{color:var(--camp-red,#a83e29)}.ds-camp-stops [aria-current=step] span{background:var(--camp-red,#a83e29);border-color:var(--camp-red,#a83e29);color:var(--camp-cream,#fff5d9)}.ds-camp-stops button:hover span{border-color:var(--camp-red,#a83e29)}.ds-camp-stops button:focus-visible{outline:3px solid var(--camp-red,#a83e29);outline-offset:4px}.ds-camp-stops button:disabled{opacity:.55;cursor:default}"
     }
   ],
   "narrative": {
     "northStar": "A calm workspace for a playful little companion.",
-    "overview": "Pace brings the play; the workspace makes room for the task. Warm paper, brick red actions and the original cheetah artwork connect the desktop utility to its mascot without dressing up familiar controls.\n\nThe approved execution brief fixes the paper palette, orange/red character accents and quiet density. This is an operating interface: navigation, forms, transcripts, model downloads and explicit actions remain conventional. The signature interaction is the real sprite companion changing authored poses as it is petted, works and rests.",
+    "overview": "Pace brings the play; the workspace makes room for the task. Warm paper, brick red actions and the original cheetah artwork connect the desktop utility to its mascot without dressing up familiar controls.\n\nThe approved execution brief fixes the paper palette, orange/red character accents and quiet density. This is an operating interface: navigation, forms, transcripts, model downloads and explicit actions remain conventional. The signature interaction is the real sprite companion changing authored poses as it is petted, works and rests.\n\nThe first-run introduction has a bounded companion world: **Pace’s campsite**, the user's requested GBA-style pixel adventure. Forest framing, cream dialogue paper, Silkscreen lettering and the original campsite surround the unchanged Pace sprite. All `onboarding-*` tokens apply only to this introduction and its Settings replay; the workspace keeps its existing palette, platform typography and rounded controls.",
     "keyCharacteristics": [
       "Warm paper surfaces",
       "Quiet task-focused density",
       "Original pixel sprite actions",
-      "Explicit, reviewable operations"
+      "Explicit, reviewable operations",
+      "A pixel campsite for the first meeting"
     ],
-    "rules": [],
+    "rules": [
+      {
+        "name": "The Campsite Boundary Rule",
+        "body": "Apply the onboarding palette only inside the onboarding shell; workspace tokens retain their current roles.",
+        "section": "colors"
+      }
+    ],
     "dos": [
       "Do keep the original Pace artwork, colors and authored pose timing intact.",
       "Do use real native state and explain unavailable desktop capabilities.",
       "Do keep generated text reviewable before applying or running it.",
-      "Do keep navigation and form controls familiar and keyboard accessible."
+      "Do keep navigation and form controls familiar and keyboard accessible.",
+      "Do keep the campsite palette, Silkscreen lettering and square frames scoped to onboarding and its replay.",
+      "Do preserve readable sans explanations, optional setup and reduced-motion behavior in the campsite."
     ],
     "donts": [
       "Don't fabricate assistant replies, transcripts, download completion or capture success.",

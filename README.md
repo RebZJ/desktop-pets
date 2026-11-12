@@ -6,7 +6,7 @@ Pace is a playful pixel cheetah with a local brain: chat, multilingual voice, wr
 
 This is an early **Apple Silicon Mac** release targeting **macOS 15+ and 16 GB RAM**. The Tauri shell and native capability boundary are designed for future Windows/Linux ports; those ports are not implemented yet.
 
-[Mac alpha download](https://github.com/RebZJ/desktop-pets/releases/tag/v0.1.0-alpha.1) · [Pace sprite starter](https://github.com/RebZJ/desktop-pets/releases/download/v0.1.0-alpha.1/Pace-starter.zip). The installer is ad-hoc signed and not Apple-notarized.
+[Mac alpha download](https://github.com/RebZJ/desktop-pets/releases/tag/v0.1.0-alpha.2) · [Pace sprite starter](https://github.com/RebZJ/desktop-pets/releases/download/v0.1.0-alpha.2/Pace-starter.zip). The installer is ad-hoc signed and not Apple-notarized.
 
 ![Desktop Pets workspace](.impeccable/review/desktop.png)
 
@@ -45,6 +45,8 @@ The native worker bundles MLX Swift, whisper.cpp and NeMo-Speech.cpp. Users of t
 `npm run dev` opens a browser preview of the interface. Browser preview does not provide native audio, Accessibility or inference and reports that limitation instead of simulating an assistant.
 
 ## Your first session
+
+On first launch, Pace’s pixel campsite introduces the companion in four stops: Meet, Pack, Access and Home. Model downloads and macOS access are optional; choose **Skip adventure** to enter the workspace. Replay it anytime from **Settings → A little adventure → Replay Pace’s adventure** without resetting your preferences.
 
 1. Download the models, then send Pace a message.
 2. In Settings, review Accessibility for writing, Microphone for dictation, and Screen & System Audio for meeting capture. Development and packaged apps may receive different macOS permission identities.

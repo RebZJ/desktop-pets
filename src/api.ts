@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
 export interface Settings {
+  onboardingCompleted: boolean;
   language: string;
   voice: string;
   pitch: number;
@@ -57,7 +58,7 @@ export interface AppState {
   pet: { visible: boolean; action: string };
 }
 
-export const defaultSettings: Settings = { language: 'auto', voice: 'Ono_Anna', pitch: 1.05, rate: 1, volume: .65, speechEnabled: false, soundEnabled: true, petSize: 160, memoryEnabled: false, allowedApps: [], allowedDomains: [], retentionDays: 30, meetingTips: true, clickThrough: false, hideShortcut: 'Alt+Shift+Space', commandShortcut: 'Alt+Space', activePack: 'pace' };
+export const defaultSettings: Settings = { onboardingCompleted: false, language: 'auto', voice: 'Ono_Anna', pitch: 1.05, rate: 1, volume: .65, speechEnabled: false, soundEnabled: true, petSize: 160, memoryEnabled: false, allowedApps: [], allowedDomains: [], retentionDays: 30, meetingTips: true, clickThrough: false, hideShortcut: 'Alt+Shift+Space', commandShortcut: 'Alt+Space', activePack: 'pace' };
 export const initialState: AppState = {
   settings: defaultSettings,
   models: [

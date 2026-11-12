@@ -7,7 +7,7 @@ async function interactionFixture(page: Page, withMeeting = false) {
   await page.addInitScript((includeMeeting: boolean) => {
     const calls = { chat: 0, pet: [] as string[], tools: 0, lastChat: null as any };
     const meetings = includeMeeting ? [{ id: 'fixture-meeting', title: 'Synthetic fixture meeting', startedAt: '2026-11-13T00:00:00Z', status: 'recording', segments: [{ speaker: 'You', start: 1, end: 4, text: 'Synthetic discussion of the release schedule.' }] }] : [];
-    const state = { settings: { soundEnabled: false, speechEnabled: true }, models: [], meetings, memory: { enabled: false, applications: [] }, pet: { visible: true, action: 'idle' }, packs: [{ id: 'pace', name: 'Pace' }], extensions: [{ id: 'fixture-tool', name: 'Fixture tools', command: '/fixture/no-process-started', enabled: true, enabledTools: ['echo'] }] };
+    const state = { settings: { onboardingCompleted: true, soundEnabled: false, speechEnabled: true }, models: [], meetings, memory: { enabled: false, applications: [] }, pet: { visible: true, action: 'idle' }, packs: [{ id: 'pace', name: 'Pace' }], extensions: [{ id: 'fixture-tool', name: 'Fixture tools', command: '/fixture/no-process-started', enabled: true, enabledTools: ['echo'] }] };
     (window as any).__interactionCalls = calls;
     (window as any).__DESKTOP_PETS_BRIDGE__ = async (method: string, params: any) => {
       if (method === 'app.state') return structuredClone(state);
@@ -90,7 +90,7 @@ test('pet artwork and menu fit every configured native pet size', async ({ brows
     const page = await browser.newPage({ viewport: { width, height } });
     await page.addInitScript((petSize: number) => {
       (window as any).__DESKTOP_PETS_BRIDGE__ = async (method: string) => {
-        if (method === 'app.state') return { settings: { petSize, soundEnabled: false }, models: [], meetings: [], pet: { visible: true, action: 'idle' } };
+        if (method === 'app.state') return { settings: { onboardingCompleted: true, petSize, soundEnabled: false }, models: [], meetings: [], pet: { visible: true, action: 'idle' } };
         throw new Error(`Unimplemented size fixture: ${method}`);
       };
     }, size);
@@ -112,7 +112,7 @@ test('long speech bubble replies scroll while keeping Ask Pace inside the native
   await page.setViewportSize({ width: 320, height: 180 });
   await page.addInitScript(() => {
     (window as any).__DESKTOP_PETS_BRIDGE__ = async (method: string) => {
-      if (method === 'app.state') return { settings: { soundEnabled: false }, models: [], meetings: [] };
+      if (method === 'app.state') return { settings: { onboardingCompleted: true, soundEnabled: false }, models: [], meetings: [] };
       if (method === 'chat.send') return { text: 'Synthetic long reply for a populated boundary test. '.repeat(24) };
       throw new Error(`Unimplemented bubble fixture: ${method}`);
     };

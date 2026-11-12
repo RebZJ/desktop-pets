@@ -1,8 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    const key = 'desktop-pets.browser-state.v1';
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ settings: { onboardingCompleted: true } }));
+  });
+});
+
 async function fixtureBridge(page: Page) {
   await page.addInitScript(() => {
-    const settings = { language: 'auto', voice: 'Ono_Anna', pitch: 1.05, rate: 1, volume: .65, petSize: 160, activePack: 'pace', speechEnabled: false, soundEnabled: true, memoryEnabled: false, allowedApps: [], allowedDomains: [], retentionDays: 30, meetingTips: true, clickThrough: false, hideShortcut: 'Alt+Shift+Space', commandShortcut: 'Alt+Space' };
+    const settings = { onboardingCompleted: true, language: 'auto', voice: 'Ono_Anna', pitch: 1.05, rate: 1, volume: .65, petSize: 160, activePack: 'pace', speechEnabled: false, soundEnabled: true, memoryEnabled: false, allowedApps: [], allowedDomains: [], retentionDays: 30, meetingTips: true, clickThrough: false, hideShortcut: 'Alt+Shift+Space', commandShortcut: 'Alt+Space' };
     const models = ['qwen3.5-4b','qwen3-tts-0.6b','whisper-turbo','nemotron-diarization'].map((id, i) => ({ id, name: ['Qwen 3.5 · 4B','Qwen 3 · Voice','Whisper · Turbo','Nemotron 3 · Speakers'][i], role: ['Chat & writing','Voice','Transcription','Speakers'][i], sizeBytes: 100_000_000, installed: true, status: 'installed' }));
     const state = { settings, models, meetings: [] as any[], extensions: [] as any[], packs: [{id:'pace',name:'Pace',author:'Desktop Pets'}], memory: { enabled:false,applications:[] as string[] }, pet:{visible:true,action:'idle'} };
     let memories = [{ id:'fixture-memory',app:'TextEdit',title:'Synthetic release plan',text:'The synthetic launch review is Friday.',createdAt:'2026-11-13T00:00:00Z' }];

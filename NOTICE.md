@@ -4,6 +4,10 @@ Application code is MIT licensed. The original Pace mascot artwork, including th
 
 The six original procedural critter sounds are also CC BY 4.0, credited to Desktop Pets. Their deterministic generator is MIT licensed.
 
+The original generated campsite background at `public/onboarding/pace-camp.webp` is also **CC BY 4.0**, credited to **Outpaced / Desktop Pets** with the same project link, license link and change-identification requirements as the Pace artwork. Its generation prompt, source and delivery details are in [onboarding asset provenance](docs/onboarding-assets.md).
+
+Silkscreen regular is bundled unchanged at `public/fonts/silkscreen/Silkscreen-Regular.ttf`. Copyright 2001 The Silkscreen Project Authors. It is licensed under the **SIL Open Font License 1.1**; the complete copyright and license are in [public/fonts/silkscreen/OFL.txt](public/fonts/silkscreen/OFL.txt).
+
 Model weights are downloaded separately and retain their own licenses:
 
 - Qwen3.5 and Qwen3-TTS: Apache-2.0. The bundled notice is `native/licenses/Qwen-Apache-2.0.txt`; the upstream model cards retain their own attribution.
