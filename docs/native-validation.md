@@ -4,7 +4,7 @@ Test machine: Apple M1 Pro, **16 GB unified memory**, macOS 26.6.2. Native targe
 
 ## Build and model pack
 
-The Swift release build and **20 native tests passed**. The tests cover model-file checksums and corruption, path traversal, voice-language validation, legacy Whisper install upgrades, DTW timestamp units and Unicode grouping, partial WAV reads, window-boundary ownership, plus the bridge/capture fixtures. `native/build.sh` passes Bash syntax validation. The full build required installing the missing Xcode Metal Toolchain, then succeeded with MLX Swift 0.33.0. The native helper and Metal/resource bundles are copied to `native/bin` and ad-hoc signed for local development.
+The Swift release build and **21 native tests passed**. The tests cover model-file checksums and corruption, path traversal, voice-language validation, legacy Whisper install upgrades, DTW timestamp units and Unicode grouping, partial WAV reads, window-boundary ownership, plus the bridge/capture fixtures. `native/build.sh` passes Bash syntax validation. The full build required installing the missing Xcode Metal Toolchain, then succeeded with MLX Swift 0.33.0. The native helper and Metal/resource bundles are copied to `native/bin` and ad-hoc signed for local development.
 
 Installed models were downloaded using the actual resumable, checksum-validating ModelStore implementation:
 
@@ -34,6 +34,10 @@ The same `Ono_Anna` preset also generated Mandarin, Japanese and Spanish locally
 | Spanish | 3.46 s | 4.48 s | Hola, soy Pace, tu pequeño amigo del escritorio. |
 
 Samples and raw evidence are under `artifacts/runtime/native`: `pace-en.wav`, `pace-zh.wav`, `pace-ja.wav`, `pace-es.wav`, `results.json`, `checks.json`, `checks-events.jsonl`, and `word-asr-seconds.json`. ASR agreement checks intelligibility; it does not establish whether a human finds the voice cute or likes its accent/prosody.
+
+## Factual generation mode
+
+`chat.generate` now accepts the optional strict Boolean `precise`. True selects greedy decoding (temperature 0); omitted/false retains the existing temperature 0.7. The 21-test release suite rejects numeric JSON 1, strings, null and other non-Boolean values. The actual network-denied helper check also rejected numeric/string values, then generated two separate factual tasks in 3.38 seconds: release notes due Friday and tutorial with no agreed deadline. Evidence is `artifacts/runtime/native/precise-check.json`. Greedy decoding improves repeatability; it does not guarantee factual accuracy.
 
 ## Silence and long-gap regression
 

@@ -81,6 +81,7 @@ bash native/scripts/test-diarization.sh "$PWD/artifacts/runtime/meeting-fixture/
 
 ```sh
 npm run native:build
+python3 scripts/collect-runtime-licenses.py
 npm run tauri -- build --bundles app,dmg --no-sign
 ```
 

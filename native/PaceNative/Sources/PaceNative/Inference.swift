@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 import MLX
 import MLXLLM
 import MLXLMCommon
@@ -24,6 +25,13 @@ actor InferenceService {
         Memory.clearCache()
     }
 
+    static func preciseMode(_ params: [String: Any]) throws -> Bool {
+        guard let value = params["precise"] else { return false }
+        // NSNumber bridges numeric JSON 0/1 to Bool; require a genuine JSON Boolean.
+        guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { throw WorkerError("invalid_params", "precise must be a Boolean.") }
+        return number.boolValue
+    }
+
     func chat(params: [String: Any], emit: @escaping Emit) async throws -> [String: Any] {
         guard !busy else { throw WorkerError("busy", "Pace is already generating. Try again when it finishes.") }
         guard let raw = params["messages"] as? [[String: Any]], !raw.isEmpty, raw.count <= 100 else { throw WorkerError("invalid_params", "Provide 1–100 chat messages.") }
@@ -32,6 +40,7 @@ actor InferenceService {
                   let content = message["content"] as? String, !content.isEmpty, content.utf8.count <= 100_000 else { throw WorkerError("invalid_params", "Messages require a system, user or assistant role and text content.") }
             return Chat.Message(role: role, content: content)
         }
+        let precise = try Self.preciseMode(params)
         let maxTokens = params["maxTokens"] as? Int ?? 512
         guard (1...2048).contains(maxTokens) else { throw WorkerError("invalid_params", "maxTokens must be between 1 and 2048.") }
         let definition = try ModelStore.require("qwen3.5-4b")
@@ -56,7 +65,7 @@ actor InferenceService {
         }
         if trimmed > 0 { emit(["event": "chat.contextTrimmed", "data": ["removedMessages": trimmed]]) }
         try Task.checkCancellation()
-        let session = ChatSession(model, generateParameters: .init(maxTokens: maxTokens, maxKVSize: 8192, temperature: 0.7, topP: 0.9, topK: 20, repetitionPenalty: 1.1), additionalContext: ["enable_thinking": false])
+        let session = ChatSession(model, generateParameters: .init(maxTokens: maxTokens, maxKVSize: 8192, temperature: precise ? 0 : 0.7, topP: 0.9, topK: 20, repetitionPenalty: 1.1), additionalContext: ["enable_thinking": false])
         var result = ""
         for try await chunk in session.streamResponse(to: messages) {
             try Task.checkCancellation()

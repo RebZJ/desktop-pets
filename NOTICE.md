@@ -14,4 +14,6 @@ Model weights are downloaded separately and retain their own licenses:
 - Pinned Swift transitive dependencies and MLX's embedded native components retain their original notices in `native/licenses/swift-packages`, preserving upstream paths. Apple's required Swift compatibility runtime is copied from the selected Xcode toolchain alongside the helper.
 - React, Vite, Tauri and Lucide retain their upstream licenses. Package lockfiles identify the exact dependencies.
 
+Bundled Rust and production frontend dependency notices are in `native/licenses/app-dependencies`. Its index lists exact versions, license identifiers, notice hashes and source locations, including the unmodified MPL-2.0 `selectors` crate. Regenerate them with `python3 scripts/collect-runtime-licenses.py` after installing the locked dependencies. Missing archive notices use pinned upstream files; the MPL-2.0 text comes from Mozilla.
+
 Model files, compiled native dependencies and generated test recordings are not included in the source repository. The native build scripts fetch pinned sources/releases and copy required notices into the application bundle.

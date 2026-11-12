@@ -23,6 +23,17 @@ final class InferenceTests: XCTestCase {
         try Data([1]).write(to: path)
         XCTAssertFalse(try ModelStore.verify(path, file: file))
     }
+    func testPreciseModeRequiresActualBooleanRatherThanNumericOne() throws {
+        XCTAssertFalse(try InferenceService.preciseMode([:]))
+        XCTAssertFalse(try InferenceService.preciseMode(["precise": false]))
+        XCTAssertTrue(try InferenceService.preciseMode(["precise": true]))
+        let invalid: [Any] = [1, 0, 0.5, "true", NSNull(), [true]]
+        for value in invalid {
+            XCTAssertThrowsError(try InferenceService.preciseMode(["precise": value]))
+        }
+        let numeric = try JSONSerialization.jsonObject(with: Data("{\"precise\":1}".utf8)) as! [String: Any]
+        XCTAssertThrowsError(try InferenceService.preciseMode(numeric))
+    }
     func testVoiceLanguageNormalization() throws {
         XCTAssertEqual(try VoiceSettings.language("zh"), "Chinese")
         XCTAssertEqual(try VoiceSettings.language("ja"), "Japanese")

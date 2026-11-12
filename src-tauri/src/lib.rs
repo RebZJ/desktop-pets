@@ -191,6 +191,7 @@ async fn generate(
     system: &str,
     messages: Vec<Value>,
     max_tokens: u64,
+    precise: bool,
 ) -> Result<String, String> {
     let _generation = state.generation_lock.lock().await;
     let mut input = vec![json!({"role":"system","content":system})];
@@ -201,7 +202,7 @@ async fn generate(
         .request(
             app,
             "chat.generate",
-            json!({"messages":input,"maxTokens":max_tokens.min(2048)}),
+            json!({"messages":input,"maxTokens":max_tokens.min(2048),"precise":precise}),
         )
         .await;
     action(app, "idle");
@@ -255,21 +256,56 @@ fn memory_terms(text: &str) -> Vec<String> {
 
 fn normalize_memory_citations(text: &str, sources: &[Value]) -> String {
     let ids: Vec<&str> = sources.iter().filter_map(|s| s["id"].as_str()).collect();
-    let mut fenced = false;
+    let mut fence: Option<&str> = None;
     text.lines()
         .map(|line| {
-            if line.trim_start().starts_with("```") {
-                fenced = !fenced;
+            let start = line.trim_start();
+            if let Some(marker) = fence {
+                if start.starts_with(marker) {
+                    fence = None;
+                }
                 return line.to_string();
             }
-            if !fenced {
-                for id in &ids {
-                    if line.trim() == format!("[{id}]") {
-                        return format!("[memory:{id}]");
-                    }
+            for marker in ["```", "~~~"] {
+                if start.starts_with(marker) {
+                    fence = Some(marker);
+                    return line.to_string();
                 }
             }
-            line.to_string()
+            let mut output = String::new();
+            let mut at = 0;
+            let mut code_ticks = 0;
+            while at < line.len() {
+                let rest = &line[at..];
+                if rest.starts_with('`') {
+                    let count = rest.bytes().take_while(|byte| *byte == b'`').count();
+                    if code_ticks == 0 {
+                        code_ticks = count;
+                    } else if code_ticks == count {
+                        code_ticks = 0;
+                    }
+                    output.push_str(&rest[..count]);
+                    at += count;
+                    continue;
+                }
+                let previous = line[..at].chars().next_back();
+                if code_ticks == 0
+                    && !previous.is_some_and(|c| c.is_ascii_alphanumeric() || "_!=([".contains(c))
+                {
+                    if let Some(id) = ids.iter().find(|id| {
+                        let marker = format!("[{id}]");
+                        rest.starts_with(&marker) && !rest[marker.len()..].starts_with('(')
+                    }) {
+                        output.push_str(&format!("[memory:{id}]"));
+                        at += id.len() + 2;
+                        continue;
+                    }
+                }
+                let character = rest.chars().next().unwrap();
+                output.push(character);
+                at += character.len_utf8();
+            }
+            output
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -392,7 +428,7 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
             }
             history.push(json!({"role":"user","content":text}));
             let answer = normalize_memory_citations(
-                &generate(&app, &state, &system, history, 1024).await?,
+                &generate(&app, &state, &system, history, 1024, false).await?,
                 &sources,
             );
             let message = state.db.add_message(conversation, "assistant", &answer)?;
@@ -472,6 +508,7 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
                 &system,
                 vec![json!({"role":"user","content":input})],
                 1536,
+                true,
             )
             .await?;
             Ok(json!({"text":answer,"contextId":params["contextId"]}))
@@ -1053,6 +1090,7 @@ async fn process_chunk(app: &AppHandle, chunk: &Value) -> Result<Value, String> 
                 &prompt,
                 vec![json!({"role":"user","content":recent})],
                 100,
+                true,
             )
             .await
             {
@@ -1410,12 +1448,18 @@ mod tests {
         assert_ne!(normalized_tip("Friday"), normalized_tip("Monday"));
     }
     #[test]
-    fn memory_citations_only_normalize_known_reference_lines() {
+    fn memory_citations_normalize_references_and_preserve_code() {
         let sources = vec![json!({"id":"1"})];
         assert_eq!(
             normalize_memory_citations("Friday.\n\n[1]", &sources),
             "Friday.\n\n[memory:1]"
         );
+        assert_eq!(
+            normalize_memory_citations("Saved memory **[1]** says Friday. 中文[1]。", &sources),
+            "Saved memory **[memory:1]** says Friday. 中文[memory:1]。"
+        );
+        let code = "Use `array[1]` or ``[1]`` and array[1]. [1](https://example.com) ![1](a.png) [9]\n~~~js\n[1]\n~~~\n```\n[1]\n```";
+        assert_eq!(normalize_memory_citations(code, &sources), code);
         assert_eq!(
             normalize_memory_citations("let a=[1];\n```js\n[1]\n```\n[9]", &sources),
             "let a=[1];\n```js\n[1]\n```\n[9]"

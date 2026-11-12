@@ -26,6 +26,14 @@ assert.equal(new URL(bridge.url).hostname, '127.0.0.1');
 const out = path.join(root, 'artifacts/runtime/desktop-integration');
 await fs.mkdir(out, { recursive: true });
 const results = [];
+function checkFixtureActions(meeting) {
+  const actions = meeting.actionItems.map(item => typeof item === 'string' ? item : item.text);
+  const release = actions.find(text => /release notes/i.test(text));
+  const tutorial = actions.find(text => /tutorial/i.test(text));
+  assert(actions.length >= 3, 'Keep the three agreed tasks separate.');
+  assert(release && /Friday/i.test(release) && !/tutorial/i.test(release), 'Release notes retain their Friday deadline.');
+  assert(tutorial && !/Friday|Monday/i.test(tutorial), 'Do not invent a deadline for the tutorial.');
+}
 const request = async (method, params = {}, expectedError) => {
   const started = performance.now();
   const response = await fetch(bridge.url, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${bridge.token}` }, body: JSON.stringify({ method, params }), signal: AbortSignal.timeout(900_000) });
@@ -133,6 +141,8 @@ assert.equal(meeting.status, 'completed');
 assert(meeting.segments.length > 1); assert(meeting.segments.every(s => s.end > s.start));
 assert(new Set(meeting.segments.map(s => s.speaker)).size >= 2, 'The real fixture must keep two speaker labels.');
 assert.match(meeting.notes, /Monday/i); assert.match(meeting.notes, /Friday/i); assert(meeting.actionItems.length > 0);
+checkFixtureActions(meeting);
+for (let attempt = 0; attempt < 2; attempt++) checkFixtureActions(await request('meeting.summarize', { id: meetingId }));
 assert.match((await request('meeting.export', { id: meetingId })).content, /Speaker [12]/);
 await assert.rejects(fs.access(recording), /ENOENT/);
 const answer = await request('chat.send', { conversationId: `meeting-${meetingId}`, meetingId, text: 'When did we decide to launch?', quiet: true });
