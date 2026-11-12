@@ -6,14 +6,17 @@ Machine: Apple M1 Pro, 16 GB unified memory, macOS 26.6.2. The release targets A
 | --- | --- |
 | Production frontend build | Passed |
 | Browser interaction/contract tests | 14 passed, with explicitly synthetic bridge fixtures |
-| Rust host/unit tests | 25 passed |
+| Rust host/unit tests | 27 passed |
 | Swift/native tests | 21 passed |
 | Real local text, voice and ASR without network access | Passed; see [native evidence](native-validation.md) |
 | Actual packaged desktop chat through its UI | Passed |
 | Actual host integration | 55 operations passed; includes variable recovery polling and three factual notes checks |
 | Native WebView Markdown download | File content verified in Downloads; fixture removed |
-| Timed 60-minute synthetic meeting workload | Restarted 03:23:15 Melbourne after the overlay regression fix; final result pending |
-| Release packaging and CI | Source checks green; final installer packaging in progress |
+| Timed 60-minute synthetic meeting workload | 240/240 chunks over 3,600.013 actual seconds; zero core runtime errors |
+| Corrected full-transcript notes | All nine factual/completeness checks passed; transcript unchanged |
+| Mandarin/Japanese/Spanish notes | Actual host checks passed on explicit synthetic task/deadline fixtures |
+| Release packaging | Mounted disk image, nested signatures, native resources and debug-bridge exclusion passed |
+| Clean normal-profile release launch | App and bundled worker remained stable for 20 seconds; memory/speech off, no synthetic meetings |
 
 The desktop integration drives the debug app's authenticated loopback test bridge. It uses the actual Rust dispatch, SQLite storage, Swift worker, installed models and native windows, rather than substituting model responses. The bridge is excluded from release builds. This is deeper backend/native evidence; it does not substitute for every human interaction or permission dialog.
 
@@ -23,7 +26,13 @@ Real runs found and fixed numeric citation variants, nested action metadata beco
 
 An early long-run attempt exposed an overlay window query blocking an audio task while the Mac was locked. It was stopped at 194 seconds and is explicitly excluded from 60-minute evidence. Overlay/window work is now queued on the UI thread. The post-fix 60-second regression processed all four chunks, generated a real tip in 5.460 seconds, finalized two-speaker notes in 15.792 seconds, and reported no errors. The full run uses that rebuilt host.
 
-To reproduce, launch a debug app with `PACE_E2E_PORT=18972`, `PACE_E2E_DATA_DIR="$PWD/artifacts/runtime/e2e-app"`, and `PACE_MODELS_DIR` pointing to an installed pack. Keep ambient memory disabled in that isolated profile. Generate the fixture with `python3 scripts/create-meeting-fixture.py`, then run `node scripts/test-desktop.mjs`. `PACE_SOAK_SECONDS=3600 node scripts/soak.mjs` runs the paced workload and full finalization; short runs do not count as 60-minute evidence. Evidence stays under ignored `artifacts/runtime`.
+The full run found two further issues: the observer's default five-minute HTTP header timeout and timestamp lists exhausting the summary output budget. Both are fixed. Initial failed outputs remain preserved. Corrected notes were regenerated from the same 444-segment transcript in 363.632 seconds, without repeating the paced hour, ASR or diarization. All four sections, separate task owners, Friday deadlines, the undated tutorial and the unresolved sound question passed. See [the full soak report](soak-validation.md) for timing, recovery provenance and the approximate synthetic speaker assessment. The corrected summarizer was a later build; the paced run and notes-only follow-up are distinct checks.
+
+The language-note checks use explicit language settings and text fixtures with clearly stated promises and deadlines. They verify separate tasks and reject a task carrying both a Friday date and an unknown deadline. They are not a statistical multilingual meeting benchmark. Notes still need review against their sources. Full-hour finalization is currently measured in minutes; this alpha does not promise instant post-call notes.
+
+The final release was launched against its fresh normal profile, independently of the isolated test database. Its bundled native worker stayed alive without restarting. Memory and spoken replies remained off, and no synthetic meetings appeared. Release builds ignored the test data/port flags and exposed no test listener. A clean Mac without developer tools, older supported macOS versions, and real permission prompts still need separate validation.
+
+To reproduce, launch a debug app with `PACE_E2E_PORT=18972`, `PACE_E2E_DATA_DIR="$PWD/artifacts/runtime/e2e-app"`, and `PACE_MODELS_DIR` pointing to an installed pack. Keep ambient memory disabled in that isolated profile. Generate the fixture with `python3 scripts/create-meeting-fixture.py`, then run `node scripts/test-desktop.mjs` and `node scripts/test-notes-languages.mjs`. `PACE_SOAK_SECONDS=3600 caffeinate -i node scripts/soak.mjs` runs the paced workload and full finalization; short runs do not count as 60-minute evidence. Evidence stays under ignored `artifacts/runtime`.
 
 ## Remaining human/hardware checks
 

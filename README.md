@@ -6,6 +6,8 @@ Pace is a playful pixel cheetah with a local brain: chat, multilingual voice, wr
 
 This is an early **Apple Silicon Mac** release targeting **macOS 15+ and 16 GB RAM**. The Tauri shell and native capability boundary are designed for future Windows/Linux ports; those ports are not implemented yet.
 
+[Mac alpha download](https://github.com/RebZJ/desktop-pets/releases/tag/v0.1.0-alpha.1) · [Pace sprite starter](https://github.com/RebZJ/desktop-pets/releases/download/v0.1.0-alpha.1/Pace-starter.zip). The installer is ad-hoc signed and not Apple-notarized.
+
 ![Desktop Pets workspace](.impeccable/review/desktop.png)
 
 ## What Pace can do

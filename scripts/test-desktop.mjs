@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { englishFixtureNoteChecks } from './soak.mjs';
 
 const run = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -27,12 +28,7 @@ const out = path.join(root, 'artifacts/runtime/desktop-integration');
 await fs.mkdir(out, { recursive: true });
 const results = [];
 function checkFixtureActions(meeting) {
-  const actions = meeting.actionItems.map(item => typeof item === 'string' ? item : item.text);
-  const release = actions.find(text => /release notes/i.test(text));
-  const tutorial = actions.find(text => /tutorial/i.test(text));
-  assert(actions.length >= 3, 'Keep the three agreed tasks separate.');
-  assert(release && /Friday/i.test(release) && !/tutorial/i.test(release), 'Release notes retain their Friday deadline.');
-  assert(tutorial && !/Friday|Monday/i.test(tutorial), 'Do not invent a deadline for the tutorial.');
+  for (const [check, passed] of Object.entries(englishFixtureNoteChecks(meeting))) assert(passed, check);
 }
 const request = async (method, params = {}, expectedError) => {
   const started = performance.now();

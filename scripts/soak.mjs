@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
+import { request as httpRequest } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -15,6 +16,23 @@ const SAMPLE_RATE = 16_000;
 const BYTES_PER_SECOND = SAMPLE_RATE * 2;
 const CHUNK_SECONDS = 15;
 const elapsedSeconds = since => +((performance.now() - since) / 1000).toFixed(3);
+
+export function englishFixtureNoteChecks(meeting) {
+  const actions = (meeting.actionItems ?? []).map(item => typeof item === 'string' ? item : item.text);
+  const release = actions.find(text => /release notes/i.test(text)) ?? '';
+  const installer = actions.find(text => /installer/i.test(text)) ?? '';
+  const tutorial = actions.find(text => /tutorial/i.test(text)) ?? '';
+  const unknown = /no (?:agreed )?deadline|deadline[^\n]{0,20}(?:not agreed|not specified|unknown|unspecified)|due[^\n]{0,10}(?:not agreed|unknown|unspecified)/i;
+  return {
+    fourSections: ['Summary', 'Decisions', 'Action items', 'Open questions'].every(title => new RegExp(`^## ${title}\\s*$`, 'im').test(meeting.notes ?? '')),
+    releaseFriday: /Amina/i.test(release) && /Friday/i.test(release) && !unknown.test(release) && !/tutorial/i.test(release),
+    installerFriday: /Daniel/i.test(installer) && /Friday/i.test(installer) && !unknown.test(installer),
+    tutorialUndated: /Amina/i.test(tutorial) && unknown.test(tutorial) && !/Friday|Monday/i.test(tutorial),
+    separateActions: Boolean(release && installer && tutorial && release !== tutorial && installer !== tutorial),
+    mondayDecision: /## Decisions(?:(?!\n##)[\s\S])*Monday/i.test(meeting.notes ?? ''),
+    openSoundQuestion: /## Open questions[\s\S]*\bsounds?\b/i.test(meeting.notes ?? ''),
+  };
+}
 
 export function readPCM16Wav(buffer) {
   assert(buffer.length >= 44 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WAVE', 'Fixture must be a WAV file.');
@@ -75,6 +93,37 @@ function processRows(stdout) {
   });
 }
 
+export function requestJSON(endpoint, token, method, params = {}, timeoutMs = 300_000) {
+  const payload = JSON.stringify({ method, params });
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(endpoint, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload), Authorization: `Bearer ${token}` },
+    }, response => {
+      const chunks = [];
+      let bytes = 0;
+      response.on('data', chunk => {
+        bytes += chunk.length;
+        if (bytes > 16 * 1024 * 1024) { request.destroy(new Error(`${method}: response exceeds 16 MB.`)); return; }
+        chunks.push(chunk);
+      });
+      response.on('error', reject);
+      response.on('end', () => {
+        try {
+          assert(response.statusCode >= 200 && response.statusCode < 300, `${method}: HTTP ${response.statusCode}`);
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+          if (!body.ok) throw new Error(`${method}: ${body.error ?? 'Unknown host error'}`);
+          resolve(body.data);
+        } catch (error) { reject(error); }
+      });
+    });
+    // Native finalization can legitimately take longer than undici's default
+    // five-minute header timeout. This socket uses the requested budget directly.
+    request.setTimeout(timeoutMs, () => request.destroy(new Error(`${method}: local host response timed out after ${timeoutMs / 1000} seconds.`)));
+    request.on('error', reject);
+    request.end(payload);
+  });
+}
+
 export async function main() {
   const durationSeconds = Number(process.env.PACE_SOAK_SECONDS ?? 3600);
   assert(Number.isSafeInteger(durationSeconds) && durationSeconds >= CHUNK_SECONDS, 'PACE_SOAK_SECONDS must be a whole number of at least 15 seconds.');
@@ -117,16 +166,7 @@ export async function main() {
     });
     return saving;
   };
-  const api = async (method, params = {}, timeoutMs = 300_000) => {
-    const response = await fetch(endpoint, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bridge.token}` },
-      body: JSON.stringify({ method, params }), signal: AbortSignal.timeout(timeoutMs),
-    });
-    assert(response.ok, `${method}: HTTP ${response.status}`);
-    const body = await response.json();
-    if (!body.ok) throw new Error(`${method}: ${body.error ?? 'Unknown host error'}`);
-    return body.data;
-  };
+  const api = (method, params = {}, timeoutMs = 300_000) => requestJSON(endpoint, bridge.token, method, params, timeoutMs);
   const sample = async () => {
     if (sampling) return sampling;
     sampling = (async () => {
@@ -255,6 +295,10 @@ export async function main() {
     result.finalization = { seconds: elapsedSeconds(finalStarted), meeting: final };
     assert.equal(final.status, 'completed', 'The real meeting finalizer did not complete.');
     assert(final.segments?.length > 0 && final.notes?.length > 0, 'The finalizer returned no transcript or notes.');
+    result.noteQualityChecks = englishFixtureNoteChecks(final);
+    for (const [check, passed] of Object.entries(result.noteQualityChecks)) {
+      if (!passed) result.errors.push({ phase: 'note-quality', message: `Synthetic fixture notes failed: ${check}` });
+    }
     result.finalTranscript = {
       segmentCount: final.segments.length,
       characters: final.segments.reduce((sum, segment) => sum + (segment.text?.length ?? 0), 0),

@@ -6,7 +6,7 @@ The six original procedural critter sounds are also CC BY 4.0, credited to Deskt
 
 Model weights are downloaded separately and retain their own licenses:
 
-- Qwen3.5 and Qwen3-TTS: Apache-2.0. Notices are included in the installed models and `native/licenses/Qwen-Apache-2.0.txt`.
+- Qwen3.5 and Qwen3-TTS: Apache-2.0. The bundled notice is `native/licenses/Qwen-Apache-2.0.txt`; the upstream model cards retain their own attribution.
 - Whisper / whisper.cpp and Silero VAD: MIT. The VAD model is installed with Whisper; its notice is in `native/licenses/Silero-VAD.txt`.
 - Nemotron-3 Diarization: OpenMDW-1.1; consult the pinned model's license before redistributing weights.
 - NeMo-Speech.cpp runtime: Apache-2.0, with its bundled third-party notices under generated `native/share/licenses`.
