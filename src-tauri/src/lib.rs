@@ -343,9 +343,13 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
                 }
             }
             if let Some(pet) = app.get_webview_window("pet") {
-                let _ = pet.set_ignore_cursor_events(updated["clickThrough"] == true);
-                let size = updated["petSize"].as_f64().unwrap_or(160.0);
-                let _ = pet.set_size(LogicalSize::new(size + 20.0, size + 40.0));
+                if patch.get("clickThrough").is_some() {
+                    let _ = pet.set_ignore_cursor_events(updated["clickThrough"] == true);
+                }
+                if patch.get("petSize").is_some() {
+                    let size = updated["petSize"].as_f64().unwrap_or(160.0);
+                    let _ = pet.set_size(LogicalSize::new(size + 20.0, size + 40.0));
+                }
             }
             emit(&app, "settings.updated", updated.clone());
             Ok(updated)
@@ -1409,7 +1413,7 @@ pub fn run() {
             app.asset_protocol_scope().allow_directory(data_dir.join("packs"),true)?;
             app.manage(AppState{db:database,native:NativeManager::default(),data_dir,contexts:Mutex::new(HashMap::new()),pet:Mutex::new(json!({"visible":true,"action":"idle"})),meeting_lock:tokio::sync::Mutex::new(()),meeting_lifecycle:tokio::sync::Mutex::new(()),asr_lock:tokio::sync::Mutex::new(()),last_tip:Mutex::new(HashMap::new()),tip_text:Mutex::new(HashMap::new()),capture_epoch:AtomicU64::new(0),shutting_down:AtomicBool::new(false),meeting_silent:AtomicBool::new(false),dictating:AtomicBool::new(false),generation_lock:tokio::sync::Mutex::new(())});
             if let Err(message)=register_shortcuts(app.handle(),&settings){eprintln!("{message}");}
-            if let (Some(pet),Ok(Some(monitor)))=(app.get_webview_window("pet"),app.primary_monitor()) {let size=monitor.size();let scale=monitor.scale_factor();let _=pet.set_position(PhysicalPosition::new((size.width as f64-200.0*scale).max(0.0) as i32,(size.height as f64-240.0*scale).max(0.0) as i32));let _=pet.set_ignore_cursor_events(settings["clickThrough"]==true);}
+            if let (Some(pet),Ok(Some(monitor)))=(app.get_webview_window("pet"),app.primary_monitor()) {let size=monitor.size();let scale=monitor.scale_factor();let pet_size=settings["petSize"].as_f64().unwrap_or(160.0);let _=pet.set_position(PhysicalPosition::new((size.width as f64-(pet_size+40.0)*scale).max(0.0) as i32,(size.height as f64-(pet_size+80.0)*scale).max(0.0) as i32));let _=pet.set_ignore_cursor_events(settings["clickThrough"]==true);let _=pet.set_size(LogicalSize::new(pet_size+20.0,pet_size+40.0));}
             let show=MenuItem::with_id(app,"show","Open Desktop Pets",true,None::<&str>)?;
             let pet=MenuItem::with_id(app,"pet","Hide / show Pace",true,None::<&str>)?;
             let command=MenuItem::with_id(app,"command","Ask Pace",true,None::<&str>)?;

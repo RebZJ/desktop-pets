@@ -82,7 +82,9 @@ bash native/scripts/test-diarization.sh "$PWD/artifacts/runtime/meeting-fixture/
 ```sh
 npm run native:build
 python3 scripts/collect-runtime-licenses.py
-npm run tauri -- build --bundles app,dmg --no-sign
+npm run tauri -- build --bundles app --no-sign
+python3 scripts/package-pet.py
+bash scripts/package-macos.sh
 ```
 
 Local/ad-hoc builds are not notarized releases. Public installers need a Developer ID signing and notarization setup. Native build resources and third-party notices must travel with the helper.
