@@ -76,7 +76,7 @@ export const initialState: AppState = {
     { id: 'moonshine-tiny-ja', name: 'Moonshine Tiny · Japanese', role: 'Japanese dictation', sizeBytes: 32_300_000, installed: false, status: 'not-installed' },
     { id: 'moonshine-tiny-es', name: 'Moonshine Tiny · Spanish', role: 'Spanish dictation', sizeBytes: 32_300_000, installed: false, status: 'not-installed' },
     { id: 'qwen3.5-4b', name: 'Qwen 3.5 · 4B', role: 'Meeting notes & questions', sizeBytes: 3_060_000_000, installed: false, status: 'not-installed' },
-    { id: 'kitten-tts-micro-0.8', name: 'Kitten TTS Micro · 40M', role: 'Quick English voice', sizeBytes: 149_000_000, installed: false, status: 'not-installed' },
+    { id: 'kitten-tts-micro-0.8-onnx', name: 'Kitten Micro · portable voice', role: 'voice', sizeBytes: 44_663_872, installed: false, status: 'not-installed' },
     { id: 'qwen3-tts-0.6b', name: 'Qwen 3 TTS · 0.6B', role: 'Pace’s voice', sizeBytes: 1_970_000_000, installed: false, status: 'not-installed' },
     { id: 'whisper-turbo', name: 'Whisper large v3 turbo', role: 'Transcription', sizeBytes: 574_000_000, installed: false, status: 'not-installed' },
     { id: 'nemotron-diarization', name: 'Nemotron 3 Diarization', role: 'Speaker labels', sizeBytes: 107_012_128, installed: false, status: 'not-installed' },

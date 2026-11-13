@@ -28,3 +28,7 @@ npm run test:rust
 ```
 
 The legacy full Swift package and its historical experiments remain in `PaceNative/` for reference. They are not built or bundled by the portable entry point. Legacy `scripts/bootstrap-diarization.sh` downloads an old macOS-only release; use `npm run native:diarization` for the source-pinned portable build instead.
+
+Portable voice chat uses Kitten Micro 0.8 ONNX in the Rust host, with the existing Moonshine bundle's ONNX Runtime 1.23 API, `kittentts` 0.4.1 and MIT `piper-plus-g2p` 0.5.4 English pronunciation. The explicitly installed `kitten-tts-micro-0.8-onnx` pack is 44.7 MB and preserves legacy MLX files. Kiki is the default. No Python, system voice, cloud service or separately running user server is needed. Notices are under `licenses/kitten`.
+
+One Start begins a continuous local session. The shared capture owner excludes dictation and meetings. RMS endpointing ignores short clicks and ends after 900ms silence following at least 250ms speech; turns are bounded at 60 seconds. The microphone is released for transcription, answer generation and CPAL playback, then resumes automatically. This is half duplex: there is no echo cancellation or interruption during spoken playback. Ending, hiding or quitting invalidates queued turns and stops playback/capture. Unknown names can be spelled rather than naturally pronounced. Microphone/speaker hardware and conversational timing still need live validation on each platform.

@@ -48,12 +48,14 @@ impl Recorder for AudioCapture {
 enum Mode {
     Dictation,
     Meeting,
+    Voice,
 }
 impl Mode {
     fn name(self) -> &'static str {
         match self {
             Self::Dictation => "dictation",
             Self::Meeting => "meeting",
+            Self::Voice => "voice",
         }
     }
 }
@@ -87,6 +89,12 @@ impl Listening {
 
     pub fn start_dictation(&self, output_root: PathBuf) -> Result<Value, String> {
         self.start(output_root, Mode::Dictation, &[0])
+    }
+    pub fn start_voice(&self, output_root: PathBuf) -> Result<Value, String> {
+        self.start(output_root, Mode::Voice, &[0])
+    }
+    pub fn stop_voice(&self) -> Result<Value, String> {
+        self.stop(Mode::Voice)
     }
     pub fn start_meeting(&self, output_root: PathBuf, params: Value) -> Result<Value, String> {
         if !params.is_object() {
@@ -133,7 +141,7 @@ impl Listening {
         for &index in sources {
             let recorder = &self.recorders[index];
             let source = source(index);
-            let started = if mode == Mode::Dictation {
+            let started = if mode != Mode::Meeting {
                 recorder.start(session.directory.clone())
             } else {
                 recorder.start_track(
@@ -145,7 +153,7 @@ impl Listening {
             };
             match started {
                 Ok(value) => {
-                    if mode == Mode::Dictation {
+                    if mode != Mode::Meeting {
                         session.id = value["sessionId"].as_str().unwrap_or(&session.id).into();
                     }
                     session.tracks.push((index, value));
@@ -330,9 +338,9 @@ fn snapshot(session: &Session, recording: bool) -> Value {
         .filter_map(|track| track["level"]["peak"].as_f64())
         .fold(0.0_f64, f64::max);
     let mut value = json!({"recording":recording,"sessionId":session.id,"mode":session.mode.name(),"directory":session.directory,"tracks":tracks,"durationMs":duration,"captureMicrophone":session.tracks.iter().any(|(index,_)| *index==0),"captureSystem":session.tracks.iter().any(|(index,_)| *index==1),"level":{"rms":rms,"peak":peak}});
-    if session.mode == Mode::Dictation {
+    if session.mode != Mode::Meeting {
         if let Some(track) = tracks.first() {
-            for key in ["wavPath", "duration", "frames"] {
+            for key in ["wavPath", "duration", "frames", "capturedFrames"] {
                 value[key] = track[key].clone();
             }
         }
@@ -452,6 +460,25 @@ mod tests {
         assert_eq!(a.starts[0].1, b.starts[0].1);
         assert_eq!(a.starts[0].3, b.starts[0].3);
         assert_eq!(started["sessionId"], a.starts[0].1);
+    }
+    #[test]
+    fn voice_owns_only_the_microphone_and_resumes_after_each_released_turn() {
+        let (capture, mic, system) = fixture();
+        for _ in 0..2 {
+            let started = capture.start_voice(PathBuf::from("voicechat")).unwrap();
+            assert_eq!(started["mode"], "voice");
+            assert!(started["wavPath"].as_str().is_some());
+            assert!(capture.start_dictation(PathBuf::from("dictation")).is_err());
+            assert!(capture
+                .start_meeting(PathBuf::from("meeting"), json!({}))
+                .is_err());
+            assert!(capture.stop_dictation().is_err());
+            assert_eq!(capture.stop_voice().unwrap()["recording"], false);
+        }
+        assert_eq!(mic.0.lock().unwrap().starts.len(), 2);
+        assert_eq!(mic.0.lock().unwrap().stops, 2);
+        assert!(system.0.lock().unwrap().starts.is_empty());
+        assert!(capture.start_dictation(PathBuf::from("dictation")).is_ok());
     }
     #[test]
     fn second_track_failure_rolls_back_and_drains_before_next_session() {

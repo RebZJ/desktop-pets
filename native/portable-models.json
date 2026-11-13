@@ -16,6 +16,28 @@
     ]
   },
   {
+    "id": "kitten-tts-micro-0.8-onnx",
+    "name": "Kitten Micro \u00b7 portable voice",
+    "role": "voice",
+    "directory": "kitten-tts-micro-0.8-onnx",
+    "repository": "KittenML/kitten-tts-micro-0.8",
+    "revision": "1ccf72b2c2048fd17efac7de2fab32d10e225084",
+    "files": [
+      {
+        "path": "kitten_tts_micro_v0_8.onnx",
+        "size": 41384970,
+        "sha256": "95481626fee1ba70ce683e69c534fc7cb38433c46ce42d3abbeafb4b9f1a4123",
+        "sourceURL": "https://huggingface.co/KittenML/kitten-tts-micro-0.8/resolve/1ccf72b2c2048fd17efac7de2fab32d10e225084/kitten_tts_micro_v0_8.onnx"
+      },
+      {
+        "path": "voices.npz",
+        "size": 3278902,
+        "sha256": "112710c1be8ad0e967c190fb0fd95cbe5848ec4791b93209f20b28b7da20dac1",
+        "sourceURL": "https://huggingface.co/KittenML/kitten-tts-micro-0.8/resolve/1ccf72b2c2048fd17efac7de2fab32d10e225084/voices.npz"
+      }
+    ]
+  },
+  {
     "id": "whisper-turbo",
     "name": "Whisper Turbo + Silero VAD",
     "role": "transcription",

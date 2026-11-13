@@ -1,0 +1,25 @@
+.pace-home{position:relative;isolation:isolate;min-height:500px;height:calc(100dvh - 156px);max-height:780px;overflow:hidden;background:#9cc769 url('/onboarding/pace-camp.webp') center center/cover no-repeat;image-rendering:pixelated;border:2px solid var(--ink);box-shadow:2px 4px 10px #152b2129}
+.home-dialogue{position:absolute;top:22px;left:24px;max-width:calc(100% - 48px);padding:13px 18px;background:var(--surface);color:var(--ink);border:2px solid var(--ink);box-shadow:2px 3px 6px #152b2133;image-rendering:auto}
+.home-dialogue h1{font:30px/1.1 var(--ui-font);margin:0 0 5px;letter-spacing:0}
+.home-dialogue p{font:13px/1.5 var(--body-font);margin:0;color:var(--muted)}
+.home-resident{position:absolute;left:45%;top:51%;transform:translate(-50%,-50%);width:224px;height:224px;padding:0;background:none;border:0;image-rendering:pixelated;cursor:pointer}
+.home-resident:focus-visible{outline:3px solid #fff5d9;outline-offset:-26px}
+.home-resident.resident-away{visibility:hidden}
+.home-tools{position:absolute;bottom:56px;left:50%;transform:translateX(-50%);display:flex;align-items:stretch;gap:8px;padding:8px;background:var(--surface);border:2px solid var(--ink);box-shadow:2px 4px 8px #152b2133;max-width:calc(100% - 32px);image-rendering:auto}
+.home-tools button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:40px;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:8px 12px;font:15px/1.2 var(--ui-font);white-space:nowrap}
+.home-tools .home-chat{background:var(--accent);color:var(--on-accent);border-color:var(--ink);justify-content:flex-start}
+.home-chat span{text-align:left}.home-chat small{display:block;font:10px/1.5 var(--body-font);margin-top:3px}
+.home-tools button:hover:not(:disabled){transform:translateY(-2px)}
+.home-tools button:active:not(:disabled){transform:translateY(0)}
+.home-tools button:focus-visible,.home-summon:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.home-tools button:disabled,.home-summon:disabled{opacity:.55;cursor:wait}
+.home-summon{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--ink);color:var(--ink);padding:5px 9px;font:12px/1.2 var(--ui-font);white-space:nowrap;image-rendering:auto}
+.app-shell:has(.pace-home) .main-content{padding:16px}
+.app-shell:has(.pace-home) .sidebar{background:var(--sidebar);border-right:2px solid var(--ink)}
+[data-theme=night] .pace-home{background-color:#263a42;background-blend-mode:multiply}
+[data-theme=handheld] .pace-home{background-color:#91ab54;background-blend-mode:luminosity}
+@media(max-width:820px){.pace-home{height:calc(100dvh - 150px);min-height:440px}.home-tools button{padding:8px;font-size:13px}.home-dialogue{top:16px;left:16px}.home-resident{left:45%}}
+@media(max-width:600px){.app-shell:has(.pace-home) .main-content{padding:8px}.pace-home{min-height:550px;height:calc(100dvh - 145px);background-position:52% center}.home-dialogue{top:14px;left:12px;padding:10px 12px}.home-dialogue h1{font-size:26px}.home-dialogue p{font-size:11px}.home-resident{left:43%;top:48%}.home-tools{flex-wrap:wrap;justify-content:center;width:calc(100% - 28px);gap:6px;padding:6px}.home-tools .home-chat{width:100%;justify-content:center}.home-tools>button:not(.home-chat){flex:1;min-width:0;font-size:12px}.home-summon{bottom:16px}}
+@media(prefers-reduced-motion:reduce){.home-tools button:hover:not(:disabled){transform:none}}
+
+.home-resident:disabled{opacity:1;cursor:default}

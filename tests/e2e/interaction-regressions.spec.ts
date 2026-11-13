@@ -27,7 +27,8 @@ test('overlay pet activates by keyboard while a pointer drag does not pet it', a
   await interactionFixture(page); await page.goto('/?window=pet');
   const pet = page.getByRole('button', { name: 'Pet Pace; drag to move; right-click for menu', exact: true });
   const controls = page.locator('.pet-controls');
-  await expect(controls).toBeHidden();
+  await expect(controls.getByRole('button', { name: 'Chat with Pace', exact: true })).toBeVisible();
+  await expect(controls.getByRole('button', { name: 'Dictate into your app', exact: true })).toBeHidden();
   // WebKit leaves the transparent overlay on its first Tab; retain keyboard modality before focusing the pet.
   await page.keyboard.press('Tab');
   await pet.focus();
@@ -41,7 +42,8 @@ test('overlay pet activates by keyboard while a pointer drag does not pet it', a
   expect(await page.evaluate(() => (window as any).__interactionCalls.pet.length)).toBe(2);
   await pet.evaluate(element => element.blur());
   await page.mouse.move(0, 0);
-  await expect(controls).toBeHidden();
+  await expect(controls.getByRole('button', { name: 'Chat with Pace', exact: true })).toBeVisible();
+  await expect(controls.getByRole('button', { name: 'Dictate into your app', exact: true })).toBeHidden();
 });
 
 test('MCP one-shot confirmation is consumed on success and failure', async ({ page }) => {
@@ -90,7 +92,8 @@ test('pet artwork and menu fit every configured native pet size', async ({ brows
     await page.goto('http://127.0.0.1:1420/?window=pet');
     await expect(page.locator('.overlay-pet-button .pace-sprite')).toHaveCSS('width', `${size}px`);
     const pet = page.getByRole('button', { name: 'Pet Pace; drag to move; right-click for menu', exact: true });
-    await expect(page.locator('.pet-controls')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Chat with Pace', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Dictate into your app', exact: true })).toBeHidden();
     await pet.hover();
     await expect(page.locator('.pet-controls')).toBeVisible();
     await pet.click({ button: 'right' });

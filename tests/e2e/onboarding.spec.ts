@@ -332,14 +332,14 @@ test('desktop access is requested separately and only after consent', async ({ p
 });
 
 for (const ready of [false, true]) {
-  test(`finishing persists only completion and opens meeting notes with brain ${ready}`, async ({ page }) => {
+  test(`finishing persists only completion and opens Pace’s home with brain ${ready}`, async ({ page }) => {
     await onboardingFixture(page, { installed: ready ? ['qwen3.5-4b'] : [] }); await page.goto('/');
     const before = await page.evaluate(() => structuredClone((window as any).__onboardingFixture.state.settings));
     await stops(page).getByRole('button', { name: 'Home', exact: true }).click();
     await page.getByRole('button', { name: 'Enter workspace', exact: true }).click();
     await expect(tour(page)).toHaveCount(0);
     await expect(page.getByRole('navigation', { name: 'Main navigation', exact: true })).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`#meetings$`));
+    await expect(page).toHaveURL(new RegExp(`#home$`));
     expect((await bridgeCalls(page)).filter(call => call.method === 'settings.update').map(call => call.params.patch)).toEqual([{ onboardingCompleted: true }]);
     expect(await page.evaluate(() => (window as any).__onboardingFixture.state.settings)).toEqual({ ...before, onboardingCompleted: true });
   });

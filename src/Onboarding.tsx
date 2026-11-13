@@ -15,7 +15,8 @@ const languages = [
   { id: 'auto', label: 'Automatic · Whisper Turbo', model: 'whisper-turbo' },
 ];
 const modelDescriptions: Record<string, string> = {
-  'qwen3.5-4b': 'Local brain for meeting notes & questions',
+  'qwen3.5-4b': 'Local brain for chat & meeting notes',
+  'kitten-tts-micro-0.8-onnx': 'Pace’s English voice · Kiki',
   'moonshine-tiny-en': 'Fast English dictation',
   'moonshine-tiny-zh': 'Fast Chinese dictation',
   'moonshine-tiny-ja': 'Fast Japanese dictation',
@@ -29,7 +30,7 @@ const shortcutActions = [
 ] as const;
 const access = [
   { kind: 'accessibility', title: 'Accessibility', description: 'Type dictated words into the app you choose.' },
-  { kind: 'microphone', title: 'Microphone', description: 'Only used when you start dictation or a meeting recording.' },
+  { kind: 'microphone', title: 'Microphone', description: 'Only used when you start dictation, voice chat or a meeting recording.' },
   { kind: 'screenRecording', title: 'Meeting audio', description: 'Hear other apps when you choose to record.' },
 ];
 
@@ -70,7 +71,7 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
   const notesReady = state.models.some(model => model.id === 'qwen3.5-4b' && model.installed);
   const selectedLanguage = state.settings.dictationLanguage || 'en';
   const dictationModel = state.models.find(model => model.id === languages.find(language => language.id === selectedLanguage)?.model);
-  const packModels = [dictationModel, state.models.find(model => model.id === 'qwen3.5-4b')].filter((model): model is LocalModel => Boolean(model));
+  const packModels = [dictationModel, state.models.find(model => model.id === 'kitten-tts-micro-0.8-onnx'), state.models.find(model => model.id === 'qwen3.5-4b')].filter((model): model is LocalModel => Boolean(model));
   const recording = state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status));
 
   useEffect(() => { heading.current?.focus(); }, [step]);

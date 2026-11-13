@@ -401,7 +401,7 @@ impl Recording {
         let offset = self
             .first_frame
             .map(|at| at.saturating_duration_since(self.origin).as_millis() as u64);
-        json!({"recording":true,"sessionId":self.session_id,"wavPath":self.path,"source":self.source.track(),"track":self.source.track(),"offsetMs":offset,"level":{"rms":level.0,"peak":level.1},"warnings":self.warnings.value()})
+        json!({"recording":true,"sessionId":self.session_id,"wavPath":self.path,"source":self.source.track(),"track":self.source.track(),"offsetMs":offset,"capturedFrames":self.sink.input_frames,"level":{"rms":level.0,"peak":level.1},"warnings":self.warnings.value()})
     }
 
     fn consume(&mut self, event: AudioEvent) {

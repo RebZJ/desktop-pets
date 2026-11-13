@@ -2,10 +2,10 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-type Options = { petSize?: number; phase?: string; text?: string; error?: string; toggleError?: string; holdToggle?: boolean; holdCurrent?: boolean; savedAudio?: boolean };
+type Options = { soundEnabled?: boolean; petSize?: number; phase?: string; text?: string; error?: string; toggleError?: string; holdToggle?: boolean; holdCurrent?: boolean; savedAudio?: boolean };
 async function fixture(page: Page, options: Options = {}) {
   await page.addInitScript((config: Options) => {
-    const state = { settings: { onboardingCompleted: true, soundEnabled: false, activePack: 'pace', petSize: config.petSize || 160, dictationShortcut: 'Alt+Shift+D' }, models: [], meetings: [], packs: [{ id: 'pace', name: 'Pace' }], memory: { enabled: false, applications: [] }, extensions: [], pet: { visible: true, action: 'idle' } };
+    const state = { settings: { onboardingCompleted: true, soundEnabled: config.soundEnabled || false, activePack: 'pace', petSize: config.petSize || 160, dictationShortcut: 'Alt+Shift+D' }, models: [], meetings: [], packs: [{ id: 'pace', name: 'Pace' }], memory: { enabled: false, applications: [] }, extensions: [], pet: { visible: true, action: 'idle' } };
     let current = { phase: config.phase || 'idle', text: config.text, error: config.error, savedAudio: config.savedAudio };
     const f: any = { calls: [], copied: [], currentReads: 0 };
     (window as any).__companionFixture = f;
@@ -28,6 +28,8 @@ async function fixture(page: Page, options: Options = {}) {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => f.copied.push(text) } });
     (window as any).__DESKTOP_PETS_BRIDGE__ = async (method: string, params: any = {}) => {
       f.calls.push({ method, params });
+      if (method === 'chat.context.current') return { meetingId: null };
+      if (method === 'voicechat.current') return { sessionId: null, phase: 'idle', active: false };
       if (method === 'app.state') return structuredClone(state);
       if (method === 'apps.list') return [];
       if (method === 'permissions.status') return {};
@@ -76,7 +78,7 @@ test('four compact action icons fit each native pet size without writing', async
     expect(slots.map(slot => slot.words)).toEqual(['', '', '', '']); expect(slots[0].y).toBe(slots[3].y); expect(slots[1].y).toBe(slots[2].y); expect(slots[1].y).toBeLessThan(slots[0].y);
     for (const button of await controls.getByRole('button').all()) await inside(button, width, width);
     await inside(pet, width, width); await screenshot(page, `pet-four-icons-${width}x${width}.png`);
-    expect((await calls(page)).some(call => /^(chat|writing|completion)\./.test(call.method))).toBe(false);
+    expect((await calls(page)).some(call => /^(chat|writing|completion)\./.test(call.method) && call.method !== 'chat.context.current')).toBe(false);
     await page.close();
   }
 });
@@ -170,8 +172,8 @@ test('passive routes preserve drafts and only the explicit chat window shows a c
   for (const route of ['/#chat', '/#writing', '/?window=bubble', '/?window=command']) {
     await page.goto(route);
     await expect(page.getByRole('textbox', { name: /Message Pace|Ask Pace$/, exact: true })).toHaveCount(route.includes('window=command') ? 1 : 0);
-    await expect(page.getByRole('button', { name: 'Chat with Pace', exact: true })).toHaveCount(0);
-    expect((await calls(page)).some(call => /^(chat|writing|completion)\./.test(call.method))).toBe(false);
+    await expect(page.getByRole('button', { name: 'Chat with Pace', exact: true })).toHaveCount(route.includes('#chat') ? 1 : 0);
+    expect((await calls(page)).some(call => /^(chat|writing|completion)\./.test(call.method) && call.method !== 'chat.context.current')).toBe(false);
     expect(await page.evaluate(() => [sessionStorage.getItem('pace.chat-draft'), sessionStorage.getItem('pace.pet-draft'), sessionStorage.getItem('pace.conversation')])).toEqual(['Existing chat draft.', 'Existing pet chat draft.', 'existing-conversation']);
   }
 });
@@ -203,4 +205,27 @@ test('starting is not reported as listening and cancellation discards only the a
   await page.evaluate(() => (window as any).__companionFixture.emit('dictation.level', { rms: .4 }));
   await expect(meter).toHaveAttribute('value', '0.4');
   await expect(meter).toHaveAttribute('value', '0');
+});
+
+
+test('pet earcons stay quiet during a voice conversation and return after End', async ({ page }) => {
+  await fixture(page, { soundEnabled: true });
+  await page.addInitScript(() => {
+    (window as any).__earconPlays = 0;
+    (window as any).Audio = class {
+      volume = 1;
+      addEventListener() {}
+      pause() {}
+      play() { (window as any).__earconPlays++; return Promise.resolve(); }
+    };
+  });
+  await page.goto('/?window=pet');
+  const pet = page.getByRole('button', { name: petName });
+  await pet.focus();
+  await page.evaluate(() => (window as any).__companionFixture.emit('voicechat.state', { sessionId: 'voice-test', phase: 'listening', active: true }));
+  await pet.press('Enter');
+  expect(await page.evaluate(() => (window as any).__earconPlays)).toBe(0);
+  await page.evaluate(() => (window as any).__companionFixture.emit('voicechat.state', { sessionId: 'voice-test', phase: 'idle', active: false }));
+  await pet.press('Enter');
+  expect(await page.evaluate(() => (window as any).__earconPlays)).toBe(1);
 });

@@ -153,11 +153,11 @@ The workspace headline is 32px/1.2, section titles 18px/1.35, ordinary prose 14p
 
 ## Layout
 
-Pace rests alone in a transparent native Tauri window. Hover or keyboard focus reveals four compact icon tools in a semicircle **above** him: Dictate, Chat, Meeting and Settings. There are no labels beneath the pet. A focused/hovered icon supplies its own hint and accessible name. Dictate hints “Type into your app.” Sprite sizes are 128, 160 or 208px, with a square native window 64px larger.
+The main window defaults to Pace’s campsite: the existing pixel clearing, a resident Pace, a cream dialogue title and visible Chat, Dictate, Meeting notes and summon/send-home controls. Pace also rests in a transparent native Tauri window. A little Chat icon stays visible **above** him; hover or keyboard focus reveals the other tools in the semicircle: Dictate, Meeting and Settings. There are no labels beneath the pet. A focused/hovered icon supplies its own hint and accessible name. Dictate hints “Type into your app.” Sprite sizes are 128, 160 or 208px, with a square native window 64px larger.
 
-Dictation uses a 240×76 bottom-center widget, expanding only for recovery. Meeting recording uses a 300×64 strip; full notes and transcript open in the workspace. Chat uses an explicit 300×200 speech bubble. Persistent controls surround scrolling content. These are native utility windows, not a web dashboard that opens on startup.
+Dictation uses a 240×76 bottom-center widget, expanding only for recovery. Meeting recording uses a 300×64 strip; full notes and transcript open in the workspace. Chat uses an explicit 300×220 speech bubble for text or live voice. Persistent controls surround scrolling content. The clouds are native utility windows; Home supplies the shared campsite world.
 
-The supporting workspace uses 1180×780 with an 800×560 minimum, a 228px rail and a 64px header. At 820px the rail becomes icons; at 600px work columns stack. The 390×844 browser layout is a development/test viewport, not a mobile release. Writing surfaces are deferred; old Chat and Writing pages open meeting records, and legacy command windows show only a paused notice and Close. Stored preferences remain intact.
+The supporting workspace uses 1180×780 with an 800×560 minimum, a 228px rail and a 64px header. At 820px the rail becomes icons; at 600px work columns stack. The 390×844 browser layout is a development/test viewport, not a mobile release. Writing surfaces are deferred; legacy Writing routes open meeting records, while unknown/old Chat routes resolve to Home. Command windows open the compact chat bubble. Stored preferences remain intact.
 
 Onboarding has five stops: **Pack, Meet, Keys, Access, Home**. Its split frame places art left and dialogue right, capped at 1440px; at 760px the scene stacks above the dialogue. Stops and forward/back controls remain outside the scrolling dialogue body. Downloads and access are explicit and optional.
 
@@ -181,7 +181,7 @@ Paper fields retain labels, nearby validation and visible focus. Longer text use
 
 ### Navigation
 
-The primary rail exposes Meeting notes, Local models and Settings. Saved memory and extension access remain manageable through Settings → Data & extensions. Explicit text chat uses a small speech bubble; persona voice remains paused. The supporting rail uses the selected interface face, sidebar hover and pale-accent selection with an ink border and inset accent edge. Icon-only destinations retain accessible names. Five onboarding stop buttons identify the current step.
+The primary rail exposes Pace’s place and Meeting notes, with Local models and Settings below. Saved memory and extension access remain manageable through Settings → Data & extensions. Home’s clear Chat with Pace action and the persistent desktop chat icon open the small conversation bubble. The supporting rail uses the selected interface face, sidebar hover and pale-accent selection with an ink border and inset accent edge. Icon-only destinations retain accessible names. Five onboarding stop buttons identify the current step.
 
 ### Cards / Containers
 
@@ -189,13 +189,15 @@ Principal work surfaces use square boundaries and pixel offset depth. Transcript
 
 ### Companion and dialogue clouds
 
-The compact four-icon arc above Pace follows the ring-command interaction reference in Nintendo’s *Secret of Mana* manual, **Ring Commands** section. It is an original tool selector, with explicit activation, keyboard navigation and no Nintendo artwork. Icons reveal in three short pixel steps; hover lifts the active icon by 2px and scales it to 1.10, with quieter neighboring lift. Reduced motion removes transitions and transforms. The [official manual](https://www.nintendo.com/es-es/games/oms/snes-classic/manuals/secret-of-mana/manual.pdf) is the primary reference.
+The compact four-icon arc above Pace follows the ring-command interaction reference in Nintendo’s *Secret of Mana* manual, **Ring Commands** section. It is an original tool selector, with explicit activation, keyboard navigation and no Nintendo artwork. Chat stays visible outside transitions; the remaining icons reveal in three short pixel steps; hover lifts the active icon by 2px and scales it to 1.10, with quieter neighboring lift. Reduced motion removes transitions and transforms. The [official manual](https://www.nintendo.com/es-es/games/oms/snes-classic/manuals/secret-of-mana/manual.pdf) is the primary reference.
 
 The dictation bubble has a compact portrait/status header, Copy, Close, an editable recognized draft and one persistent Start/Stop control. Actual recording/transcription state drives listening/thinking emotes. A real RMS meter appears only during recording. Opening the window never records. Recognition remains reviewable/copyable without Accessibility. Saved-audio retry appears only when actual backend state permits it. Existing chat draft keys remain untouched.
 
-Cursor autocomplete has no active control, shortcut, onboarding practice or style-example field. Meeting assistance keeps actual live words, one quiet session-scoped tip, a transcript-scoped question/reply, final notes and note editing in the same cloud. The question composer and Stop remain reachable; reading content scrolls inside the cloud. Answers never speak or cross meeting boundaries. **Cover requested** is the default best-effort state, not a guarantee. Settings displays Requested · Quick hide ready without an off toggle. Quick Hide covers all five windows without stopping an active meeting.
+Chat never opens the microphone on mount. One explicit **Start voice conversation** begins automatic English local turns with Kitten’s Kiki voice by default. Actual state drives listening, thinking and speaking portraits; actual input drives the meter, which returns to zero without new measurements. Actual text deltas appear during generation and complete replies replace them. The microphone is released while transcribing, thinking and speaking, then resumes automatically; interruption/barge-in is unavailable. End, close and hide stop voice chat. Typing remains available without starting voice, with drafts and IME composition preserved. Missing models explain what is needed and link to Local models.
 
-The twelve original sprite strips retain their artwork and timing. Talk, listen, dictate and hush use refined v2 eight-frame strips at 8fps with the canonical palette, exact pixel grid and binary alpha. Dictate’s headband remains 4–9% narrower over its loop; do not describe anatomical identity as pixel-exact. Provenance, measurements and the reusable skill are in `docs/sprite-refinement-2026-11-13.md` and `docs/skills/desktop-pet-sprites/SKILL.md`. Reduced motion freezes animation.
+Cursor autocomplete has no active control, shortcut, onboarding practice or style-example field. Meeting assistance keeps actual live words, one quiet session-scoped tip, a transcript-scoped question/reply, final notes and note editing in the same cloud. The question composer and Stop remain reachable; reading content scrolls inside the cloud. Automatic meeting suggestions stay quiet; answers remain scoped to the selected meeting. An explicitly started meeting voice conversation may speak its grounded reply. **Cover requested** is the default best-effort state, not a guarantee. Settings displays Requested · Quick hide ready without an off toggle. Quick Hide immediately covers all five windows and ends voice chat without stopping an active meeting.
+
+The twelve original sprite strips retain their artwork and timing. Talk, listen, dictate and hush use refined v2 eight-frame strips at 8fps with the canonical palette, exact pixel grid and binary alpha. Dictate’s headband remains 4–9% narrower over its loop; do not describe anatomical identity as pixel-exact. Provenance, measurements and the reusable skill are in `docs/sprite-refinement-2026-11-13.md` and `docs/skills/desktop-pet-sprites/SKILL.md`. New summon/burrow strips use eight 256px frames at 8fps for a one-second one-shot transition; the native window hides only after normal burrowing, while Quick Hide is immediate. Their boundary frames reuse the exact accepted idle; generated intermediate proportions vary slightly. See [habitat assets and provenance](docs/pace-habitat-2026-11-14.md). Reduced motion freezes animation.
 
 **The Honest State Rule.** A pose, progress indicator or ready label must follow the actual operation; a preview never implies an insertion happened.
 
@@ -213,6 +215,6 @@ The twelve original sprite strips retain their artwork and timing. Talk, listen,
 
 - Don’t put pixel lettering in long editable prose or transcripts.
 - Don’t fabricate replies, transcripts, download completion or capture success.
-- Don’t place persistent labels or a tool strip beneath Pace.
+- Don’t place persistent labels or a tool strip beneath the desktop pet.
 - Keep deferred writing controls and shortcut bindings out of current product flows.
 - Don’t promise universal screen-capture exclusion or continuous background autocomplete.

@@ -27,6 +27,7 @@ struct Worker {
 pub struct NativeManager {
     worker: Mutex<Option<Arc<Worker>>>,
     portable: crate::portable::PortableManager,
+    pub voice: crate::voice::Voice,
     #[cfg(not(target_os = "macos"))]
     insertion: Arc<insertion::Insertion>,
 }
@@ -144,6 +145,18 @@ impl NativeManager {
         method: &str,
         params: Value,
     ) -> Result<Value, String> {
+        match method {
+            "voice.speak" => return self.voice.speak(app, params).await,
+            "voice.stop" => {
+                self.voice.stop();
+                return Ok(json!({"stopped":true}));
+            }
+            "runtime.releaseVoice" => {
+                self.voice.release().await;
+                return Ok(json!({"released":true}));
+            }
+            _ => {}
+        }
         #[cfg(not(target_os = "macos"))]
         if matches!(
             method,
@@ -223,6 +236,7 @@ impl NativeManager {
     }
 
     pub async fn stop(&self) {
+        self.voice.release().await;
         self.portable.stop().await;
         if let Some(worker) = self.worker.lock().await.take() {
             let _ = worker.child.lock().await.kill().await;
@@ -266,7 +280,7 @@ fn worker_path(app: &AppHandle) -> Result<PathBuf, String> {
 pub fn model_catalog() -> Value {
     json!([
         {"id":"qwen3.5-4b","name":"Qwen 3.5 · 4B","role":"Meeting notes & questions","sizeBytes":3060000000_u64,"installed":false,"status":"not-installed"},
-        {"id":"kitten-tts-micro-0.8","name":"KittenTTS · Micro 0.8","role":"Quick English voice","sizeBytes":149000000_u64,"installed":false,"status":"not-installed"},
+        {"id":"kitten-tts-micro-0.8-onnx","name":"Kitten Micro · portable voice","role":"voice","sizeBytes":44663872_u64,"installed":false,"status":"not-installed"},
         {"id":"qwen3-tts-0.6b","name":"Qwen 3 · Voice","role":"Multilingual voice","sizeBytes":1970000000_u64,"installed":false,"status":"not-installed"},
         {"id":"moonshine-tiny-en","name":"Moonshine Tiny · English","role":"Quick dictation","sizeBytes":45398523,"installed":false,"status":"not-installed"},
         {"id":"moonshine-tiny-zh","name":"Moonshine Tiny · Chinese","role":"Quick dictation","sizeBytes":32290152,"installed":false,"status":"not-installed"},

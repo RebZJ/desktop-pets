@@ -1,0 +1,105 @@
+{
+  "tool_mode": "Built-in image_gen imagegen; no paid CLI/API fallback",
+  "generated_at": "2026-11-14",
+  "reference": "artifacts/sprite-review-20261113/idle-reference.png",
+  "source_license": "Original Pace artwork attribution: Outpaced / Desktop Pets, CC-BY-4.0. New action sources are generated derivatives.",
+  "calls": [
+    {
+      "action": "summon",
+      "prompt": "prompts.json#summon",
+      "original_path": "/Users/rebzj/.codex/generated_images/01a1d609-2e73-7822-bd7d-39f5b21d76bf/exec-1eaf5eb8-d28d-4d27-90ae-42abe112887f.png",
+      "workspace_source": "sources/summon-v1-source.png",
+      "transparent_background": true
+    },
+    {
+      "action": "burrow",
+      "prompt": "prompts.json#burrow",
+      "original_path": "/Users/rebzj/.codex/generated_images/01a1d609-2e73-7822-bd7d-39f5b21d76bf/exec-10606131-19dd-48b4-b8d9-459707e18cd2.png",
+      "workspace_source": "sources/burrow-v1-source.png",
+      "transparent_background": true
+    },
+    {
+      "action": "burrow",
+      "kind": "targeted cleanup, cream paws to canonical gold",
+      "prompt": "burrow-cleanup-prompt.txt",
+      "original_path": "/Users/rebzj/.codex/generated_images/01a1d609-2e73-7822-bd7d-39f5b21d76bf/exec-2a43fdca-f505-479d-8117-4bffd91dcc19.png",
+      "workspace_source": "sources/burrow-v2-source.png",
+      "transparent_background": true
+    }
+  ],
+  "production_contract": {
+    "frameWidth": 256,
+    "frameHeight": 256,
+    "frameCount": 8,
+    "fps": 8,
+    "playback": "one-shot"
+  },
+  "selected_sources": {
+    "summon": "sources/summon-v1-source.png",
+    "burrow": "sources/burrow-v2-source.png"
+  },
+  "normalization": {
+    "tool": "ImageMagick",
+    "palette": "canonical-palette.png, full 16 colors extracted from accepted original idle",
+    "alpha_cutoff": "50%, binary alpha mask retained separately while mapping RGB; no dithering",
+    "logical_canvas": [
+      128,
+      128
+    ],
+    "engine_canvas": [
+      256,
+      256
+    ],
+    "scale": "nearest-neighbor",
+    "per_action": {
+      "summon": {
+        "logical_scaled_cell": [
+          118,
+          118
+        ],
+        "translation_logical": [
+          11,
+          6
+        ]
+      },
+      "burrow": {
+        "logical_scaled_cell": [
+          116,
+          116
+        ],
+        "translation_logical": [
+          8,
+          7
+        ],
+        "second_row_additional_translation_logical": [
+          0,
+          6
+        ],
+        "reason": "Generated second-row hole floor was about 23 source pixels above first-row floor; fixed translation restores the shared ground line. No character or hole was resized per frame."
+      }
+    },
+    "canonical_boundary_frames": {
+      "summon": 7,
+      "burrow": 0,
+      "source": "artifacts/sprite-review-20261113/idle-reference.png",
+      "reason": "Exact accepted idle keyframes remove a redraw pop at runtime state boundaries."
+    }
+  },
+  "source_sha256": {
+    "sources/burrow-v1-source.png": "f53e683b55e15fbfedde628d1e2037eb6d6026e4a3e518684c8d6919202798b5",
+    "sources/burrow-v2-source.png": "b8da91bbdc8438ab77600fd0869b36669be286c12289115e18c181d5e2022322",
+    "sources/summon-v1-source.png": "fa76949911e56ae267e21a982af5dab8976a88b0cac86bef40cfecccff11260f"
+  },
+  "selected_assets": [
+    "public/pets/pace/summon-v1.webp",
+    "public/pets/pace/burrow-v1.webp"
+  ],
+  "review_files": [
+    "previews/native-160-cream.png",
+    "previews/native-160-dark.png",
+    "previews/summon-native-160-8fps.gif",
+    "previews/burrow-native-160-8fps.gif",
+    "qa-summary.json",
+    "audit.json"
+  ]
+}

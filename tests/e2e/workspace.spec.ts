@@ -53,10 +53,10 @@ async function fixtureBridge(page: Page, meetings: Meeting[] = []) {
   }, meetings);
 }
 
-test('browser preview opens meeting notes without inventing a transcript',async({page})=>{
+test('browser preview opens Pace’s habitat without inventing a conversation',async({page})=>{
   await page.goto('/');
-  await expect(page.locator('.meetings-page')).toBeVisible();
-  await expect(page.getByRole('button',{name:'Chat with Pace',exact:true})).toHaveCount(0);
+  await expect(page.locator('.pace-home')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Chat with Pace',exact:true})).toBeVisible();
   await expect(page.getByRole('textbox',{name:'Message Pace',exact:true})).toHaveCount(0);
   await expect(page.locator('.transcript-turn')).toHaveCount(0);
 });
@@ -80,7 +80,7 @@ test('old chat and writing routes open meeting records without general chat',asy
   await fixtureBridge(page);
   for(const route of ['chat','writing']) {
     await page.goto('/#'+route);
-    await expect(page.locator('.meetings-page')).toBeVisible();
+    await expect(page.locator(route === 'chat' ? '.pace-home' : '.meetings-page')).toBeVisible();
     await expect(page.getByRole('textbox',{name:'Message Pace'})).toHaveCount(0);
   }
 });

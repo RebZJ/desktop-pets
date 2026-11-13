@@ -7,6 +7,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Manager};
 
 async fn start(app: &AppHandle, state: &AppState, ui_epoch: u64) -> Result<Value, String> {
+    if state.voicechat.active() {
+        return Err("End voice chat before starting dictation.".into());
+    }
     state.speech_epoch.fetch_add(1, Ordering::SeqCst);
     let settings = state.db.settings()?;
     let language = settings["dictationLanguage"]
@@ -156,8 +159,8 @@ pub async fn toggle(app: AppHandle) -> Result<Value, String> {
 }
 
 async fn start_global(app: &AppHandle, state: &AppState) -> Result<Value, String> {
+    let _ = set_pet_visible(&app, true, true);
     let ui_epoch = state.ui_epoch.load(Ordering::SeqCst);
-    let _ = set_pet_visible(&app, true);
     emit(app, "dictation.state", json!({"phase":"starting"}));
     open_companion_for_request(app, "bubble", ui_epoch);
     match start(app, state, ui_epoch).await {

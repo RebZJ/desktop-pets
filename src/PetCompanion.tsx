@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { FileText, LoaderCircle, MessageCircle, Mic, Settings as SettingsIcon, Square } from 'lucide-react';
 import { api, errorText, isNative, subscribe, type AppState } from './api';
 import { Pace, playPetSound, usePetMood, validAction } from './Pace';
@@ -25,7 +25,7 @@ export function DesktopPet({ state }: { state: AppState }) {
   const down = useRef<{ x: number; y: number } | undefined>(undefined);
   const dragged = useRef(false);
   useEffect(() => { document.documentElement.classList.add('overlay-document'); return () => document.documentElement.classList.remove('overlay-document'); }, []);
-  useEffect(() => mood.setAction(validAction(state.pet.action)), [state.pet.action]);
+  useLayoutEffect(() => mood.setAction(validAction(state.pet.action)), [state.pet.action]);
   useEffect(() => {
     let dispose: (() => void) | undefined; let cancelled = false; let version = 0;
     void subscribe((event, data) => {
@@ -65,12 +65,13 @@ export function DesktopPet({ state }: { state: AppState }) {
     open('pet.action', { action });
   };
   const dictateHint = dictationPhase === 'recording' ? 'Stop dictation' : dictationPhase === 'transcribing' ? 'Transcribing…' : 'Type into your app';
+  const toolsVisible = controlsOpen && !hiding && !['summon', 'burrow'].includes(state.pet.action);
   const shortcutHint = (label: string, shortcut?: string) => shortcut ? `${label} · ${shortcut}` : label;
-  return <div ref={overlay} className={`pet-window companion-pet ${controlsOpen ? 'controls-open' : ''} ${hiding ? 'pet-hiding' : ''}`} onPointerEnter={revealControls} onPointerLeave={leaveControls} onFocus={event => { if (event.target.matches(':focus-visible')) revealControls(); }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) leaveControls(); }} onContextMenu={event => { event.preventDefault(); setMenu(!menu); }}>
+  return <div ref={overlay} className={`pet-window companion-pet ${toolsVisible ? 'controls-open' : ''} ${hiding || ['summon', 'burrow'].includes(state.pet.action) ? 'pet-transitioning' : ''} ${hiding && state.pet.action !== 'burrow' ? 'pet-hiding' : ''}`} onPointerEnter={revealControls} onPointerLeave={leaveControls} onFocus={event => { if (event.target.matches(':focus-visible')) revealControls(); }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) leaveControls(); }} onContextMenu={event => { event.preventDefault(); setMenu(!menu); }}>
     {(dictationPhase === 'recording' || dictationPhase === 'transcribing') && <span className="sr-only" role="status">{dictationPhase === 'recording' ? 'Listening…' : 'Catching words…'}</span>}
     {error && <p className="pet-error" role="alert">{error}{error.includes('Local models') && <button className="cloud-access" onClick={() => open('window.main', { page: 'models' })}>Open Local models</button>}</p>}
     {menu && <div className="pet-menu"><button onClick={() => open('window.chat')}><MessageCircle size={14} />Chat with Pace</button><button onClick={() => open('window.meeting')}><FileText size={14} />Meeting notes</button><button onClick={() => open('window.main', { page: 'settings', section: 'shortcuts' })}>Controls & look</button><button onClick={() => { mood.setAction('celebrate'); if (state.settings.soundEnabled && !state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status))) playPetSound('celebrate', state.settings.volume); open('pet.action', { action: 'celebrate' }); }}>A tiny victory!</button><button onClick={() => open('pet.toggle', { visible: false })}>Hide Pace</button></div>}
-    <button className="overlay-pet-button" aria-label="Pet Pace; drag to move; right-click for menu" aria-controls="pace-actions" aria-expanded={controlsOpen} onKeyDown={event => {
+    <button className="overlay-pet-button" aria-label="Pet Pace; drag to move; right-click for menu" aria-controls="pace-actions" aria-expanded={toolsVisible} disabled={hiding || ['summon', 'burrow'].includes(state.pet.action)} onKeyDown={event => {
       if (event.key !== 'ArrowUp' && event.key !== 'ArrowRight' && !(event.key === 'Tab' && !event.shiftKey)) return;
       event.preventDefault(); revealControls();
       requestAnimationFrame(() => overlay.current?.querySelector<HTMLButtonElement>('.pet-controls button:not(:disabled):not([hidden])')?.focus());

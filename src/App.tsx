@@ -7,25 +7,28 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { api, bytes, clockTime, errorText, initialState, isNative, normalizeSettings, normalizeState, subscribe, type AppState, type Extension, type LocalModel, type Meeting, type MemoryItem, type Settings } from './api';
-import { Pace, actions, playPetSound, stopPetSound, usePetMood, validAction, type PaceAction } from './Pace';
+import { Pace, actions, playPetSound, stopPetSound, setVoiceConversationActive, usePetMood, validAction, type PaceAction } from './Pace';
 import { DesktopPet } from './PetCompanion';
 import { DictationCloud } from './DictationCloud';
 import { Onboarding } from './Onboarding';
 import { ShortcutInput } from './ShortcutInput';
 import { MeetingCloud } from './MeetingCloud';
 import { ChatCloud } from './ChatCloud';
+import { PaceHome } from './PaceHome';
 
 const settingsSections = ['appearance', 'shortcuts', 'privacy'];
-type Page = 'meetings' | 'memory' | 'extensions' | 'models' | 'settings' | 'pace';
+type Page = 'home' | 'meetings' | 'memory' | 'extensions' | 'models' | 'settings' | 'pace';
 type RunningApp = { bundleId: string; name: string };
 function useRunningApps() { const [apps, setApps] = useState<RunningApp[]>([]); useEffect(() => { void api<RunningApp[] | { apps: RunningApp[] }>('apps.list').then(value => { const entries = Array.isArray(value) ? value : value.apps; setApps(Array.isArray(entries) ? entries.filter(app => !app.bundleId.startsWith('app.desktoppets')) : []); }).catch(() => {}); }, []); return apps; }
 
 type Run = <T>(key: string, operation: () => Promise<T>) => Promise<T | undefined>;
 type Shared = { state: AppState; refresh: () => Promise<void>; run: Run; busy: string | null; notify: (text: string) => void };
 const pages: Array<{ id: Page; label: string; icon: LucideIcon }> = [
+  { id: 'home', label: 'Pace’s place', icon: PawPrint },
   { id: 'meetings', label: 'Meeting notes', icon: AudioLines },
 ];
-const pageLabel: Record<Page, string> = { meetings: 'Meeting notes', memory: 'Memory', extensions: 'Extensions', models: 'Local models', settings: 'Settings', pace: 'Meet Pace' };
+const pageLabel: Record<Page, string> = { home: 'Pace’s place', meetings: 'Meeting notes', memory: 'Memory', extensions: 'Extensions', models: 'Local models', settings: 'Settings', pace: 'Meet Pace' };
+const pageFromHash = (value: string): Page => value === 'writing' ? 'meetings' : Object.hasOwn(pageLabel, value) ? value as Page : 'home';
 
 function Button({ children, onClick, kind = 'secondary', icon: Icon, loading = false, disabled = false, type = 'button', title, form, className = '' }: { children?: ReactNode; onClick?: () => void; kind?: 'primary' | 'secondary' | 'quiet' | 'danger'; icon?: LucideIcon; loading?: boolean; disabled?: boolean; type?: 'button' | 'submit'; title?: string; form?: string; className?: string }) {
   return <button type={type} form={form} className={`button ${kind} ${className}`} onClick={onClick} disabled={disabled || loading} title={title}>{loading ? <LoaderCircle size={16} className="spin" /> : Icon ? <Icon size={16} /> : null}{children}</button>;
@@ -38,7 +41,7 @@ function SettingRow({ title, description, children }: { title: string; descripti
 function Intro({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) { return <div className="page-intro"><div><h1>{title}</h1><p>{children}</p></div>{action}</div>; }
 export function App() {
   const [state, setState] = useState(initialState);
-  const [page, setPage] = useState<Page>(() => { const value = location.hash.slice(1); return Object.hasOwn(pageLabel, value) ? value as Page : 'meetings'; });
+  const [page, setPage] = useState<Page>(() => pageFromHash(location.hash.slice(1)));
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
@@ -68,7 +71,7 @@ export function App() {
         const { page: next, section: target, meetingId } = data as { page?: string; section?: string; meetingId?: string };
         if (meetingId) sessionStorage.setItem('pace.selected-meeting', meetingId);
         if (next === 'settings' && target && settingsSections.includes(target)) setSection({ id: target });
-        if (next && Object.hasOwn(pageLabel, next)) { setPage(next as Page); history.replaceState(null, '', `${location.pathname}${location.search}#${next}`); }
+        if (next) { setPage(pageFromHash(next)); history.replaceState(null, '', `${location.pathname}${location.search}#${next}`); }
       } else if (event === 'pet.action') {
         const action = typeof data === 'string' ? data : (data as { action?: string })?.action;
         if (action) setState(current => ({ ...current, pet: { ...current.pet, action } }));
@@ -82,6 +85,8 @@ export function App() {
       } else if (event === 'meeting.updated' && data && typeof data === 'object' && 'id' in data) {
         const meeting = data as Meeting;
         setState(current => ({ ...current, meetings: [meeting, ...current.meetings.filter(item => item.id !== meeting.id)] }));
+      } else if (event === 'voicechat.state' && data && typeof data === 'object') {
+        setVoiceConversationActive(Boolean((data as { active?: boolean }).active));
       } else if (event === 'voice.error' && data && typeof data === 'object') {
         setError((data as { message?: string }).message || 'Pace’s voice could not play. Check the voice model in Local models.');
       } else if (event === 'export.finished' && data && typeof data === 'object') {
@@ -93,7 +98,7 @@ export function App() {
   }, [refresh]);
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 5000); return () => clearTimeout(timer); }, [toast]);
   const navigate = (next: Page) => { setPage(next); setError(''); history.replaceState(null, '', `${location.pathname}${location.search}#${next}`); };
-  useEffect(() => { const changed = () => { const next = location.hash.slice(1); if (Object.hasOwn(pageLabel, next)) setPage(next as Page); }; window.addEventListener('hashchange', changed); return () => window.removeEventListener('hashchange', changed); }, []);
+  useEffect(() => { const changed = () => setPage(pageFromHash(location.hash.slice(1))); window.addEventListener('hashchange', changed); return () => window.removeEventListener('hashchange', changed); }, []);
   const shared: Shared = { state, refresh, run, busy, notify };
   useEffect(() => { if (!state.settings.soundEnabled || state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status))) stopPetSound(); }, [state.settings.soundEnabled, state.meetings]);
 
@@ -104,11 +109,11 @@ export function App() {
 
   if (loaded && (replayingOnboarding || !state.settings.onboardingCompleted)) return <Onboarding state={state} refresh={refresh}
     onSettings={settings => setState(current => ({ ...current, settings }))}
-    onComplete={settings => { setState(current => ({ ...current, settings })); setReplayingOnboarding(false); navigate(replayingOnboarding ? 'settings' : 'meetings'); }} />;
+    onComplete={settings => { setState(current => ({ ...current, settings })); setReplayingOnboarding(false); navigate(replayingOnboarding ? 'settings' : 'home'); }} />;
 
   return <div className="app-shell">
     <aside className="sidebar">
-      <a className="brand" href="#meetings" aria-label="Desktop Pets home" onClick={event => { event.preventDefault(); navigate('meetings'); }}><span className="brand-icon"><PawPrint size={22} strokeWidth={2.3} /></span><span>desktop pets<span className="brand-period">.</span></span></a>
+      <a className="brand" href="#home" aria-label="Desktop Pets home" onClick={event => { event.preventDefault(); navigate('home'); }}><span className="brand-icon"><PawPrint size={22} strokeWidth={2.3} /></span><span>desktop pets<span className="brand-period">.</span></span></a>
       <div className="workspace-caption"><span>PACE’S PLACE</span><span className="pixel-dots" aria-hidden="true"><i /><i /><i /></span></div>
       <nav aria-label="Main navigation">{pages.map(({ id, label, icon: Icon }) => <button key={id} aria-label={label} title={label} className={`nav-item ${page === id ? 'active' : ''}`} onClick={() => navigate(id)}><Icon size={18} /><span>{label}</span>{page === id && <span className="nav-active-dot" />}{id === 'meetings' && state.meetings.some(meeting => meeting.status === 'recording') && <span className="recording-dot" />}</button>)}</nav>
       <div className="sidebar-bottom">
@@ -122,7 +127,7 @@ export function App() {
       <header className="topbar"><span className="breadcrumb">Desktop Pets <ChevronRight size={13} /><strong>{pageLabel[page]}</strong></span><div className="topbar-right">{!isNative() && <span className="preview-label">Browser preview</span>}<button className="icon-button" aria-label={state.pet.visible ? 'Hide desktop pet' : 'Show desktop pet'} onClick={() => void run('pet.toggle', async () => { await api('pet.toggle'); await refresh(); })}>{state.pet.visible ? <Eye size={17} /> : <EyeOff size={17} />}</button></div></header>
       <main className="main-content">
         {error && <div className="error-banner" role="alert"><CircleHelp size={18} /><span>{error}</span><button className="icon-button" onClick={() => setError('')} aria-label="Dismiss error"><X size={15} /></button></div>}
-        {loading ? <div className="page-loading" aria-label="Loading workspace"><div /><div /><div /></div> : page === 'meetings' ? <Meetings {...shared} /> : page === 'memory' ? <Memory {...shared} /> : page === 'models' ? <Models {...shared} /> : page === 'extensions' ? <Extensions {...shared} /> : page === 'settings' ? <SettingsPage {...shared} onReplay={() => setReplayingOnboarding(true)} /> : <PaceGallery {...shared} />}
+        {loading ? <div className="page-loading" aria-label="Loading workspace"><div /><div /><div /></div> : page === 'home' ? <PaceHome state={state} busy={Boolean(busy)} onAction={async (method, params = {}) => { await run(method, async () => { await api(method, params); if (method.startsWith('pet.')) await refresh(); }); }} /> : page === 'meetings' ? <Meetings {...shared} /> : page === 'memory' ? <Memory {...shared} /> : page === 'models' ? <Models {...shared} /> : page === 'extensions' ? <Extensions {...shared} /> : page === 'settings' ? <SettingsPage {...shared} onReplay={() => setReplayingOnboarding(true)} /> : <PaceGallery {...shared} />}
       </main>
       <footer className="app-footer"><span><span className="status-dot" />{isNative() ? 'On your device. In your corner.' : 'Desktop features run in the native app.'}</span><span className="footer-note">A home for your little helper.</span></footer>
     </div>
@@ -285,7 +290,7 @@ function Permissions({ run, busy }: Pick<Shared, 'run' | 'busy'>) {
 function PaceGallery({ state, run, refresh, busy }: Shared) {
   const mood = usePetMood('wave'); const [paused, setPaused] = useState(false);
   const choose = (action: PaceAction) => { mood.setAction(action); if (state.settings.soundEnabled && !state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status))) playPetSound(action, state.settings.volume, state.packs.find(pack => pack.id === state.settings.activePack)); void run('pet.action', async () => { await api('pet.action', { action }); await refresh(); }); };
-  return <div className="page-width pace-gallery"><Intro title="Your very own little Pace.">A curious cheetah. A red headband. Fifteen ways to brighten your desktop.</Intro><div className="pet-playground"><div className="pet-scene"><button className="pet-stage-button" onClick={() => { const next = mood.pet(); if (state.settings.soundEnabled && !state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status))) playPetSound(next, state.settings.volume, state.packs.find(pack => pack.id === state.settings.activePack)); }} aria-label="Pet Pace"><Pace action={mood.action} paused={paused} size={290} label={`Pace: ${actions[mood.action].label}`} /></button><span className="pet-floor" /></div><div className="pet-scene-caption"><span><span className="status-dot on" />{actions[mood.action].label}</span><span>Give Pace a little pat.</span><button className="text-button" onClick={() => setPaused(!paused)}>{paused ? 'Resume motion' : 'Pause motion'}</button></div></div><div className="action-selector" aria-label="Sprite actions">{Object.entries(actions).map(([id, config]) => <button key={id} className={mood.action === id ? 'selected' : ''} onClick={() => choose(id as PaceAction)} disabled={Boolean(busy)}>{config.label}</button>)}</div><div className="gallery-details"><div><strong>Original pixel poses</strong><p>The same Pace you know. Twelve original actions, plus talking, listening and a big dictation ear.</p></div><Button icon={state.pet.visible ? EyeOff : Eye} onClick={() => void run('pet.toggle', async () => { await api('pet.toggle'); await refresh(); })}>{state.pet.visible ? 'Hide desktop pet' : 'Show desktop pet'}</Button></div></div>;
+  return <div className="page-width pace-gallery"><Intro title="Your very own little Pace.">A curious cheetah. A red headband. Eighteen ways to brighten your desktop.</Intro><div className="pet-playground"><div className="pet-scene"><button className="pet-stage-button" onClick={() => { const next = mood.pet(); if (state.settings.soundEnabled && !state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status))) playPetSound(next, state.settings.volume, state.packs.find(pack => pack.id === state.settings.activePack)); }} aria-label="Pet Pace"><Pace action={mood.action} paused={paused} size={290} label={`Pace: ${actions[mood.action].label}`} /></button><span className="pet-floor" /></div><div className="pet-scene-caption"><span><span className="status-dot on" />{actions[mood.action].label}</span><span>Give Pace a little pat.</span><button className="text-button" onClick={() => setPaused(!paused)}>{paused ? 'Resume motion' : 'Pause motion'}</button></div></div><div className="action-selector" aria-label="Sprite actions">{Object.entries(actions).map(([id, config]) => <button key={id} className={mood.action === id ? 'selected' : ''} onClick={() => choose(id as PaceAction)} disabled={Boolean(busy)}>{config.label}</button>)}</div><div className="gallery-details"><div><strong>Original pixel poses</strong><p>The same Pace you know. Twelve original actions, plus talking, listening and a big dictation ear.</p></div><Button icon={state.pet.visible ? EyeOff : Eye} onClick={() => void run('pet.toggle', async () => { await api('pet.toggle'); await refresh(); })}>{state.pet.visible ? 'Hide desktop pet' : 'Show desktop pet'}</Button></div></div>;
 }
 
 function PetWindow({ state }: Shared) { return <DesktopPet state={state} />; }

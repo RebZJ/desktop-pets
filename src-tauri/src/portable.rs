@@ -101,7 +101,7 @@ impl PortableManager {
             "models.status" => Ok(self.status(&root).await),
             "runtime.status" => Ok(json!({"busy": self.generation.try_lock().is_err(),
                 "textLoaded": self.server.lock().await.as_mut().is_some_and(|s| matches!(s.child.try_wait(), Ok(None))),
-                "voiceLoaded":false,"backend":"llama.cpp · local CPU/Metal","offline":true,
+                "voiceLoaded":app.state::<crate::AppState>().native.voice.is_loaded(),"backend":"llama.cpp · Kitten ONNX · local CPU/Metal","offline":true,
                 "dataDirectory":app.state::<crate::AppState>().data_dir,"whisperAvailable":binary_path(app,"whisper-cli").is_ok()})),
             "runtime.cancel" => {
                 let target = params["id"].as_str().or_else(|| params["requestId"].as_str());
@@ -834,7 +834,7 @@ mod tests {
     #[test]
     fn manifest_is_pinned_and_cannot_escape_model_directory() {
         let models = catalog();
-        assert_eq!(models.len(), 7);
+        assert_eq!(models.len(), 8);
         for model in models {
             assert_eq!(model.revision.len(), 40);
             for file in model.files {

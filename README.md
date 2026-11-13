@@ -1,8 +1,10 @@
 # Desktop Pets
 
-**Pace is a pixel companion for local dictation, speaker-labeled meeting notes a meeting copilot, and quick chats.**
+**Pace is a pixel companion for local voice conversations, dictation and speaker-labeled meeting notes.**
 
-Hover Pace to open Dictate, Chat, Meeting or Settings. Recording starts only after an explicit action. The meeting copilot answers from the selected meeting's transcript; it has no general tool access. Chat opens only when requested. Voice replies, writing and cursor autocomplete remain paused. Existing saved records, models and preferences are preserved.
+Home opens to Pace’s campsite, with Chat, Dictate, Meeting notes and summon/send-home controls. A persistent little chat icon also sits above the desktop pet; hover or focus reveals the other tools. Chat opens an explicit 300×220 speech bubble. Type freely, or choose **Start voice conversation** once for automatic local listening, thinking and spoken replies. Opening a window never records. Writing and cursor autocomplete remain deferred; saved records, models and preferences are preserved.
+
+Voice uses English ASR, the local Qwen text model and Kitten’s Kiki voice by default. It is half duplex: the microphone is released while Pace transcribes, thinks and speaks, then listening resumes automatically. Pace cannot hear interruptions during a reply. **End**, close and hide stop the voice session. The meeting copilot stays grounded in the selected transcript and has no general tool access.
 
 This source uses a portable **Tauri 2 + React + Rust** application. Rust owns microphone capture, buffering, speech recognition, model management and text inference. Windows/Linux system audio uses CPAL; macOS system audio uses a small ScreenCaptureKit adapter because the CPAL process tap stalled in live testing. The same macOS adapter handles accessibility insertion. Local runtimes are bundled; the adapter contains no MLX inference.
 
@@ -16,7 +18,7 @@ This source uses a portable **Tauri 2 + React + Rust** application. Rust owns mi
 
 Windows ARM64 is excluded by the pinned Moonshine runtime's available ONNX binaries. Meeting setup offers microphone and **all system audio** consistently across platforms. Linux ARM64 is a source target without a CI/hardware result here. Desktop shortcuts and audio routing still need checks on the intended desktop/device, especially Wayland.
 
-Capture exclusion is best effort and is never universal. Quick Hide hides Pace's windows; hiding a meeting cloud does not stop its recording. Review the selected audio source before starting a meeting. Speaker labels describe who spoke when; they do not identify real people automatically.
+Capture exclusion is best effort and is never universal. Normal summon/send-home plays an eight-frame, 8fps pop-out/burrow action over one second. Quick Hide hides Pace’s windows immediately and ends voice chat; hiding a meeting cloud does not stop its recording. Review the selected audio source before starting a meeting. Speaker labels describe who spoke when; they do not identify real people automatically.
 
 ## Run from source
 
@@ -34,10 +36,11 @@ Install only the needed models through **Local models**. Nothing downloads on la
 
 | Model | Active job | Download |
 | --- | --- | --- |
-| Moonshine Tiny EN/ZH/JA/ES | Fast dictation in the selected language | 45.4 MB English; about 32 MB each other language |
+| Moonshine Tiny EN/ZH/JA/ES | Dictation; English voice turns use Tiny EN | 45.4 MB English; about 32 MB each other language |
 | Whisper large-v3-turbo Q5 + Silero VAD | Meeting transcription and Auto dictation | 574.9 MB |
 | Nemotron 3 Diarization Q8 | Anonymous speaker labels | 107.0 MB |
-| Qwen3.5 4B GGUF Q4_K_M | Meeting notes and transcript-grounded questions | 3.03 GB |
+| Qwen3.5 4B GGUF Q4_K_M | Chat, meeting notes and transcript-grounded questions | 3.03 GB |
+| Kitten TTS Micro 0.8 ONNX | English voice conversations; Kiki by default | 44.7 MB |
 
 Dictation does not require Qwen. The app starts its authenticated loopback llama.cpp child when generation needs it and stops it on cancellation/shutdown. Packaged users need no Python, Ollama, external model server, account or cloud inference service. Download size is separate from working memory; the development Mac has 16 GB.
 
@@ -47,7 +50,8 @@ Dictation does not require Qwen. The app starts its authenticated loopback llama
 
 - Tap the configured dictation shortcut to start/stop, or hold it and release to finish. Open Dictate to use the widget controls. Stop to review the transcript. Successful target insertion rechecks the captured field; Copy remains the recovery path. A failed recognition keeps saved audio for retry when available. A retry never silently inserts into an old target.
 - Start a meeting with the selected microphone/system source. Live words, quiet suggestions and the meeting question field share one cloud. Stop recording before final notes are generated. Full records hold editable notes, action items and exports.
-- Open Settings to choose language, dictation vocabulary, shortcuts, models and appearance. Previous chat/draft/settings data remains saved; paused capabilities are not re-enabled by this update.
+- Open Chat with Pace from Home or the little desktop chat icon. Start voice once to keep talking across turns; End stops it. Typing works without microphone access and preserves unsent drafts. Missing voice models offer Open Local models.
+- Open Settings to choose language, dictation vocabulary, shortcuts, models and appearance. Existing chat/draft/settings data remains saved. Writing and cursor autocomplete stay deferred.
 
 | Default action | Shortcut |
 | --- | --- |
@@ -72,6 +76,6 @@ npm run tauri -- build
 
 The Tauri packaging command builds the native runtimes and chooses the host's installer targets. Model weights are excluded. Signing, notarization and release publication are separate; there is no claim of a newly verified public installer.
 
-See [the compact interface update and research](docs/companion-ux-2026-11-14.md), [portable implementation and validation](docs/portable-native-validation-2026-11-14.md), [model selection](docs/model-selection.md), and [native architecture/builds](native/README.md). The historical [Swift validation](docs/native-validation.md) and [60-minute soak](docs/soak-validation.md) describe earlier implementations and do not establish the portable runtime's device behavior.
+See [Pace’s habitat and sprite provenance](docs/pace-habitat-2026-11-14.md), [portable voice validation](docs/portable-voice-validation-2026-11-14.md), [the compact interface update and research](docs/companion-ux-2026-11-14.md), [portable implementation and validation](docs/portable-native-validation-2026-11-14.md), [model selection](docs/model-selection.md), and [native architecture/builds](native/README.md). The historical [Swift validation](docs/native-validation.md) and [60-minute soak](docs/soak-validation.md) describe earlier implementations and do not establish the portable runtime's device behavior.
 
 Code is **MIT**. Original Pace artwork is **CC BY 4.0**, credited to Outpaced / Desktop Pets. Model/runtime licenses remain separate; see [NOTICE](NOTICE.md). [Pet pack format](docs/pet-packs.md) and [contributing](CONTRIBUTING.md) remain available.

@@ -15,3 +15,5 @@ Credit Outpaced / Desktop Pets, CC BY 4.0. See docs/sprite-quality-2026-11-13.md
 generated with Imagegen, then encoded with the original 16-colour palette,
 binary alpha and 2× logical pixel grid. Original twelve actions unchanged.
 See docs/sprite-refinement-2026-11-13.md for sources, normalization and review.
+
+2026-11-14: Added summon-v1 and burrow-v1 ground-hole transitions, generated with built-in image generation from the canonical Pace identity. Summon final frame and burrow first frame reuse original idle. Preparation preserves the canonical palette/grid; generated intermediate poses remain derivative artwork. Source/provenance: artifacts/pace-holes-v1/.

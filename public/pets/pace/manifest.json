@@ -3,7 +3,7 @@
   "id": "pace",
   "name": "Pace",
   "license": "CC-BY-4.0",
-  "attribution": "Outpaced / Desktop Pets. Twelve original Velo mascot actions; four generated companion derivatives refined to the original palette and grid, 2026-11-13.",
+  "attribution": "Outpaced / Desktop Pets. Twelve original Velo mascot actions; four generated companion derivatives refined to the original palette and grid, 2026-11-13. Two generated hole transition derivatives, 2026-11-14.",
   "actions": [
     {
       "id": "idle",
@@ -128,6 +128,22 @@
     {
       "id": "hush",
       "src": "hush-v2.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 8
+    },
+    {
+      "id": "summon",
+      "src": "summon-v1.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 8
+    },
+    {
+      "id": "burrow",
+      "src": "burrow-v1.webp",
       "frameWidth": 256,
       "frameHeight": 256,
       "frameCount": 8,

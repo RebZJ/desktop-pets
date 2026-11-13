@@ -160,6 +160,11 @@ impl Engine {
         params: Value,
     ) -> Result<Value, String> {
         let _gate = self.capture_gate.lock().await;
+        if matches!(method, "audio.start" | "meeting.start")
+            && app.state::<AppState>().voicechat.active()
+        {
+            return Err("End voice chat before starting dictation or a meeting.".into());
+        }
         if self.uses_native_capture() {
             match method {
                 "meeting.status" => {
@@ -181,7 +186,7 @@ impl Engine {
                     }
                     return result;
                 }
-                "audio.start" | "meeting.start" => {
+                "audio.start" | "meeting.start" | "voicechat.capture.start" => {
                     return Err("A meeting is already recording.".into())
                 }
                 _ => {}
@@ -219,6 +224,8 @@ impl Engine {
         let result = tauri::async_runtime::spawn_blocking(move || match operation.as_str() {
             "audio.start" => capture.start_dictation(directory),
             "audio.stop" => capture.stop_dictation(),
+            "voicechat.capture.start" => capture.start_voice(directory.join("voicechat")),
+            "voicechat.capture.stop" => capture.stop_voice(),
             "meeting.start" => capture.start_meeting(directory, portable_params),
             "meeting.stop" => capture.stop_meeting(),
             "meeting.status" => capture.status(),
