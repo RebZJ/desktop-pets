@@ -1896,9 +1896,8 @@ async fn finalize_meeting_inner(
             for segment in &mut segments {
                 let start = segment["start"].as_f64().unwrap_or(0.0) - offset;
                 let end = segment["end"].as_f64().unwrap_or(start) - offset;
-                if let Some(best) = labels
-                    .iter()
-                    .max_by(|a, b| overlap(start, end, a).total_cmp(&overlap(start, end, b)))
+                if let Some(best) =
+                    speaker_label(labels, start, end, transcript["granularity"] == "word")
                 {
                     if overlap(start, end, best) > 0.0 {
                         segment["speakerId"] =
@@ -1929,6 +1928,22 @@ async fn finalize_meeting_inner(
         delete_recordings(state, &result);
     }
     Ok(result)
+}
+
+fn speaker_label(labels: &[Value], start: f64, end: f64, word: bool) -> Option<&Value> {
+    // DTW word ends can span a pause into the next voice; a labelled onset belongs to its speaker.
+    if word {
+        if let Some(label) = labels.iter().find(|label| {
+            label["start"].as_f64().is_some_and(|s| s <= start)
+                && label["end"].as_f64().is_some_and(|e| start < e)
+        }) {
+            return Some(label);
+        }
+    }
+    labels
+        .iter()
+        .filter(|label| overlap(start, end, label) > 0.0)
+        .max_by(|a, b| overlap(start, end, a).total_cmp(&overlap(start, end, b)))
 }
 
 fn overlap(start: f64, end: f64, label: &Value) -> f64 {
@@ -2188,6 +2203,26 @@ mod tests {
         assert_eq!(merged.len(), 2);
         assert_eq!(merged[0]["text"], "Hello world");
         assert_eq!(merged[1]["text"], "你好世界");
+    }
+    #[test]
+    fn word_onsets_keep_the_last_word_with_its_speaker_across_a_pause() {
+        let labels = vec![
+            json!({"start":0.0,"end":8.999,"speaker":1}),
+            json!({"start":9.131,"end":19.319,"speaker":2}),
+        ];
+        assert_eq!(
+            speaker_label(&labels, 8.74, 9.66, true).unwrap()["speaker"],
+            1
+        );
+        assert_eq!(
+            speaker_label(&labels, 9.66, 9.88, true).unwrap()["speaker"],
+            2
+        );
+        assert_eq!(
+            speaker_label(&labels, 8.74, 9.66, false).unwrap()["speaker"],
+            2
+        );
+        assert!(speaker_label(&labels, 20.0, 21.0, true).is_none());
     }
     #[test]
     fn speaker_alignment_uses_overlap() {
