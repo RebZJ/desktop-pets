@@ -13,10 +13,10 @@
     "desktop": "tauri dev",
     "native:build": "node native/scripts/build-native.mjs",
     "native:diarization": "node native/scripts/build-native.mjs --diarization",
-    "native:test": "bash native/scripts/bootstrap-moonshine.sh && bash native/scripts/patch-mlx-audio.sh && swift test --package-path native/PaceNative -c release -j 6 && bash native/scripts/test-bridge.sh",
-    "native:test:inference": "python3 native/scripts/test-inference.py",
+    "native:test": "npm run test:rust",
+    "native:test:inference": "cargo test --manifest-path src-tauri/Cargo.toml portable::tests::actual_portable_qwen_answers_from_supplied_meeting_source --lib -- --ignored",
     "test": "playwright test",
-    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked",
     "check": "npm run build && npm run test:rust && npm test"
   },
   "dependencies": {

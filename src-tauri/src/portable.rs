@@ -855,7 +855,13 @@ mod tests {
         let root = std::env::var_os("PACE_MODELS_DIR")
             .map(PathBuf::from)
             .expect("PACE_MODELS_DIR");
-        let binary = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../native/bin/llama-server");
+        let binary = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../native/bin")
+            .join(if cfg!(windows) {
+                "llama-server.exe"
+            } else {
+                "llama-server"
+            });
         let manager = PortableManager::default();
         let params = json!({"messages":[{"role":"system","content":"Answer only from the supplied meeting transcript. Be concise. Do not invent a deadline."},{"role":"user","content":"Meeting transcript: Amina: I will prepare release notes by Friday. Jules: I will write a tutorial; no deadline has been agreed. Question: Who owns release notes and when are they due?"}],"maxTokens":100,"precise":true});
         let result = manager

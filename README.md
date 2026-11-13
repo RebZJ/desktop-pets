@@ -65,6 +65,7 @@ Data stays in the app's local Desktop Pets directory, including SQLite, installe
 npm run build
 npm test
 npm run test:rust
+# macOS adapter tests (no live capture): bash native/scripts/test-bridge.sh
 python3 native/scripts/build-portable-speech.py --self-test
 npm run tauri -- build
 ```

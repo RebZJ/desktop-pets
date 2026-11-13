@@ -111,6 +111,9 @@ async fn serve(socket: TcpStream, app: AppHandle, token: &str) -> Result<(), Str
                         state.db.put("meeting", id, &params).map(|_| params)
                     }
                     "_test.audio.chunk" => crate::process_chunk(&app, &params).await,
+                    "_test.dictation.capture" | "_test.dictation.insert" => {
+                        app.state::<AppState>().native.request(&app, method.trim_start_matches("_test."), params).await
+                    }
                     "_test.worker.crash" => {
                         app.state::<AppState>().native.stop().await;
                         Ok(json!({"stopped":true}))

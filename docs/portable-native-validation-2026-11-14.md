@@ -29,6 +29,14 @@ The fixture host observed warm tiny decoding in 0.412 seconds, meeting recovery/
 
 The source-pinned native runtimes built and smoke-tested on **macOS ARM64, Windows x64 and Linux x64** in [CI for 4e13fa9](https://github.com/RebZJ/desktop-pets/actions/runs/43441659009). That run passed interface 71 tests, Mac/Linux 81 Rust tests each and Windows 79 (platform-gated tests differ), followed by Whisper/VAD, NeMo, Moonshine ABI 30000 and llama.cpp executable checks. Later application fixes have their current local checks above and a fresh CI run; do not treat the earlier run as the latest-head result. The next run also corrected an Xcode 16.4 test-harness framework lookup and disabled the unused llama web-UI download, keeping that build input source-pinned.
 
+## Actual external insertion check
+
+A temporary signed debug host used the same installed app identity with an isolated temporary data directory. The known public 8.6-second speech clip was decoded by `moonshine-tiny-en` (612 ms in the observed run), then passed unchanged to the actual native insertion service. Capture identified only the disposable `Pace Synthetic Cursor Fixture`; the app, field, text and caret were rechecked before writing. Native insertion took 14 ms. Both the fixture's state and a read-only CUA observation confirmed its original prefix followed by the complete ASR text, inserted once at the intended caret. The clipboard and user documents were not used.
+
+The manual driver is `scripts/test-dictation-insertion.mjs`; its two bridge routes exist only in the already token-protected debug test host, excluded from release builds. It aborts on any unexpected target/focus/text, uses a pinned fixture hash and never retries insertion automatically. An earlier attempt safely aborted while opening a test clip from the protected project directory; the successful run staged that clip and profile in temporary storage without asking for Documents access.
+
+Evidence: `artifacts/runtime/dictation-insertion-c3d7bf61-e761-40ad-abe4-79d2e133d831/results.json` and `dictation-insertion-temp-e2e.log`. This verifies Mac AppKit insertion; browser/custom controls and Windows/Linux typing are not established by this check.
+
 ## Bugs covered by the changes
 
 - Recording starts before model warming. Accessibility lookup has a bounded wait and cannot delay opening the microphone. An unsupported target keeps a Copy draft.
@@ -50,9 +58,11 @@ This follows Apple's explanation that authorization retains the original signing
 ## Limits
 
 - Live Windows/Linux capture, model-backed inference on those hosts, native installers and permission/revocation/device-change scenarios have not been exercised here. Build/smoke success is separate from hardware support.
-- Windows direct insertion supports verified native Edit/RichEdit controls; custom/browser fields use Copy. Linux uses Copy. Physical global-shortcut delivery and actual cross-app text insertion remain unverified by CUA.
+- Windows direct insertion supports verified native Edit/RichEdit controls; custom/browser fields use Copy. Linux uses Copy. Physical global-shortcut delivery remains unverified by CUA. Actual Mac native-field insertion was verified separately below.
 - Windows ARM64 is excluded by the pinned Moonshine ONNX binaries. Linux ARM64 is a source target without a CI/hardware result here. Linux requires PipeWire >=0.3.53; CI uses Ubuntu 24.04.
 - Scoped Chrome capture produced zero samples during the controlled browser tests; its cause was not established. It is no longer offered in the UI. The successful live baseline used all-system capture and the native player; the downmix fix has separate actual-callback regression coverage.
 - Capture exclusion is best effort across OSes and sharing apps. This capture tool omitted protected app screenshots, but that does not guarantee invisibility everywhere. Quick Hide remains available.
+
+The exact release-source CI run [ccbee19](https://github.com/RebZJ/desktop-pets/actions/runs/43452456444) subsequently passed interface 72, Rust Mac/Linux 86 and Windows 84 (four model tests ignored per OS), all three source-built native runtime/smoke suites, and all 16 Mac bridge regressions on Xcode 16.4. No physical Windows/Linux devices or installers were exercised.
 
 Evidence is private/ignored under `artifacts/runtime/`: `portable-features-ac692130-1e90-4024-9fed-dbdc6b17ab77/results.json`, `portable-native-smoke/native-smoke-report.md`, `integrated-portable-rust.log`, `stereo-fixed-native-tests.log`, `listening-final-{chromium,webkit}.log`, packaging logs and `ci-4e13fa9-*` logs. No private microphone transcript is reproduced in this report.
