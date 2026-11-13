@@ -1,5 +1,7 @@
 # Portable listening validation — 14 November 2026
 
+This records the earlier portable-listening baseline. The subsequent [compact interface and recovery update](companion-ux-2026-11-14.md) adds explicit text chat and replaces the large tool clouds; its checks and remaining verification are recorded separately.
+
 Pace has three active jobs: explicit dictation, speaker-labeled meeting notes and a transcript-grounded copilot. General chat, persona voice, writing and cursor autocomplete are paused. Existing user data, models and preferences remain intact.
 
 ## Architecture

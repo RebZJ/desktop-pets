@@ -24,3 +24,9 @@ All four tracks in the two preserved interrupted user recordings were exact digi
 Blank transcripts can no longer become completed notes. Summary errors persist interrupted/recoverable state. Speech recognized before a later diarization/track failure is saved, with the original audio retained. Synthetic real-host regression tests verify these boundaries.
 
 Existing user records, models, voice selection and custom shortcuts are preserved. UI screenshots are explicitly synthetic fixtures; native capture and model results are recorded separately in private runtime evidence. Build success does not establish live Windows/Linux hardware behavior, and screen-share cover remains best effort.
+
+## Verification record
+
+The compact interface passed all 82 tests in Chromium and all 82 in WebKit. The integrated listening changes passed 92 Rust tests and 17 native adapter tests, plus actual Whisper/NeMo synthetic recognition and isolated real-host recovery checks. The final model-readiness fix keeps the generation budget unchanged, bounds each health request to 2 seconds and total startup to 90 seconds, and kills failed owned children. Its 250ms deadline regression passed; all targets compile.
+
+Final positive HTTP retry and actual installed chat/capture verification remain pending: the Mac locked during native checks, and localhost HTTP payloads stalled independently in both Rust and a Python/curl probe. The isolated general-chat fixture produced no verified answer and was stopped; its result is not counted as a model pass. No OS/network/security settings were changed to work around this. The signed local package was rebuilt with the timeout fix. Cross-platform CI was started separately; no latest-head green claim is made without its result.

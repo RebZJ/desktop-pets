@@ -584,29 +584,48 @@ impl Server {
             .kill_on_drop(true)
             .spawn()
             .map_err(|e| format!("Could not start the bundled local text engine: {e}"))?;
-        for _ in 0..600 {
-            if child.try_wait().map_err(|e| e.to_string())?.is_some() {
-                return Err("The local text engine could not load the model. Reinstall Qwen from Local models or rebuild the runtime.".into());
+        let ready = tokio::select! {
+            _ = child.wait() => Err("The local text engine could not load the model. Reinstall Qwen from Local models or rebuild the runtime.".to_owned()),
+            ready = wait_for_health(&client, &endpoint, &key, Duration::from_secs(90)) => {
+                if ready { Ok(()) } else { Err("The local text model was not ready within 90 seconds. Retry after closing other large applications.".to_owned()) }
             }
+        };
+        if let Err(error) = ready {
+            let _ = child.kill().await;
+            return Err(error);
+        }
+        Ok(Self {
+            child,
+            endpoint,
+            key,
+            client,
+        })
+    }
+}
+
+async fn wait_for_health(
+    client: &reqwest::Client,
+    endpoint: &str,
+    key: &str,
+    timeout: Duration,
+) -> bool {
+    tokio::time::timeout(timeout, async {
+        loop {
             if client
                 .get(format!("{endpoint}/health"))
-                .bearer_auth(&key)
+                .bearer_auth(key)
+                .timeout(Duration::from_secs(2))
                 .send()
                 .await
-                .is_ok_and(|r| r.status().is_success())
+                .is_ok_and(|response| response.status().is_success())
             {
-                return Ok(Self {
-                    child,
-                    endpoint,
-                    key,
-                    client,
-                });
+                return;
             }
             tokio::time::sleep(Duration::from_millis(200)).await;
         }
-        let _ = child.kill().await;
-        Err("Loading the local text model took too long. Retry after closing other large applications.".into())
-    }
+    })
+    .await
+    .is_ok()
 }
 
 async fn local_json(
@@ -706,6 +725,71 @@ async fn read_sse(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn health_startup_deadline_includes_stalled_requests() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (_peer, _) = listener.accept().await.unwrap();
+            std::future::pending::<()>().await;
+        });
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(Duration::from_secs(900))
+            .build()
+            .unwrap();
+        let started = std::time::Instant::now();
+        assert!(
+            !wait_for_health(
+                &client,
+                &format!("http://{address}"),
+                "fixture-key",
+                Duration::from_millis(250)
+            )
+            .await
+        );
+        assert!(started.elapsed() < Duration::from_secs(1));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn health_request_timeout_retries_without_the_generation_timeout() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (_stalled, _) = listener.accept().await.unwrap();
+            let (mut peer, _) = listener.accept().await.unwrap();
+            use tokio::io::AsyncReadExt;
+            let mut request = [0; 4096];
+            let count = peer.read(&mut request).await.unwrap();
+            let request = std::str::from_utf8(&request[..count])
+                .unwrap()
+                .to_ascii_lowercase();
+            assert!(request.starts_with("get /health "));
+            assert!(request.contains("authorization: bearer fixture-key"));
+            peer.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                .await
+                .unwrap();
+        });
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(Duration::from_secs(900))
+            .build()
+            .unwrap();
+        let started = std::time::Instant::now();
+        assert!(
+            wait_for_health(
+                &client,
+                &format!("http://{address}"),
+                "fixture-key",
+                Duration::from_secs(4)
+            )
+            .await
+        );
+        assert!(started.elapsed() >= Duration::from_secs(2));
+        server.await.unwrap();
+    }
 
     #[test]
     fn stream_handles_utf8_split_across_reads_and_requires_completion() {
