@@ -14,11 +14,11 @@ Pace has three active jobs: explicit dictation, speaker-labeled meeting notes an
 
 | Check | Result |
 | --- | --- |
-| Current Rust suite on the development Mac | 84 passed; four explicit model tests excluded from the ordinary suite and exercised separately. |
+| Current Rust suite on the development Mac | 86 passed; four explicit model tests excluded from the ordinary suite and exercised separately. |
 | Full Chromium / WebKit interface suites | 72 passed in each engine. |
 | Slim native adapter tests | 16 passed, including the actual CMSampleBuffer callback path. |
 | Real model-backed Tauri host fixture | Passed tiny dictation, Whisper timing, two recurring speakers, separate task deadlines, notes, grounded questions and safe recovery cleanup. |
-| Installed pet microphone Start/Stop | One Stop click returned to off; still off after ten seconds. This did not establish recognition quality or cross-app typing. |
+| Installed cold microphone Start/Stop | One Start reached Listening and stayed active for three seconds; one Stop returned to off, still off after ten seconds. The successful processing cleared the old recovery pointer. This did not inspect recognition text or cross-app typing. |
 | Installed live system meeting | Native `afplay` played the known 35-second two-voice fixture into an all-system ScreenCaptureKit session, microphone off. The recorded WAV had nonzero samples (peak 30194, RMS 3106 in the observed partial measurement). |
 | Native meeting output | Two consistent anonymous voices; Amina's release notes due Friday, Daniel's installer test due Friday, tutorial without an agreed deadline, launch Monday. |
 | Native copilot | Answered that launch is Monday with an actual transcript timestamp. |
@@ -27,7 +27,7 @@ Pace has three active jobs: explicit dictation, speaker-labeled meeting notes an
 
 The fixture host observed warm tiny decoding in 0.412 seconds, meeting recovery/notes in 20.83 seconds and a copilot answer in 2.402 seconds. The live UI reached all-system recording in the next 1.34-second tool observation; native notes took roughly 45 seconds after stopping a longer capture containing lead-in silence. These are observed local fixtures/tool timings, not latency guarantees or general quality benchmarks.
 
-The source-pinned native runtimes built and smoke-tested on **macOS ARM64, Windows x64 and Linux x64** in [CI for 4e13fa9](https://github.com/RebZJ/desktop-pets/actions/runs/43441659009). That run passed interface 71 tests, Mac/Linux 81 Rust tests each and Windows 79 (platform-gated tests differ), followed by Whisper/VAD, NeMo, Moonshine ABI 30000 and llama.cpp executable checks. Later application fixes have their current local checks above and a fresh CI run; do not treat the earlier run as the latest-head result.
+The source-pinned native runtimes built and smoke-tested on **macOS ARM64, Windows x64 and Linux x64** in [CI for 4e13fa9](https://github.com/RebZJ/desktop-pets/actions/runs/43441659009). That run passed interface 71 tests, Mac/Linux 81 Rust tests each and Windows 79 (platform-gated tests differ), followed by Whisper/VAD, NeMo, Moonshine ABI 30000 and llama.cpp executable checks. Later application fixes have their current local checks above and a fresh CI run; do not treat the earlier run as the latest-head result. The next run also corrected an Xcode 16.4 test-harness framework lookup and disabled the unused llama web-UI download, keeping that build input source-pinned.
 
 ## Bugs covered by the changes
 
@@ -35,6 +35,7 @@ The source-pinned native runtimes built and smoke-tested on **macOS ARM64, Windo
 - Live chunks have a bounded queue. Copilot generation cannot hold up transcription; stopping the optional helper does not discard the loaded Rust speech runtime.
 - Word-level diarization uses a labeled word onset before overlap: DTW endings can stretch across a pause and previously gave a final deadline word to the next speaker.
 - A silent final transcript reports a recoverable error and retains its WAV instead of declaring completion and deleting the source.
+- A cold-start microphone test exposed recoverable CPAL buffer overruns being treated as fatal. Xrun, automatic DeviceChanged and RealtimeDenied notifications now leave capture running and accumulate bounded diagnostic counts; true device/permission/format/queue errors remain fatal. Tests cover continued PCM after notifications and preserved audio after a real disconnect.
 - Actual callback regression tests found that the Mac converter discarded the right stereo channel. Explicit downmix now preserves left-only, right-only and combined signals in both planar and interleaved layouts, with duration and level checks.
 - Quit/recovery guards preserve interrupted recordings without rewriting already completed meetings. Per-track capture errors propagate to the shared boundary.
 - Meeting deletion removes its own chat thread atomically; a delayed copilot result cannot recreate that thread. Filesystem deletion failures preserve the record and surface an error.

@@ -265,7 +265,9 @@ fn open_companion(app: &AppHandle, label: &'static str, focus: bool) {
 fn open_companion_for_request(app: &AppHandle, label: &'static str, epoch: u64) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || {
-        if handle.state::<AppState>().ui_epoch.load(Ordering::SeqCst) == epoch {
+        let state = handle.state::<AppState>();
+        let visible = state.pet.lock().is_ok_and(|pet| pet["visible"] == true);
+        if visible && state.ui_epoch.load(Ordering::SeqCst) == epoch {
             show_companion_on_main(&handle, label, false);
         }
     });
@@ -1388,6 +1390,11 @@ async fn poll_listener(app: &AppHandle) {
                         json!({"phase":"error","error":status["error"],"savedAudio":true}),
                     );
                     action(app, "idle");
+                    open_companion_for_request(
+                        app,
+                        "bubble",
+                        state.ui_epoch.load(Ordering::SeqCst),
+                    );
                 }
                 if status["mode"] == "meeting" {
                     if let Some(id) = status["sessionId"].as_str() {

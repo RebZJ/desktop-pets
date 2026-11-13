@@ -19,10 +19,14 @@ let requests = RequestTasksTests.defaultTestSuite
 requests.run()
 guard let result = requests.testRun, result.executionCount == 3, result.hasSucceeded else { exit(1) }
 SWIFT
-frameworks="$(xcode-select -p)/Platforms/MacOSX.platform/Developer/Library/Frameworks"
-swift_support="$(xcode-select -p)/Platforms/MacOSX.platform/Developer/usr/lib"
+developer="$(xcode-select -p)"
+frameworks="$developer/Platforms/MacOSX.platform/Developer/Library/Frameworks"
+private_frameworks="$developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks"
+shared_frameworks="$developer/../SharedFrameworks"
+swift_support="$developer/Platforms/MacOSX.platform/Developer/usr/lib"
 swiftc -swift-version 5 -F "$frameworks" -I "$swift_support" -L "$swift_support" -lXCTestSwiftSupport \
     -Xlinker -rpath -Xlinker "$frameworks" -Xlinker -rpath -Xlinker "$swift_support" \
+    -Xlinker -rpath -Xlinker "$private_frameworks" -Xlinker -rpath -Xlinker "$shared_frameworks" \
     "$project_root/native/PaceNative/Sources/PaceNative/Bridge.swift" \
     "$project_root/native/PaceNative/Sources/PaceNative/Dictation.swift" \
     "$project_root/native/PaceNative/Sources/PaceNative/RequestTasks.swift" \

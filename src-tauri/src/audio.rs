@@ -7,7 +7,7 @@ use std::{
     io::{BufWriter, Seek, Write},
     path::PathBuf,
     sync::{
-        atomic::{AtomicU8, Ordering},
+        atomic::{AtomicU32, AtomicU8, Ordering},
         mpsc::{self, Receiver, Sender, SyncSender, TryRecvError},
         Arc,
     },
@@ -47,6 +47,30 @@ const OVERFLOW: u8 = 1;
 const DISCONNECTED: u8 = 2;
 const INVALID_PCM: u8 = 3;
 const DEVICE_ERROR: u8 = 4;
+
+#[derive(Default)]
+struct StreamWarnings {
+    counts: [AtomicU32; 3],
+}
+
+impl StreamWarnings {
+    fn record(&self, kind: cpal::ErrorKind) -> bool {
+        let index = match kind {
+            cpal::ErrorKind::Xrun => 0,
+            cpal::ErrorKind::DeviceChanged => 1,
+            cpal::ErrorKind::RealtimeDenied => 2,
+            _ => return false,
+        };
+        let _ = self.counts[index].fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+            Some(count.saturating_add(1))
+        });
+        true
+    }
+
+    fn value(&self) -> Value {
+        json!({"xruns":self.counts[0].load(Ordering::Relaxed),"deviceChanges":self.counts[1].load(Ordering::Relaxed),"realtimeDenied":self.counts[2].load(Ordering::Relaxed)})
+    }
+}
 
 type Reply = Sender<Result<Value, String>>;
 
@@ -89,16 +113,6 @@ impl AudioCapture {
                 reply,
             )
         })
-    }
-
-    #[cfg(test)]
-    pub fn start_track(
-        &self,
-        directory: PathBuf,
-        session_id: String,
-        source: Source,
-    ) -> Result<Value, String> {
-        self.start_track_at(directory, session_id, source, Instant::now())
     }
 
     pub fn start_track_at(
@@ -265,6 +279,7 @@ struct Recording {
     stream: Option<cpal::Stream>,
     receiver: Receiver<AudioEvent>,
     failure: Arc<AtomicU8>,
+    warnings: Arc<StreamWarnings>,
     sink: WavSink<BufWriter<File>>,
     session_id: String,
     path: PathBuf,
@@ -333,12 +348,14 @@ impl Recording {
         }
         let (sender, receiver) = mpsc::sync_channel(QUEUED_CHUNKS);
         let failure = Arc::new(AtomicU8::new(0));
+        let warnings = Arc::new(StreamWarnings::default());
         let stream = build_stream(
             &device,
             config,
             supported.sample_format(),
             sender,
             failure.clone(),
+            warnings.clone(),
         )
         .and_then(|stream| {
             stream
@@ -351,6 +368,7 @@ impl Recording {
                 stream: Some(stream),
                 receiver,
                 failure,
+                warnings,
                 sink,
                 session_id,
                 path,
@@ -383,7 +401,7 @@ impl Recording {
         let offset = self
             .first_frame
             .map(|at| at.saturating_duration_since(self.origin).as_millis() as u64);
-        json!({"recording":true,"sessionId":self.session_id,"wavPath":self.path,"source":self.source.track(),"track":self.source.track(),"offsetMs":offset,"level":{"rms":level.0,"peak":level.1}})
+        json!({"recording":true,"sessionId":self.session_id,"wavPath":self.path,"source":self.source.track(),"track":self.source.track(),"offsetMs":offset,"level":{"rms":level.0,"peak":level.1},"warnings":self.warnings.value()})
     }
 
     fn consume(&mut self, event: AudioEvent) {
@@ -475,7 +493,7 @@ impl Recording {
                     .error
                     .map(|error| format!("{error}. Audio saved at {}", self.path.display()));
                 Completion {
-                    value: json!({"recording":false,"sessionId":self.session_id,"wavPath":self.path,"duration":frames as f64 / OUTPUT_RATE as f64,"durationMs":frames * 1000 / OUTPUT_RATE as u64,"frames":frames,"source":self.source.track(),"track":self.source.track(),"offsetMs":offset,"level":{"rms":0.0,"peak":0.0},"error":error}),
+                    value: json!({"recording":false,"sessionId":self.session_id,"wavPath":self.path,"duration":frames as f64 / OUTPUT_RATE as f64,"durationMs":frames * 1000 / OUTPUT_RATE as u64,"frames":frames,"source":self.source.track(),"track":self.source.track(),"offsetMs":offset,"level":{"rms":0.0,"peak":0.0},"warnings":self.warnings.value(),"error":error}),
                     error,
                     chunks,
                 }
@@ -489,7 +507,7 @@ impl Recording {
                     self.path.display()
                 );
                 Completion {
-                    value: json!({"recording":false,"sessionId":self.session_id,"wavPath":self.path,"error":error}),
+                    value: json!({"recording":false,"sessionId":self.session_id,"wavPath":self.path,"warnings":self.warnings.value(),"error":error}),
                     error: Some(error),
                     chunks,
                 }
@@ -573,19 +591,33 @@ fn capture_instant(
         .unwrap_or(instant)
 }
 
+fn handle_stream_error(
+    error: cpal::Error,
+    sender: &SyncSender<AudioEvent>,
+    failure: &AtomicU8,
+    warnings: &StreamWarnings,
+) {
+    // These CPAL notifications leave the stream active; timestamp gaps retain missing audio time.
+    if warnings.record(error.kind()) {
+        return;
+    }
+    fail(failure, DEVICE_ERROR);
+    let _ = sender.try_send(AudioEvent::Error(error.to_string()));
+}
+
 fn build_stream(
     device: &cpal::Device,
     config: cpal::StreamConfig,
     format: cpal::SampleFormat,
     sender: SyncSender<AudioEvent>,
     failure: Arc<AtomicU8>,
+    warnings: Arc<StreamWarnings>,
 ) -> Result<cpal::Stream, String> {
     let channels = config.channels as usize;
     let error_sender = sender.clone();
     let error_failure = failure.clone();
     let on_error = move |error: cpal::Error| {
-        fail(&error_failure, DEVICE_ERROR);
-        let _ = error_sender.try_send(AudioEvent::Error(error.to_string()));
+        handle_stream_error(error, &error_sender, &error_failure, &warnings);
     };
     macro_rules! stream {
         ($sample:ty) => {{
@@ -927,6 +959,24 @@ mod tests {
         origin: Instant,
         chunked: bool,
     ) -> (AudioCapture, SyncSender<AudioEvent>) {
+        synthetic_capture_with_warnings(
+            path,
+            failure,
+            source,
+            origin,
+            chunked,
+            Arc::new(StreamWarnings::default()),
+        )
+    }
+
+    fn synthetic_capture_with_warnings(
+        path: PathBuf,
+        failure: Arc<AtomicU8>,
+        source: Source,
+        origin: Instant,
+        chunked: bool,
+        warnings: Arc<StreamWarnings>,
+    ) -> (AudioCapture, SyncSender<AudioEvent>) {
         let (commands, receiver) = mpsc::channel();
         let (sender, pcm) = mpsc::sync_channel(QUEUED_CHUNKS);
         let owner = thread::spawn(move || {
@@ -943,6 +993,7 @@ mod tests {
                 stream: None,
                 receiver: pcm,
                 failure,
+                warnings,
                 sink,
                 session_id: "fixture-session".into(),
                 path,
@@ -1173,6 +1224,92 @@ mod tests {
         assert_eq!(capture.stop().unwrap(), stopped);
         assert_eq!(capture.status().unwrap(), stopped);
         assert_eq!(hound::WavReader::open(path).unwrap().duration(), 37);
+    }
+
+    #[test]
+    fn recoverable_notifications_keep_recording_later_pcm_and_report_bounded_warnings() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("recoverable.wav");
+        let failure = Arc::new(AtomicU8::new(0));
+        let warnings = Arc::new(StreamWarnings::default());
+        let (capture, sender) = synthetic_capture_with_warnings(
+            path.clone(),
+            failure.clone(),
+            Source::Microphone,
+            Instant::now(),
+            false,
+            warnings.clone(),
+        );
+        enqueue(&[0.5_f32; 170], 1, &sender, &failure);
+        for kind in [
+            cpal::ErrorKind::Xrun,
+            cpal::ErrorKind::DeviceChanged,
+            cpal::ErrorKind::RealtimeDenied,
+        ] {
+            handle_stream_error(cpal::Error::new(kind), &sender, &failure, &warnings);
+        }
+        enqueue(&[0.25_f32; 1600], 1, &sender, &failure);
+        assert_eq!(failure.load(Ordering::Acquire), 0);
+        let status = capture.status().unwrap();
+        assert_eq!(status["recording"], true);
+        assert_eq!(
+            status["warnings"],
+            json!({"xruns":1,"deviceChanges":1,"realtimeDenied":1})
+        );
+        let stopped = capture.stop().unwrap();
+        assert_eq!(stopped["frames"], 1770);
+        assert_eq!(stopped["warnings"], status["warnings"]);
+        assert!(stopped["error"].is_null());
+        let samples = hound::WavReader::open(path)
+            .unwrap()
+            .into_samples::<i16>()
+            .map(Result::unwrap)
+            .collect::<Vec<_>>();
+        assert_eq!(samples.len(), 1770);
+        assert!(samples[..170].iter().all(|sample| *sample == 16384));
+        assert!(samples[170..].iter().all(|sample| *sample == 8192));
+        warnings.counts[0].store(u32::MAX, Ordering::Relaxed);
+        assert!(warnings.record(cpal::ErrorKind::Xrun));
+        assert_eq!(warnings.counts[0].load(Ordering::Relaxed), u32::MAX);
+    }
+
+    #[test]
+    fn device_disconnect_is_still_fatal_and_preserves_the_captured_prefix() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("disconnected.wav");
+        let failure = Arc::new(AtomicU8::new(0));
+        let warnings = Arc::new(StreamWarnings::default());
+        let (capture, sender) = synthetic_capture_with_warnings(
+            path.clone(),
+            failure.clone(),
+            Source::Microphone,
+            Instant::now(),
+            false,
+            warnings.clone(),
+        );
+        enqueue(&[0.5_f32; 170], 1, &sender, &failure);
+        handle_stream_error(
+            cpal::Error::new(cpal::ErrorKind::DeviceNotAvailable),
+            &sender,
+            &failure,
+            &warnings,
+        );
+        assert_eq!(failure.load(Ordering::Acquire), DEVICE_ERROR);
+        assert!(capture.stop().unwrap_err().contains(path.to_str().unwrap()));
+        assert_eq!(hound::WavReader::open(path).unwrap().duration(), 170);
+        assert_eq!(
+            capture.status().unwrap()["warnings"],
+            json!({"xruns":0,"deviceChanges":0,"realtimeDenied":0})
+        );
+        for kind in [
+            cpal::ErrorKind::PermissionDenied,
+            cpal::ErrorKind::InvalidInput,
+            cpal::ErrorKind::UnsupportedConfig,
+            cpal::ErrorKind::StreamInvalidated,
+            cpal::ErrorKind::Other,
+        ] {
+            assert!(!warnings.record(kind));
+        }
     }
 
     #[test]

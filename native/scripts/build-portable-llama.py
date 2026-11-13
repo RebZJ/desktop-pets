@@ -55,7 +55,11 @@ def main():
                 if not target.is_file() or target.read_bytes() != contents:
                     target.write_bytes(contents)
     build = root / f"build-{system.lower()}-{platform.machine().lower()}"
-    args = ["cmake", "-S", str(source), "-B", str(build), "-DCMAKE_BUILD_TYPE=Release", "-DBUILD_SHARED_LIBS=OFF", "-DLLAMA_BUILD_TESTS=OFF", "-DLLAMA_BUILD_EXAMPLES=OFF", "-DLLAMA_BUILD_SERVER=ON", "-DLLAMA_CURL=OFF", "-DLLAMA_OPENSSL=OFF", "-DGGML_NATIVE=OFF", "-DGGML_BACKEND_DL=OFF", "-DGGML_OPENMP=OFF", f"-DLLAMA_BUILD_COMMIT={REVISION}", "-DLLAMA_BUILD_NUMBER=0"]
+    # Older builds may retain downloaded UI assets even when both UI options are off.
+    cached_ui = build / "tools/ui/dist"
+    if cached_ui.exists():
+        shutil.rmtree(cached_ui)
+    args = ["cmake", "-S", str(source), "-B", str(build), "-DCMAKE_BUILD_TYPE=Release", "-DBUILD_SHARED_LIBS=OFF", "-DLLAMA_BUILD_TESTS=OFF", "-DLLAMA_BUILD_EXAMPLES=OFF", "-DLLAMA_BUILD_SERVER=ON", "-DLLAMA_BUILD_UI=OFF", "-DLLAMA_USE_PREBUILT_UI=OFF", "-DLLAMA_CURL=OFF", "-DLLAMA_OPENSSL=OFF", "-DGGML_NATIVE=OFF", "-DGGML_BACKEND_DL=OFF", "-DGGML_OPENMP=OFF", f"-DLLAMA_BUILD_COMMIT={REVISION}", "-DLLAMA_BUILD_NUMBER=0"]
     if system == "Darwin":
         args += ["-DGGML_METAL=ON", "-DGGML_METAL_EMBED_LIBRARY=ON", "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0"]
     else:
