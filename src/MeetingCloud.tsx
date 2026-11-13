@@ -4,7 +4,6 @@ import { api, clockTime, errorText, subscribe, type AppState, type Meeting } fro
 import { Pace } from './Pace';
 import './meeting-cloud.css';
 
-type RunningApp = { bundleId: string; name: string };
 const kit = ['qwen3.5-4b', 'whisper-turbo', 'nemotron-diarization'];
 
 export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () => Promise<void> }) {
@@ -13,8 +12,6 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
   const [startingNew, setStartingNew] = useState(false);
   const meeting = active || (startingNew ? undefined : state.meetings.find(item => item.id === selectedId) || state.meetings[0]);
   const [title, setTitle] = useState('');
-  const [apps, setApps] = useState<RunningApp[]>([]);
-  const [source, setSource] = useState('');
   const [microphone, setMicrophone] = useState(true);
   const [system, setSystem] = useState(true);
   const [busy, setBusy] = useState('');
@@ -34,14 +31,6 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
   const coverHelp = `Capture protection is ${covered ? 'requested' : 'off'}. macOS screen-capture exclusion is best effort; some sharing apps may still show Pace. Quick hide: ${state.settings.hideShortcut}. Hiding does not stop recording.`;
 
   useEffect(() => { document.documentElement.classList.add('overlay-document'); return () => document.documentElement.classList.remove('overlay-document'); }, []);
-  useEffect(() => {
-    let cancelled = false;
-    void api<RunningApp[] | { apps: RunningApp[] }>('apps.list').then(value => {
-      const entries = Array.isArray(value) ? value : value.apps;
-      if (!cancelled && Array.isArray(entries)) setApps(entries.filter(app => !app.bundleId.startsWith('app.desktoppets')));
-    }).catch(cause => { if (!cancelled) setError(`Audio apps could not load. All system audio is still available. ${errorText(cause)}`); });
-    return () => { cancelled = true; };
-  }, []);
   useEffect(() => { if (active) { setSelectedId(active.id); setStartingNew(false); } }, [active?.id]);
   useEffect(() => { request.current = undefined; setAsking(false); setQuestion(''); setAnswer(undefined); }, [meeting?.id]);
   useEffect(() => () => { request.current = undefined; }, []);
@@ -81,7 +70,7 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
   };
   const open = (page: string) => void run('open', async () => { await api('window.main', { page }); });
   const start = () => void run('start', async () => {
-    const value = await api<Meeting>('meeting.start', { title: title.trim() || 'Untitled meeting', language: state.settings.language, captureMicrophone: microphone, captureSystem: system, applicationBundleId: system ? source || undefined : undefined });
+    const value = await api<Meeting>('meeting.start', { title: title.trim() || 'Untitled meeting', language: state.settings.language, captureMicrophone: microphone, captureSystem: system });
     setSelectedId(value.id); setStartingNew(false); setTip(undefined); await refresh();
   });
   const save = () => void run('save', async () => {
@@ -117,7 +106,6 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
         {!ready && <div className="meeting-kit"><p>Meeting help needs Qwen 4B, Whisper turbo and the speaker-label pack.</p><button disabled={Boolean(busy)} onClick={() => open('models')}>Choose meeting models →</button><span>Optional downloads. Nothing starts automatically.</span></div>}
         <form id="meeting-start-form" className="meeting-setup" onSubmit={event => { event.preventDefault(); if (ready && (microphone || system)) start(); }}>
           <label>Meeting title<input value={title} maxLength={200} disabled={Boolean(busy)} onChange={event => setTitle(event.target.value)} placeholder="A name for this conversation" /></label>
-          <label>Audio from<select value={source} disabled={!system || Boolean(busy)} onChange={event => setSource(event.target.value)}><option value="">All system audio</option>{apps.map(app => <option key={app.bundleId} value={app.bundleId}>{app.name}</option>)}</select></label>
           <div className="meeting-capture"><label><input type="checkbox" checked={microphone} disabled={Boolean(busy)} onChange={event => setMicrophone(event.target.checked)} />Microphone</label><label><input type="checkbox" checked={system} disabled={Boolean(busy)} onChange={event => setSystem(event.target.checked)} />System audio</label></div>
           <p className="meeting-consent">Let people know you’re recording. Pace stays muted.</p>
         </form>

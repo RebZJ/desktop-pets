@@ -1,6 +1,8 @@
 import XCTest
 import AVFoundation
 import ApplicationServices
+import CoreMedia
+import ScreenCaptureKit
 @testable import PaceNative
 
 final class BridgeTests: XCTestCase {
@@ -65,6 +67,97 @@ final class BridgeTests: XCTestCase {
         XCTAssertEqual(frames, 1600)
         let wav = try Data(contentsOf: folder.appendingPathComponent("converted.wav"))
         XCTAssertTrue(wav.dropFirst(44).contains(where: { $0 != 0 }))
+    }
+
+    func testSystemAudioDelegateCopiesFloatStereoSampleBuffersToPCM16WAV() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        for (interleaved, source) in [(false, "both"), (true, "both"), (false, "left"), (true, "left"), (false, "right"), (true, "right")] {
+            let suffix = (interleaved ? "interleaved" : "planar") + "-" + source
+            let url = folder.appendingPathComponent("system-\(suffix).wav")
+            var events: [[String: Any]] = []
+            let sink = try AudioSink(url: url, sessionId: "sample-fixture", track: "system", startDate: Date(), emit: { events.append($0) })
+            let controlURL = folder.appendingPathComponent("control-\(suffix).wav")
+            let control = try AudioSink(url: controlURL, sessionId: "control", track: "system", startDate: Date(), emit: { _ in })
+            let capture = SystemAudioCapture(sink: sink, sessionId: "sample-fixture", applicationBundleId: nil, emit: { events.append($0) })
+            // An inert stream lets the real delegate run without starting capture or asking permission.
+            let stream = SCStream(filter: SCContentFilter(), configuration: SCStreamConfiguration(), delegate: nil)
+            let format = try XCTUnwrap(AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 48_000, channels: 2, interleaved: interleaved))
+            for block in 0..<25 {
+                let pcm = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 480))
+                pcm.frameLength = 480
+                for frame in 0..<480 {
+                    let time = Double(block * 480 + frame) / 48_000
+                    let left = Float(sin(time * 2 * .pi * 440) * (source == "right" ? 0 : 0.3))
+                    let right = Float(sin(time * 2 * .pi * 880) * (source == "left" ? 0 : 0.2))
+                    if interleaved {
+                        pcm.floatChannelData![0][frame * 2] = left
+                        pcm.floatChannelData![0][frame * 2 + 1] = right
+                    } else {
+                        pcm.floatChannelData![0][frame] = left
+                        pcm.floatChannelData![1][frame] = right
+                    }
+                }
+                let sample = try systemSampleBuffer(pcm, startFrame: block * 480)
+                XCTAssertTrue(sample.isValid)
+                XCTAssertTrue(CMSampleBufferDataIsReady(sample))
+                capture.stream(stream, didOutputSampleBuffer: sample, of: .audio)
+                control.append(pcm)
+            }
+            let result = try sink.finish()
+            let controlResult = try control.finish()
+            XCTAssertNil(result["error"])
+            XCTAssertNil(controlResult["error"])
+            XCTAssertFalse(events.contains { $0["event"] as? String == "audio.error" })
+            XCTAssertEqual(result["frames"] as? Int64, 4000)
+            let wav = try Data(contentsOf: url)
+            let referenceWAV = try Data(contentsOf: controlURL)
+            XCTAssertEqual(wav.count, 8044)
+            XCTAssertEqual(Array(wav[22..<24]), [1, 0])
+            XCTAssertEqual(Array(wav[24..<28]), [128, 62, 0, 0])
+            XCTAssertEqual(Array(wav[34..<36]), [16, 0])
+            let samples = stride(from: 44, to: wav.count, by: 2).map { Int16(bitPattern: UInt16(wav[$0]) | UInt16(wav[$0 + 1]) << 8) }
+            let reference = stride(from: 44, to: referenceWAV.count, by: 2).map { Int16(bitPattern: UInt16(referenceWAV[$0]) | UInt16(referenceWAV[$0 + 1]) << 8) }
+            XCTAssertEqual(samples.count, reference.count)
+            let extractionError = sqrt(zip(samples, reference).map { pow(Double($0.0) - Double($0.1), 2) }.reduce(0, +) / Double(samples.count))
+            XCTAssertLessThan(extractionError, 2, "Sample-buffer extraction must match direct PCM conversion: \(suffix)")
+            let normalized = samples.dropFirst(100).dropLast(100).map { Double($0) / 32768 }
+            let rms = sqrt(normalized.map { $0 * $0 }.reduce(0, +) / Double(normalized.count))
+            XCTAssertGreaterThan(rms, 0.05, "The real system-audio callback must not turn a tone into zeros: \(suffix)")
+            var amplitudes: [Double: Double] = [:]
+            for frequency in (source == "right" ? [880.0] : source == "left" ? [440.0] : [440.0, 880.0]) {
+                var real = 0.0, imaginary = 0.0
+                for (index, sample) in normalized.enumerated() {
+                    let phase = Double(index) * 2 * .pi * frequency / 16_000
+                    real += sample * cos(phase); imaginary += sample * sin(phase)
+                }
+                let amplitude = 2 * hypot(real, imaginary) / Double(normalized.count)
+                amplitudes[frequency] = amplitude
+                XCTAssertGreaterThan(amplitude, 0.015, "Each source channel must reach the mono WAV: \(suffix), \(frequency) Hz")
+            }
+            if source == "both" {
+                XCTAssertEqual(try XCTUnwrap(amplitudes[440]) / XCTUnwrap(amplitudes[880]), 1.5, accuracy: 0.04, "Downmix must preserve relative stereo levels: \(suffix)")
+            }
+        }
+    }
+
+    private func systemSampleBuffer(_ pcm: AVAudioPCMBuffer, startFrame: Int) throws -> CMSampleBuffer {
+        var description: CMAudioFormatDescription?
+        XCTAssertEqual(CMAudioFormatDescriptionCreate(allocator: kCFAllocatorDefault, asbd: pcm.format.streamDescription,
+            layoutSize: 0, layout: nil, magicCookieSize: 0, magicCookie: nil, extensions: nil, formatDescriptionOut: &description), noErr)
+        let format = try XCTUnwrap(description)
+        var sample: CMSampleBuffer?
+        var timing = CMSampleTimingInfo(duration: CMTime(value: 1, timescale: 48_000),
+            presentationTimeStamp: CMTime(value: Int64(startFrame), timescale: 48_000), decodeTimeStamp: .invalid)
+        XCTAssertEqual(CMSampleBufferCreate(allocator: kCFAllocatorDefault, dataBuffer: nil, dataReady: false,
+            makeDataReadyCallback: nil, refcon: nil, formatDescription: format, sampleCount: Int(pcm.frameLength),
+            sampleTimingEntryCount: 1, sampleTimingArray: &timing, sampleSizeEntryCount: 0, sampleSizeArray: nil, sampleBufferOut: &sample), noErr)
+        let result = try XCTUnwrap(sample)
+        XCTAssertEqual(CMSampleBufferSetDataBufferFromAudioBufferList(result, blockBufferAllocator: kCFAllocatorDefault,
+            blockBufferMemoryAllocator: kCFAllocatorDefault, flags: 0, bufferList: pcm.audioBufferList), noErr)
+        XCTAssertEqual(CMSampleBufferSetDataReady(result), noErr)
+        return result
     }
 
     func testMaskingDoesNotRemoveOrdinaryContext() {

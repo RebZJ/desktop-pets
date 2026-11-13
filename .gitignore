@@ -25,3 +25,6 @@ artifacts/*.log
 *.app/
 artifacts/deferred-writing-*/
 artifacts/permission-ui-*/
+
+artifacts/meeting-delete-ui-*/
+artifacts/meeting-sources-*/

@@ -187,13 +187,18 @@ impl Engine {
                 _ => {}
             }
         }
-        if method == "meeting.start"
-            && params["applicationBundleId"]
+        if method == "meeting.start" {
+            for key in ["captureMicrophone", "captureSystem"] {
+                if params.get(key).is_some_and(|value| !value.is_boolean()) {
+                    return Err(format!("{key} must be a boolean"));
+                }
+            }
+            let scoped = params["applicationBundleId"]
                 .as_str()
-                .is_some_and(|s| !s.is_empty())
-        {
+                .is_some_and(|id| !id.is_empty());
             #[cfg(target_os = "macos")]
-            {
+            if params["captureSystem"].as_bool().unwrap_or(true) || scoped {
+                // CPAL's Mac process tap can stall during startup; ScreenCaptureKit owns Mac system audio.
                 let status = self.capture_status().await?;
                 if status["recording"] == true {
                     return Err("Stop the active recording first.".into());
@@ -203,7 +208,7 @@ impl Engine {
                 return self.start_native(app, request).await;
             }
             #[cfg(not(target_os = "macos"))]
-            {
+            if scoped {
                 return Err("Application-specific capture is unavailable on this platform. Choose all system audio.".into());
             }
         }
@@ -221,17 +226,6 @@ impl Engine {
         })
         .await
         .map_err(|e| e.to_string())?;
-        #[cfg(target_os = "macos")]
-        if method == "meeting.start"
-            && result.as_ref().err().is_some_and(|error| {
-                error.contains("duplex device cannot provide a system tap safely")
-            })
-        {
-            // CPAL cannot tap duplex Mac devices safely; ScreenCaptureKit is the scoped fallback.
-            let mut params = params;
-            params["outputDir"] = json!(app.state::<AppState>().data_dir.join("recordings"));
-            return self.start_native(app, params).await;
-        }
         result
     }
 

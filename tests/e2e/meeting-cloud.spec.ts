@@ -30,7 +30,6 @@ async function fixture(page: Page, options: Options = {}) {
     (window as any).__DESKTOP_PETS_BRIDGE__ = async (method: string, params: any = {}) => {
       f.calls.push({ method, params });
       if (method === 'app.state') return structuredClone(state);
-      if (method === 'apps.list') return [{ bundleId: 'us.zoom.xos', name: 'Zoom' }];
       if (method === 'meeting.tip.current') { const tip = config.savedTip ? { sessionId: meeting.id, text: config.savedTip } : null; if (config.holdTip) return new Promise(resolve => { f.resolveTip = () => resolve(tip); }); return tip; }
       if (method === 'meeting.start') { if (f.failStart) throw new Error(f.startError || 'Microphone access was denied. Check macOS permissions and retry.'); meeting.title = params.title; f.update({ status: 'recording', segments: [], notes: '' }); return structuredClone(meeting); }
       if (method === 'meeting.stop') {
@@ -76,13 +75,15 @@ test('setup waits for an explicit start and sends real source choices', async ({
   await expect(page.getByText('No notes yet.', { exact: false })).toHaveCount(0);
   await inside(page.getByRole('button', { name: 'Start meeting', exact: true }), 420, 380);
   await screenshot(page, 'meeting-ready-420x380.png');
-  await page.getByRole('combobox', { name: 'Audio from' }).selectOption('us.zoom.xos');
+  await expect(page.getByRole('combobox')).toHaveCount(0);
+  await expect(page.getByRole('checkbox')).toHaveCount(2);
+  expect(await page.evaluate(() => (window as any).__meetingFixture.calls.some((call: any) => call.method === 'apps.list'))).toBe(false);
   await page.getByRole('checkbox', { name: 'Microphone', exact: true }).uncheck();
   await page.getByRole('checkbox', { name: 'System audio', exact: true }).uncheck();
   await expect(page.getByRole('button', { name: 'Start meeting', exact: true })).toBeDisabled();
   await page.getByRole('checkbox', { name: 'System audio', exact: true }).check(); await start(page);
   const call = await page.evaluate(() => (window as any).__meetingFixture.calls.find((c: any) => c.method === 'meeting.start'));
-  expect(call.params).toEqual({ title: 'Friday planning', language: 'en', captureMicrophone: false, captureSystem: true, applicationBundleId: 'us.zoom.xos' });
+  expect(call.params).toEqual({ title: 'Friday planning', language: 'en', captureMicrophone: false, captureSystem: true });
   await expect(page.getByRole('region', { name: 'Live transcript' })).toHaveCount(0);
   await expect(page.getByLabel('Live transcript')).toContainText('Nothing transcribed yet');
 });
@@ -207,7 +208,8 @@ test('reopening restores the session tip and a late snapshot never replaces newe
 
 test('interrupted audio can retry even before the first saved transcript turn', async ({ page }) => {
   await fixture(page, { status: 'interrupted' });
-  await page.evaluate(() => (window as any).__meetingFixture.update({ segments: [], error: 'Capture was interrupted. Saved audio is preserved.' }));
+  await page.evaluate(() => (window as any).__meetingFixture.update({ segments: [], error: 'No speech was detected. Saved audio is preserved; retry or delete this meeting.' }));
+  await expect(page.getByText('No speech was detected. Saved audio is preserved; retry or delete this meeting.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Retry', exact: true }).click();
   expect(await page.evaluate(() => (window as any).__meetingFixture.calls)).toContainEqual({ method: 'meeting.retry', params: { id: 'meeting-current', language: 'en' } });

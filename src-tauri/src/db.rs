@@ -189,27 +189,57 @@ impl Database {
         Ok(())
     }
 
+    pub fn delete_meeting(&self, id: &str) -> Result<(), String> {
+        let mut conn = self.0.lock().map_err(|error| error.to_string())?;
+        let transaction = conn.transaction().map_err(|error| error.to_string())?;
+        transaction
+            .execute("DELETE FROM documents WHERE kind='meeting' AND id=?1", [id])
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "DELETE FROM messages WHERE conversation_id=?1",
+                [format!("meeting-{id}")],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())
+    }
+
+    #[cfg(test)]
     pub fn add_message(
         &self,
         conversation: &str,
         role: &str,
         content: &str,
     ) -> Result<Value, String> {
+        let conn = self.0.lock().map_err(|error| error.to_string())?;
+        Self::insert_message(&conn, conversation, role, content, None)
+    }
+
+    pub fn add_meeting_message(
+        &self,
+        id: &str,
+        role: &str,
+        content: &str,
+    ) -> Result<Value, String> {
+        let conn = self.0.lock().map_err(|error| error.to_string())?;
+        Self::insert_message(&conn, &format!("meeting-{id}"), role, content, Some(id))
+    }
+
+    fn insert_message(
+        conn: &Connection,
+        conversation: &str,
+        role: &str,
+        content: &str,
+        meeting: Option<&str>,
+    ) -> Result<Value, String> {
         let message = json!({"id":Uuid::new_v4().to_string(),"conversationId":conversation,"role":role,"content":content,"createdAt":Utc::now().to_rfc3339()});
-        self.0
-            .lock()
-            .map_err(|e| e.to_string())?
-            .execute(
-                "INSERT INTO messages VALUES(?1,?2,?3,?4,?5)",
-                params![
-                    message["id"].as_str(),
-                    conversation,
-                    role,
-                    content,
-                    message["createdAt"].as_str()
-                ],
-            )
-            .map_err(|e| e.to_string())?;
+        let inserted = conn.execute(
+            "INSERT INTO messages SELECT ?1,?2,?3,?4,?5 WHERE ?6 IS NULL OR EXISTS(SELECT 1 FROM documents WHERE kind='meeting' AND id=?6)",
+            params![message["id"].as_str(), conversation, role, content, message["createdAt"].as_str(), meeting],
+        ).map_err(|error| error.to_string())?;
+        if inserted == 0 {
+            return Err("This meeting was deleted; the message was not saved.".into());
+        }
         Ok(message)
     }
 
@@ -220,6 +250,7 @@ impl Database {
         rows.map(|r| r.map_err(|e| e.to_string())).collect()
     }
 
+    #[cfg(any(test, debug_assertions))]
     pub fn add_memory(&self, app: &str, title: &str, text: &str) -> Result<bool, String> {
         let conn = self.0.lock().map_err(|e| e.to_string())?;
         Self::insert_memory(&conn, app, title, text)
@@ -490,6 +521,78 @@ mod tests {
         db.delete_memory(None, None).unwrap();
         assert!(db.search_memory("", 10).unwrap().is_empty());
     }
+    #[test]
+    fn deleting_a_meeting_removes_only_its_document_and_conversation() {
+        let db = database();
+        for id in ["selected", "other"] {
+            db.put("meeting", id, &json!({"id":id,"status":"completed"}))
+                .unwrap();
+            db.add_meeting_message(id, "user", "Question").unwrap();
+            db.add_meeting_message(id, "assistant", "Answer").unwrap();
+        }
+        db.put("dictation", "selected", &json!({"path":"keep.wav"}))
+            .unwrap();
+        db.add_message("general-chat", "user", "Keep my old chat")
+            .unwrap();
+        db.add_memory("test", "Keep", "Unrelated saved memory")
+            .unwrap();
+        let settings = db.update_settings(&json!({"language":"ja"})).unwrap();
+        let other = db.get("meeting", "other").unwrap();
+        let other_messages = db.messages("meeting-other").unwrap();
+        let old_chat = db.messages("general-chat").unwrap();
+        db.delete_meeting("selected").unwrap();
+        assert!(db.get("meeting", "selected").is_err());
+        assert!(db.messages("meeting-selected").unwrap().is_empty());
+        assert_eq!(db.get("meeting", "other").unwrap(), other);
+        assert_eq!(db.messages("meeting-other").unwrap(), other_messages);
+        assert_eq!(db.messages("general-chat").unwrap(), old_chat);
+        assert_eq!(db.get("dictation", "selected").unwrap()["path"], "keep.wav");
+        assert_eq!(db.settings().unwrap(), settings);
+        assert_eq!(db.search_memory("", 10).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn delayed_meeting_answer_cannot_recreate_a_deleted_conversation() {
+        let db = std::sync::Arc::new(database());
+        db.put("meeting", "selected", &json!({"id":"selected"}))
+            .unwrap();
+        db.add_meeting_message("selected", "user", "An in-flight question")
+            .unwrap();
+        let (deleted, wait_for_delete) = std::sync::mpsc::channel();
+        let pending_db = db.clone();
+        let pending_answer = std::thread::spawn(move || {
+            wait_for_delete.recv().unwrap();
+            pending_db.add_meeting_message("selected", "assistant", "A late answer")
+        });
+        db.delete_meeting("selected").unwrap();
+        deleted.send(()).unwrap();
+        assert!(pending_answer
+            .join()
+            .unwrap()
+            .unwrap_err()
+            .contains("deleted"));
+        assert!(db
+            .add_meeting_message("selected", "user", "A late question")
+            .is_err());
+        assert!(db.messages("meeting-selected").unwrap().is_empty());
+    }
+
+    #[test]
+    fn failed_conversation_delete_rolls_back_the_meeting_delete() {
+        let db = database();
+        db.put("meeting", "selected", &json!({"id":"selected"}))
+            .unwrap();
+        db.add_meeting_message("selected", "user", "Keep on failed delete")
+            .unwrap();
+        db.0.lock().unwrap().execute_batch("CREATE TEMP TRIGGER reject_message_delete BEFORE DELETE ON messages BEGIN SELECT RAISE(ABORT,'synthetic delete failure'); END;").unwrap();
+        assert!(db
+            .delete_meeting("selected")
+            .unwrap_err()
+            .contains("synthetic delete failure"));
+        assert_eq!(db.get("meeting", "selected").unwrap()["id"], "selected");
+        assert_eq!(db.messages("meeting-selected").unwrap().len(), 1);
+    }
+
     #[test]
     fn preserves_message_order_and_documents() {
         let db = database();

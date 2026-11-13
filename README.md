@@ -4,17 +4,17 @@
 
 Hover Pace to open Dictate, Meeting or Settings. Recording starts only after an explicit action. The meeting copilot answers from the selected meeting's transcript; it has no general tool access. General chat, voice replies, writing and cursor autocomplete are paused. Existing saved records, models and preferences are preserved.
 
-This source uses a portable **Tauri 2 + React + Rust** application. Microphone/system audio capture, buffering, resampling, speech recognition and text inference run through the shared Rust boundary. Local runtimes are bundled with the app. A small macOS helper remains for accessibility insertion and scoped/fallback ScreenCaptureKit audio; it contains no MLX inference.
+This source uses a portable **Tauri 2 + React + Rust** application. Rust owns microphone capture, buffering, speech recognition, model management and text inference. Windows/Linux system audio uses CPAL; macOS system audio uses a small ScreenCaptureKit adapter because the CPAL process tap stalled in live testing. The same macOS adapter handles accessibility insertion. Local runtimes are bundled; the adapter contains no MLX inference.
 
 ## Current platform limits
 
 | Platform | Implemented boundary and remaining verification |
 | --- | --- |
-| macOS 15+ | Rust audio and local inference; accessibility insertion; scoped/fallback ScreenCaptureKit audio. The portable native build and prerecorded inference checks passed on the development Mac. Physical-device and permission checks remain separate. |
-| Windows x64 | WASAPI capture and loopback. Direct insertion is restricted to native Edit/RichEdit controls; browser/custom controls use Copy. Windows execution has not yet been verified. |
-| Linux x64/arm64 | ALSA microphone and PipeWire system capture. Dictation offers Copy until target insertion is verified. Linux execution has not yet been verified. |
+| macOS 15+ | Native microphone Start/Stop and an actual system-audio meeting passed through speaker labels, notes and copilot. ScreenCaptureKit handles system capture; Rust handles microphone and local models. |
+| Windows x64 | WASAPI capture and loopback. Direct insertion is restricted to native Edit/RichEdit controls; browser/custom controls use Copy. Rust tests and all bundled native runtime builds/smokes passed on Windows x64. Live device/insertion and installer testing remain. |
+| Linux x64 | PipeWire microphone/system capture. Dictation offers Copy. Rust tests and bundled runtime builds/smokes passed; live devices and installers remain unverified. |
 
-Windows ARM64 is excluded by the pinned Moonshine runtime's available ONNX binaries. On Windows/Linux, system capture means **all system audio**; per-application selection is unavailable. Desktop shortcuts and audio routing still need checks on the intended desktop/device, especially Wayland.
+Windows ARM64 is excluded by the pinned Moonshine runtime's available ONNX binaries. Meeting setup offers microphone and **all system audio** consistently across platforms. Linux ARM64 is a source target without a CI/hardware result here. Desktop shortcuts and audio routing still need checks on the intended desktop/device, especially Wayland.
 
 Capture exclusion is best effort and is never universal. Quick Hide hides Pace's windows; hiding a meeting cloud does not stop its recording. Review the selected audio source before starting a meeting. Speaker labels describe who spoke when; they do not identify real people automatically.
 

@@ -58,6 +58,7 @@ final class AudioSink: @unchecked Sendable {
                 try flushConverter()
                 sourceFormat = input.format
                 converter = AVAudioConverter(from: input.format, to: target)
+                converter?.downmix = true
             }
             guard let converter else { throw BridgeError("audio_format", "Unable to convert the audio input to 16 kHz mono.") }
             let capacity = AVAudioFrameCount(ceil(Double(input.frameLength) * 16_000 / input.format.sampleRate)) + 64
