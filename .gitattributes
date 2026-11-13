@@ -1,3 +1,6 @@
 # Preserve upstream notices and required unified-diff context exactly.
 native/licenses/** -whitespace
 native/patches/*.patch -whitespace
+
+# Preserve upstream font license bytes.
+public/fonts/**/OFL.txt -whitespace

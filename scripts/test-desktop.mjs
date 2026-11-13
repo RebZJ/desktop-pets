@@ -70,6 +70,7 @@ for (let attempt = 0; attempt < 30 && !downloaded; attempt++) {
   if (!downloaded) await new Promise(resolve => setTimeout(resolve, 1000));
 }
 assert(downloaded, 'The actual WebView must save a Blob export through WKDownload.');
+await request('window.close', {label:'main'});
 
 const unauthorized = await fetch(bridge.url, { method: 'POST', body: JSON.stringify({ method: 'app.state' }) }).then(r => r.json());
 assert.equal(unauthorized.ok, false);

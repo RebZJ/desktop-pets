@@ -113,7 +113,7 @@ test('pet artwork and menu fit every configured native pet size', async ({ brows
     await pet.click({ button: 'right' });
     const menu = page.locator('.pet-menu');
     await expect(menu).toBeVisible();
-    for (const name of ['Meeting notes', 'Pet settings', 'A tiny victory!', 'Hide Pace']) await expect(menu.getByRole('button', { name, exact: true })).toBeVisible();
+    for (const name of ['Meeting notes', 'Controls & look', 'A tiny victory!', 'Hide Pace']) await expect(menu.getByRole('button', { name, exact: true })).toBeVisible();
     for (const selector of ['.overlay-pet-button', '.pet-menu']) {
       const box = await page.locator(selector).boundingBox();
       expect(box, `${size}: ${selector}`).not.toBeNull();

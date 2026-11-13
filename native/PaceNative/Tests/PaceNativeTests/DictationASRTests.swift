@@ -2,6 +2,23 @@ import XCTest
 @testable import PaceNative
 
 final class DictationASRTests: XCTestCase {
+    func testPreparationDoesNotLoadAnEnglishPackForAutomaticOrUnsupportedSpeech() async throws {
+        let service = TranscriptionService()
+        let automatic = try await service.prepareDictation(language: "auto")
+        let unsupported = try await service.prepareDictation(language: "de")
+        XCTAssertNil(automatic)
+        XCTAssertNil(unsupported)
+    }
+
+    func testCancelledPreparationDoesNotLoadAModel() async {
+        let preparation = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try await TranscriptionService().prepareDictation(language: "en")
+        }
+        do { _ = try await preparation.value; XCTFail("Cancelled preparation must not load a model") }
+        catch { XCTAssertTrue(error is CancellationError) }
+    }
+
     func testLanguagePacksNeverTurnAutomaticOrUnsupportedSpeechIntoEnglish() {
         XCTAssertEqual(MoonshineBundle.modelID(for: "en-AU"), "moonshine-tiny-en")
         XCTAssertEqual(MoonshineBundle.modelID(for: "zh_CN"), "moonshine-tiny-zh")

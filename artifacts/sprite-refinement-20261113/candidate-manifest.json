@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "id": "pace",
+  "name": "Pace",
+  "license": "CC-BY-4.0",
+  "attribution": "Outpaced / Desktop Pets. Twelve original Velo mascot actions; talking/listening states generated and calibrated for Desktop Pets, 2026-11-13.",
+  "actions": [
+    {
+      "id": "idle",
+      "src": "idle.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 24,
+      "fps": 12
+    },
+    {
+      "id": "wave",
+      "src": "wave.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 12
+    },
+    {
+      "id": "think",
+      "src": "think.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 24,
+      "fps": 12
+    },
+    {
+      "id": "type",
+      "src": "type.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 24,
+      "fps": 16
+    },
+    {
+      "id": "create",
+      "src": "create.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 24,
+      "fps": 12
+    },
+    {
+      "id": "review",
+      "src": "review.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 24,
+      "fps": 12
+    },
+    {
+      "id": "schedule",
+      "src": "schedule.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 24,
+      "fps": 12
+    },
+    {
+      "id": "sprint",
+      "src": "sprint.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 12
+    },
+    {
+      "id": "celebrate",
+      "src": "celebrate.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 12
+    },
+    {
+      "id": "sleep",
+      "src": "sleep.webp",
+      "frameWidth": 512,
+      "frameHeight": 512,
+      "frameCount": 8,
+      "fps": 5
+    },
+    {
+      "id": "happy",
+      "src": "happy.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 24,
+      "fps": 16
+    },
+    {
+      "id": "annoyed",
+      "src": "annoyed.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 24,
+      "fps": 16
+    },
+    {
+      "id": "talk",
+      "src": "talk-v2.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 8
+    },
+    {
+      "id": "listen",
+      "src": "listen-v2.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 8
+    },
+    {
+      "id": "dictate",
+      "src": "dictate-v2.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 8
+    },
+    {
+      "id": "hush",
+      "src": "hush-v2.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 8
+    }
+  ],
+  "sounds": {
+    "idle": "sounds/attention.wav",
+    "wave": "sounds/attention.wav",
+    "think": "sounds/curious-trill.wav",
+    "type": "sounds/curious-trill.wav",
+    "create": "sounds/curious-trill.wav",
+    "review": "sounds/attention.wav",
+    "schedule": "sounds/attention.wav",
+    "sprint": "sounds/happy-chirp.wav",
+    "celebrate": "sounds/celebration.wav",
+    "sleep": "sounds/sleepy-purr.wav",
+    "happy": "sounds/happy-chirp.wav",
+    "annoyed": "sounds/surprised-squeak.wav"
+  }
+}

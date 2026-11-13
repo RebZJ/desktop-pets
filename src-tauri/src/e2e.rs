@@ -115,15 +115,36 @@ async fn serve(socket: TcpStream, app: AppHandle, token: &str) -> Result<(), Str
                         app.state::<AppState>().native.stop().await;
                         Ok(json!({"stopped":true}))
                     }
+                    "_test.dictation" => {
+                        let state=app.state::<AppState>();
+                        if params["seedRecording"] == true {
+                            state.dictating.store(true,std::sync::atomic::Ordering::SeqCst);
+                            *state.dictation_target.lock().map_err(|error|error.to_string())?=Some(json!({"targetId":"synthetic-crash-target"}));
+                            crate::action(&app,"dictate");
+                            crate::emit(&app,"dictation.state",json!({"phase":"recording"}));
+                        }
+                        let target=state.dictation_target.lock().map_err(|error|error.to_string())?.clone();
+                        Ok(json!({"recording":state.dictating.load(std::sync::atomic::Ordering::SeqCst),"target":target}))
+                    }
+                    "_test.shortcuts" => {
+                        use tauri_plugin_global_shortcut::GlobalShortcutExt;
+                        let state=app.state::<AppState>();
+                        crate::configured_shortcuts(&state.db.settings()?).map(|shortcuts| json!({
+                            "recording":state.shortcut_recording.load(std::sync::atomic::Ordering::SeqCst),
+                            "registered":shortcuts.map(|shortcut|app.global_shortcut().is_registered(shortcut))
+                        }))
+                    }
                     "_test.windows" => {
-                        #[cfg(target_os = "macos")]
-                        let native = crate::pet_panel::inspect(&app).await?;
-                        #[cfg(not(target_os = "macos"))]
-                        let native = Value::Null;
-                        Ok(json!(app.webview_windows().into_iter().map(|(label,window)|{
-                        let size=window.inner_size().ok().map(|size|size.to_logical::<f64>(window.scale_factor().unwrap_or(1.0)));
-                        json!({"label":label,"visible":window.is_visible().unwrap_or(false),"width":size.map(|s|s.width),"height":size.map(|s|s.height),"native":if label=="pet" { native.clone() } else { Value::Null }})
-                    }).collect::<Vec<_>>()))
+                        let mut windows = Vec::new();
+                        for (label, window) in app.webview_windows() {
+                            #[cfg(target_os = "macos")]
+                            let native = crate::pet_panel::inspect(&app, &label).await?;
+                            #[cfg(not(target_os = "macos"))]
+                            let native = Value::Null;
+                            let size = window.inner_size().ok().map(|size| size.to_logical::<f64>(window.scale_factor().unwrap_or(1.0)));
+                            windows.push(json!({"label":label,"visible":window.is_visible().unwrap_or(false),"width":size.map(|size|size.width),"height":size.map(|size|size.height),"native":native}));
+                        }
+                        Ok(json!(windows))
                     },
                     "_test.download" => app.get_webview_window("main").ok_or("Main window is missing".to_string()).and_then(|window| {
                         window.eval("{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['Pace native download fixture\\n'],{type:'text/markdown'}));a.download='pace-native-download-fixture.md';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),30000);}").map(|_|json!({"requested":true})).map_err(|error|error.to_string())

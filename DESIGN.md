@@ -2,17 +2,18 @@
 name: Desktop Pets
 description: A pixel companion and its everyday tools.
 colors:
-  paper: "#f7f0dc"
-  surface: "#fff8e8"
-  sidebar: "#e7ecd8"
-  ink: "#243b2e"
-  muted: "#53644f"
-  line: "#b6c09e"
-  primary: "#b63c31"
-  primary-hover: "#8f2d2b"
-  primary-pale: "#f2dfc3"
-  success: "#426348"
-  danger: "#9f322c"
+  paper: "#f6eed8"
+  surface: "#fff8e6"
+  sidebar: "#dbe6ca"
+  ink: "#1c3422"
+  muted: "#445540"
+  line: "#a7b395"
+  accent: "#9e2e21"
+  accent-hover: "#7c1e14"
+  accent-pale: "#f8d9af"
+  green: "#325033"
+  danger: "#942318"
+  on-accent: "#fff8e6"
   forest: "#203d2d"
   deep-forest: "#152b21"
   cream: "#fff5d9"
@@ -24,41 +25,41 @@ colors:
   dialogue-primary-hover: "#8d2e1d"
 typography:
   headline:
-    fontFamily: "Silkscreen, monospace"
-    fontSize: "30px"
+    fontFamily: "Pixelify Sans, sans-serif"
+    fontSize: "32px"
     fontWeight: 400
-    lineHeight: 1.22
+    lineHeight: 1.2
     letterSpacing: "0"
   title:
-    fontFamily: "Silkscreen, monospace"
-    fontSize: "15px"
+    fontFamily: "Pixelify Sans, sans-serif"
+    fontSize: "18px"
     fontWeight: 400
-    lineHeight: 1.4
+    lineHeight: 1.35
     letterSpacing: "0"
   body:
-    fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
     fontSize: "14px"
     fontWeight: 400
     lineHeight: 1.65
   label:
-    fontFamily: "Silkscreen, monospace"
-    fontSize: "12px"
+    fontFamily: "Pixelify Sans, sans-serif"
+    fontSize: "13px"
     fontWeight: 400
     lineHeight: 1.25
     letterSpacing: "0"
   campsite-headline:
-    fontFamily: "Silkscreen, sans-serif"
+    fontFamily: "Pixelify Sans, sans-serif"
     fontSize: "clamp(24px, 2.35vw, 34px)"
     fontWeight: 400
     lineHeight: 1.35
     letterSpacing: "-0.025em"
   dialogue:
-    fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
     fontSize: "19px"
     fontWeight: 500
     lineHeight: 1.6
   cloud-body:
-    fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
     fontSize: "14px"
     fontWeight: 400
     lineHeight: 1.65
@@ -71,13 +72,13 @@ spacing:
   section: "30px"
 components:
   button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.surface}"
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.on-accent}"
     typography: "{typography.label}"
     rounded: "{rounded.control}"
     padding: "9px 12px"
   button-primary-hover:
-    backgroundColor: "{colors.primary-hover}"
+    backgroundColor: "{colors.accent-hover}"
   button-secondary:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
@@ -89,17 +90,17 @@ components:
     rounded: "{rounded.control}"
     padding: "10px 12px"
   cloud:
-    backgroundColor: "{colors.cream}"
-    textColor: "{colors.forest}"
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
     rounded: "{rounded.control}"
     padding: "12px"
   campsite-forward:
     backgroundColor: "{colors.dialogue-primary}"
-    textColor: "{colors.cream}"
+    textColor: "{colors.surface}"
     rounded: "{rounded.control}"
     padding: "13px 17px"
   campsite-dialogue:
-    backgroundColor: "{colors.cream}"
+    backgroundColor: "{colors.surface}"
     textColor: "{colors.dialogue-ink}"
     typography: "{typography.dialogue}"
     rounded: "{rounded.control}"
@@ -112,98 +113,89 @@ components:
 
 **Creative North Star: "A calm workspace for a playful little companion."**
 
-Pace brings the play; the interface makes room for the task. The user’s GBA/8-bit direction spans the desktop companion, speech clouds, campsite introduction and supporting workspace. Cream paper, forest outlines, brick-red selections and the original yellow cheetah share one world.
+Pace brings the play; the interface makes room for the task. The user’s GBA/8-bit direction spans the native desktop pet, speech clouds, campsite introduction and supporting workspace. Square controls, crisp outlines and the original yellow cheetah share one world.
 
-Self-hosted pixel lettering and square controls carry the game character. Editable prose, explanations and transcripts use readable platform sans. The companion’s authored poses remain the focal art; the workspace supports real setup, settings and longer records.
+Three selected palettes change the scenery: Camp, Night and Handheld. Bundled Pixelify Sans gives short headings and controls their game character; Inter keeps prose comfortable to read. The companion’s authored poses remain the focal art. Setup, settings and longer records open through explicit workspace actions.
 
 **Key Characteristics:**
 
 - One pixel world across the app
-- Cream paper, forest frames and brick-red actions
-- Readable long prose beside pixel controls
+- Three palettes with semantic color roles
+- Readable prose beside pixel controls
 - Original sprite identity and calibrated new poses
 - Explicit, reviewable native actions
 
 ## Colors
 
-Warm paper and cream carry the interface; forest greens define frames and readable ink; brick red identifies the next action or selection. The frontmatter owns the exact values.
+The frontmatter records the current default Camp palette and the campsite’s scoped art/dialogue colors. Runtime theme roles come from `src/pixel-theme.css`, generated from deterministic OKLCH seeds by `scripts/generate-themes.mjs`. The script converts to sRGB, reduces out-of-gamut chroma and asserts readable text/action contrast. Its `--check` mode detects drift without writing.
 
 ### Primary
 
-- **Brick action:** primary and hover colors drive workspace actions; dialogue primary and hover supply the companion/campsite variant.
-- **Pale brick:** a quiet selected-navigation ground, paired with a visible border and accent edge.
+The accent and hover roles identify actions and selections; on-accent carries their text. Camp uses brick red, Night uses gold, and Handheld uses deep green. Pale accent grounds selected navigation and recovery messages.
 
 ### Secondary
 
-- **Forest:** companion outlines and navigation selection; success green marks actual readiness and provides workspace pixel depth.
-- **Danger:** errors use a visible message as well as their red color.
+Green identifies actual readiness and supplies pixel offset depth. Danger always accompanies a readable error. Handheld intentionally shares green tones across several roles; meaning must also survive in text and icons.
 
 ### Neutral
 
-- **Paper and surface:** workspace ground and controls; sidebar uses a pale sage ground.
-- **Cream and dialogue paper:** speech clouds and campsite dialogue layering.
-- **Ink and muted:** workspace reading hierarchy. Dialogue ink and muted supply the matching campsite/cloud hierarchy.
-- **Line and dialogue line:** dividers for real rows and content boundaries.
+Paper, surface and sidebar distinguish work areas. Ink, muted and line establish reading hierarchy and real content boundaries. Night uses navy grounds; Handheld uses four greens. Camp is the default cream-and-forest world. Campsite scenery and its local forest/cream art colors remain authored assets, while shared font settings reach its controls and prose.
 
 **The One World Rule.** Carry the pixel vocabulary through the companion and workspace; the campsite is an expression of the shared world, not its boundary.
 
 ## Typography
 
-**Display and control font:** self-hosted Silkscreen regular with monospace/sans fallbacks.
-**Body font:** the platform sans stack. Monospace remains available for actual JSON and arguments.
+The default interface setting is **Pixel**: self-hosted Pixelify Sans for headings and short controls, Inter for explanations, editable text and transcripts. **Inter** and **Fira Sans** are selectable alternatives that use one face for both roles. The three active families ship locally with their OFL files and pinned source hashes in `public/fonts/SOURCES.md`; no font CDN is required. Retained Silkscreen assets are historical, not the active default.
 
-The contrast is functional: short game-like labels identify actions; ordinary prose stays comfortable to edit and read.
+The workspace headline is 32px/1.2, section titles 18px/1.35, ordinary prose 14px/1.65, and common controls 13px. Compact cloud controls use 9–11px labels; Talk replies use readable 13px/1.5 prose. Responsive campsite headings retain their own scale.
 
-### Hierarchy
-
-- **Headline:** working page headings; the conversation welcome has its existing larger size (39px, line-height 1.15).
-- **Title:** section headings and short grouped labels.
-- **Body:** ordinary readable explanations; conversation messages use 13px with line-height 1.85, while cloud replies use the cloud-body role.
-- **Label:** compact controls; cloud controls use smaller pixel labels (9–11px) within their fixed native window.
-- **Campsite headline:** responsive pixel heading; compact desktop uses 25px, mobile 26px, and wide layouts 36px.
-- **Dialogue:** quoted campsite speech; explanations remain smaller platform sans.
-
-**The Readable Prose Rule.** Use Silkscreen for short display and control text; keep editable text, explanations and transcripts in platform sans.
+**The Readable Prose Rule.** Use the selected interface face for short headings and controls; keep editable text, explanations and transcripts in the selected body face.
 
 ## Layout
 
-The everyday surface is Pace alone in a transparent native pet window. Hovering the sprite or using keyboard focus reveals the three-slot weapon selector beneath him; the idle pet has no visible toolbar. Sprite bounds are 128, 160 or 208px; the square window adds 64px for controls. Talk uses a 420×330 window beside Pace. Explicit autocomplete uses a 420×240 preview above the captured caret and clamps it to the monitor. Cloud content scrolls within persistent header/actions. These dimensions describe the current native surfaces, not a responsive web replacement.
+Pace rests alone in a transparent native Tauri window. Hover or keyboard focus reveals five icon tools in a semicircle **above** him: Talk, Dictate, Meeting, Write and Settings. There are no labels beneath the pet. A focused/hovered icon supplies its own hint and accessible name. Write is contextual to a supported focused editable target. Sprite sizes are 128, 160 or 208px, with a square native window 64px larger.
 
-The supporting desktop shell retains its 228px rail, 64px header and scrollable work area, with working content bounded at 1050px and conversation content narrower. At 820px the rail becomes icons; at 600px work columns and meeting layouts stack. Native utility routes have their own compact layouts; the old Writing route remains for compatibility rather than primary navigation.
+Talk is a small 300×200 speech bubble. Explicit autocomplete is 360×200, with a 300×180 minimum, positioned near the captured caret and clamped to the monitor. Meeting live words, tips and notes share one 420×380 cloud with a 360×300 minimum. Persistent controls surround scrolling content. These are native utility windows, not a web dashboard that opens on startup.
 
-The introduction has five named stops: **Pack, Meet, Keys, Access, Home**. Model choices come first and downloads remain optional. Its centered split frame is at most 1440px wide, with art left and dialogue right. The grid uses `minmax(0, 1.05fr) minmax(430px, 1fr)`; compact desktop preserves the working pane. At 760px the scene stacks above the dialogue with document scrolling and a scene at least 290px tall. Wide layouts begin at 1500px and cap the frame height at 900px. Stops and forward/back controls sit outside the dialogue’s scrolling body.
+The supporting workspace uses 1180×780 with an 800×560 minimum, a 228px rail and a 64px header. At 820px the rail becomes icons; at 600px work columns stack. The 390×844 browser layout is a development/test viewport, not a mobile release. The old Writing route preserves saved work and compatibility.
+
+Onboarding has five stops: **Pack, Meet, Keys, Access, Home**. Its split frame places art left and dialogue right, capped at 1440px; at 760px the scene stacks above the dialogue. Stops and forward/back controls remain outside the scrolling dialogue body. Downloads and access are explicit and optional.
 
 ## Elevation & Depth
 
-Crisp forest boundaries and layered paper establish the pixel material. Workspace buttons use a small hard offset (2px); working containers use a 3px offset. These literal pixel layers belong to the chosen game world. Companion clouds instead combine inset dialogue lines with a soft ambient shadow, preserving the speech-tail silhouette. Exact shadow values live in the sidecar. Rows and dividers carry information without adding a separate card around every item.
+Crisp boundaries and layered paper establish the pixel material. Workspace controls use a small hard offset (2px); principal working containers use 3px. Companion clouds combine inset dialogue lines and a soft ambient shadow around a stepped speech tail. Selector icons use quiet ambient depth. Exact shadow and motion values live in the sidecar. Rows carry information without a separate card around every item.
 
 ## Shapes
 
-Controls, navigation selections, inputs and principal containers are square. Workspace boundaries are generally 2px; speech clouds use a 3px forest border, stepped corners and a downward pixel tail. The campsite frame is 4px, becoming 3px on mobile. Its current-stop markers are 24px squares. Existing icons keep a consistent stroke vocabulary; the sprite and campsite rasters use nearest-neighbor rendering.
+Controls, navigation selections, fields and principal containers are square. Workspace boundaries are generally 2px; clouds have a 3px ink border and a downward pixel tail. Campsite framing uses its original 4px boundary, reducing to 3px on mobile. Icons use consistent strokes; pet and campsite rasters use nearest-neighbor rendering.
 
 ## Components
 
 ### Buttons
 
-Square, compact and tactile. Workspace primary/secondary controls use the frontmatter variants, a 2px forest-ink border and a minimum height of 36px. Hover changes the fill; visible keyboard focus uses the accent outline. Quiet controls remove the offset shadow. Campsite forward actions use pixel lettering, a 2px border and a base minimum height of 48px. Optional setup controls retain readable sans labels.
+Compact square controls have explicit hover, disabled and visible keyboard-focus states. Primary actions use accent/on-accent roles, a 2px ink boundary and the shared interface face. Quiet controls omit offset depth. Native utility controls fit their fixed compact windows without removing accessible names.
 
 ### Inputs / Fields
 
-Square paper fields retain clear labels, nearby validation and visible keyboard focus. Main fields use a success-green boundary and accent outline. Cloud fields use the dialogue ink/paper variant. Copyable generated text remains available when the native target cannot accept an insertion.
+Paper fields retain labels, nearby validation and visible focus. Longer text uses the body face. The shared shortcut recorder serves all four bindings in both Settings and onboarding: click, press a real key combination, then Save or Enter. Escape, blur and a 45-second recording timeout cancel unsaved capture. Native shortcuts unregister during recording and restore afterward; validation rejects reserved keys and conflicts for edited bindings while preserving unchanged legacy bindings. Save waits for acknowledgement. No preset dropdown defines a shortcut.
 
 ### Navigation
 
-The supporting rail uses pixel labels, with sage hover and pale-brick active state, an ink border and inset accent edge. Icon-only navigation retains accessible names. Five campsite stop buttons identify the current step; changing steps focuses the new heading.
+The supporting rail uses the selected interface face, sidebar hover and pale-accent selection with an ink border and inset accent edge. Icon-only destinations retain accessible names. Five onboarding stop buttons identify the current step.
 
 ### Cards / Containers
 
-Principal work surfaces use square forest borders and pixel offset depth. Transcript turns, model downloads and permission choices remain actual rows. Long text wraps and scrolls within its own region.
+Principal work surfaces use square boundaries and pixel offset depth. Transcript turns, downloads and permission choices are actual rows. Long text wraps and scrolls inside its reading region.
 
 ### Companion and dialogue clouds
 
-The hover/focus selector below Pace contains **Talk**, **Dictate** and **Write for me**. It fades and lifts into view; the active slot lifts 3px and scales to 1.1 while its neighbors lift 1px and scale to 1.03. Slot motion lasts 140ms; reduced motion removes transitions and transforms. Right-click opens Meeting notes, Pet settings, A tiny victory! and Hide Pace. Talk uses a simple title and Close header, a scrollable answer and a persistent composer with microphone and Send; it does not repeat the three-tool selector. Autocomplete captures nearby field context and optional saved style examples only when invoked; its editable preview offers Accept, Copy and Dismiss. Accept validates the original field before inserting. The legacy Writing route preserves old data/entry points without defining the primary writing experience.
+The icon arc above Pace follows the ring-command interaction reference in Nintendo’s *Secret of Mana* manual, **Ring Commands** section. It is an original tool selector, with explicit activation, keyboard navigation and no Nintendo artwork. Icons fade in over 120ms; hover/focus scales the active icon to 1.12 and adjacent hovered neighbors to 1.04 over 140ms. Reduced motion removes transitions and transforms. The [official manual](https://www.nintendo.com/es-es/games/oms/snes-classic/manuals/secret-of-mana/manual.pdf) is the primary reference.
 
-The original twelve sprite actions retain their source timing. Talk, listen and big-ear dictate add eight 256px frames each at 8fps. Real playback drives talking; actual microphone recording drives the dictation pose. Global dictation checks Accessibility access before starting the microphone. Denial shows an explicit Open Accessibility settings action; granted recording uses the big-ear pose without an extra Talk panel, reserving a cloud for copy/error recovery. Imported packs preserve aspect ratio and fall back to idle for missing actions. Reduced motion freezes sprite animation and removes dialogue entrance motion. Sprite provenance and calibration live in `docs/sprite-quality-2026-11-13.md`.
+Talk has a compact portrait/status header, mute, copy when content exists, Close, a scrollable real reply and a persistent microphone/Send composer. Actual microphone recording, generation and playback drive listening, thinking and speaking. The microphone fills a reviewable draft; Send remains explicit. Global dictation normally uses the big-ear pose without opening Talk; failed insertion preserves copyable text.
+
+Autocomplete captures nearby field context only on invocation. Its editable preview offers Accept, Copy and Dismiss; Accept validates the captured target before inserting. Meeting assistance keeps actual live words, one quiet session-scoped tip, final notes and note editing in the same cloud. **Cover requested** is the default best-effort state, not a guarantee. Settings displays Requested · Quick hide ready without an off toggle. Quick Hide covers all five windows without stopping an active meeting.
+
+The twelve original sprite strips retain their artwork and timing. Talk, listen, dictate and hush use refined v2 eight-frame strips at 8fps with the canonical palette, exact pixel grid and binary alpha. Dictate’s headband remains 4–9% narrower over its loop; do not describe anatomical identity as pixel-exact. Provenance, measurements and the reusable skill are in `docs/sprite-refinement-2026-11-13.md` and `docs/skills/desktop-pet-sprites/SKILL.md`. Reduced motion freezes animation.
 
 **The Honest State Rule.** A pose, progress indicator or ready label must follow the actual operation; a preview never implies an insertion happened.
 
@@ -212,7 +204,7 @@ The original twelve sprite actions retain their source timing. Talk, listen and 
 ### Do:
 
 - Do preserve the original Pace artwork, colors and authored timing.
-- Do use square controls, forest boundaries and brick-red selections throughout the app.
+- Do use the selected palette’s semantic roles across the workspace and clouds.
 - Do keep generated prose scrollable, selectable and reviewable.
 - Do preserve keyboard focus, accessible names and reduced-motion behavior.
 - Do show real model, permission, recording and insertion states.
@@ -221,5 +213,6 @@ The original twelve sprite actions retain their source timing. Talk, listen and 
 
 - Don’t put pixel lettering in long editable prose or transcripts.
 - Don’t fabricate replies, transcripts, download completion or capture success.
+- Don’t place persistent labels or a tool strip beneath Pace.
 - Don’t replace the companion’s explicit cursor continuation with a primary rewrite workbench.
 - Don’t promise universal screen-capture exclusion or continuous background autocomplete.

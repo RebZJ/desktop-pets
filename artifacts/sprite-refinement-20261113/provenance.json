@@ -1,0 +1,61 @@
+{
+  "mode": "built-in image_gen",
+  "generationCount": 5,
+  "sourceDirectory": "/Users/rebzj/.codex/generated_images/01a1d489-cc42-7b00-a582-a29a1ab7911a",
+  "files": {
+    "talk": "exec-32072d3a-f113-4754-88b8-45b208efeb05.png",
+    "listen": "exec-6c9e6641-814a-44de-8ea7-55473956163d.png",
+    "dictate": "exec-551d0c83-97a4-4c4d-a6af-c363939433d2.png",
+    "hush": "exec-c57d62e9-ae18-4b33-b7ea-c49e39c780c0.png",
+    "dictate-cleanup": "exec-b3a3a312-e44e-4436-ae0c-0697fab8308b.png"
+  },
+  "selectedSources": {
+    "talk": "talk-v2-source.png",
+    "listen": "listen-v2-source.png",
+    "dictate": "dictate-v3-source.png",
+    "hush": "hush-v2-source.png"
+  },
+  "normalization": {
+    "tool": "ImageMagick",
+    "logicalCanvas": [
+      128,
+      128
+    ],
+    "outputFrame": [
+      256,
+      256
+    ],
+    "alphaThreshold": "50%",
+    "dither": false,
+    "palette": "canonical-palette.png",
+    "frameTransforms": {
+      "talk": {
+        "logicalSize": 100,
+        "dx": 16,
+        "dy": 18
+      },
+      "listen": {
+        "logicalSize": 100,
+        "dx": 17,
+        "dy": 20
+      },
+      "dictate": {
+        "logicalSize": 113,
+        "dx": 16,
+        "dy": 12
+      },
+      "hush": {
+        "logicalSize": 103,
+        "dx": 16,
+        "dy": 18
+      }
+    }
+  },
+  "sourceSha256": {
+    "dictate-v2-source.png": "3dcac64985f4c1c34791959f65da5e55fa53aafe0881ae92db3ca7acf16dd938",
+    "dictate-v3-source.png": "551d27cbfd2f544b605f29dd0c76ae7c2d2f65810f29fd85833dc5df1e1bee9f",
+    "hush-v2-source.png": "8f919a2bb86541f25bcad6a7a876a0a63b85e11f4b2e69773b179d2d1f01ee1a",
+    "listen-v2-source.png": "377b3472958f88c671fd3cb3ebbe41ce13e3b073b4d117426ebb1c2f6a907298",
+    "talk-v2-source.png": "0902d8da9a749756c81959665d5ef5c74d0eb51f3c0020cbd89aeecf8fe90586"
+  }
+}

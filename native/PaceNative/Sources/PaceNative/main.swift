@@ -56,7 +56,26 @@ enum NativeWorker {
             if let id { await MeetingService.cancelCapture(requestId: id) }
             return ["cancelled": cancelled]
         default:
-            if let result = try await BridgeService.handle(method: method, params: params, emit: emit) { return result }
+            if method == "audio.start", MoonshineBundle.availableModel(for: params["language"] as? String ?? "en") == nil {
+                throw WorkerError("model_not_installed", "Install the dictation language pack or Whisper in Local models before dictating.")
+            }
+            let startsCapture = method == "audio.start" || method == "meeting.start"
+            if startsCapture {
+                if let epoch = params["_speechEpoch"] as? UInt64 { RequestTasks.shared.advanceSpeechEpoch(epoch) }
+                _ = RequestTasks.shared.cancel(method: "voice.speak")
+                await VoicePlayback.shared.stop()
+            }
+            if let result = try await BridgeService.handle(method: method, params: params, emit: emit) {
+                if method == "audio.start" {
+                    let language = params["language"] as? String ?? "en"
+                    // The microphone is already writing WAV; model loading must never delay listening.
+                    Task.detached(priority: .userInitiated) {
+                        _ = try? await TranscriptionService.shared.prepareDictation(language: language)
+                    }
+                }
+                if startsCapture { Task.detached { await InferenceService.shared.releaseVoice() } }
+                return result
+            }
             throw WorkerError("unknown_method", "Unknown native method: \(method)")
         }
     }

@@ -4,6 +4,14 @@ import ApplicationServices
 @testable import PaceNative
 
 final class BridgeTests: XCTestCase {
+    func testDictationPreflightRequiresTheMatchingPackOrWhisperWithoutLoadingWeights() {
+        XCTAssertNil(MoonshineBundle.availableModel(for: "en", isInstalled: { _ in false }))
+        XCTAssertEqual(MoonshineBundle.availableModel(for: "en-AU", isInstalled: { $0.id == "moonshine-tiny-en" })?.id, "moonshine-tiny-en")
+        XCTAssertNil(MoonshineBundle.availableModel(for: "ja", isInstalled: { $0.id == "moonshine-tiny-en" }))
+        XCTAssertEqual(MoonshineBundle.availableModel(for: "ja", isInstalled: { $0.id == "whisper-turbo" })?.id, "whisper-turbo")
+        XCTAssertEqual(MoonshineBundle.availableModel(for: "auto", isInstalled: { _ in true })?.id, "whisper-turbo")
+    }
+
     func testWAVHeaderDescribesPCM16Mono() {
         let pcm = Data(repeating: 0, count: 32_000)
         let wav = waveData(pcm)

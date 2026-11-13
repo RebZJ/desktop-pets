@@ -2,7 +2,7 @@
 
 **A little desktop friend that helps you get things done.**
 
-Pace is a playful pixel cheetah with a local brain: short conversations, Kiki’s voice, global dictation, cursor autocomplete, opt-in work memory and meeting notes. The app includes fifteen sprite actions and a format for community pets.
+Pace is a playful pixel cheetah with a local brain: short conversations, Kiki’s voice, global dictation, cursor autocomplete, opt-in work memory and meeting notes. The app includes sixteen sprite actions and a format for community pets.
 
 This is an early **Apple Silicon Mac** release targeting **macOS 15+ and 16 GB RAM**. The Tauri shell and native capability boundary are designed for future Windows/Linux ports; those ports are not implemented yet.
 
@@ -10,16 +10,16 @@ This is an early **Apple Silicon Mac** release targeting **macOS 15+ and 16 GB R
 
 ![Pace’s pixel adventure](.impeccable/review/companion/onboarding-1180x780-1.png)
 
-![Talk beside Pace](.impeccable/review/companion/talk-empty-420x330.png)
+![Talk beside Pace](.impeccable/review/companion/talk-empty-300x200.png)
 
 ## What Pace can do
 
-- Live quietly on your desktop. Hover Pace to reveal a little weapon selector beneath him, with responsive slots for Talk, Dictate and Write for me. Pet him, drag him, or hide/return with a shortcut.
-- Open a small Talk cloud beside Pace, using local Qwen3.5 4B and the chosen **Kiki** voice from KittenTTS. Qwen3-TTS remains optional for multilingual voice.
-- Dictate into the app you are using. Pace’s big cartoon ear shows when the microphone is on; press the shortcut again to finish. Smaller Moonshine packs handle explicit English, Chinese, Japanese or Spanish dictation; Whisper handles Auto and meetings.
-- Hover Pace and choose **Write for me** beneath him for a short continuation at your cursor. Review/edit it, then Accept, Copy or Dismiss. It captures nearby field text and optional writing examples; it does not continuously watch your typing. Changed or unsupported fields keep a copyable result.
+- Live quietly on your desktop. Hover Pace to reveal a small arc of icons above him for talking, dictation, meetings, contextual writing and settings. Pet him, drag him, or hide/return with a shortcut.
+- Open a 300×200 speech bubble with listening, thinking and speaking poses, using local Qwen3.5 4B and the chosen **Kiki** voice from KittenTTS. Qwen3-TTS remains optional for multilingual voice.
+- Dictate into the app you are using. Pace’s big cartoon ear shows when the microphone is on; press the shortcut again to finish. Smaller Moonshine packs handle explicit English, Chinese, Japanese or Spanish dictation; Whisper handles Auto and meetings. Recording does not wait for ASR weights to load: early audio buffers while the tiny pack prepares.
+- Hover Pace and choose **Write for me** when an editable cursor is available for a short continuation at your cursor. Review/edit it, then Accept, Copy or Dismiss. It captures nearby field text and optional writing examples; it does not continuously watch your typing. Changed or unsupported fields keep a copyable result.
 - Remember readable text from explicitly allowed foreground native applications. Memory starts off, stays local and has search/delete controls. Browser background capture is intentionally disabled until private-mode boundaries can be verified; manually selected browser text can still be used for writing.
-- Capture microphone and selected-app/system audio only after Start, transcribe locally, separate anonymous speakers, produce editable notes/actions and offer quiet text tips. Rename speaker labels yourself; diarization does not identify real people.
+- Keep live words, quiet tips and editable notes together in one meeting cloud. Capture microphone and selected-app/system audio only after Start, transcribe locally and separate anonymous speakers. Rename speaker labels yourself; diarization does not identify real people.
 - Import and activate declarative pet packs, and connect explicitly configured local MCP programs with per-tool grants and reviewed arguments.
 
 Core inference works without a network after model installation. There is no required account, subscription or cloud inference. Optional local MCP programs are third-party software and can have their own network access.
@@ -60,9 +60,9 @@ On first launch, Pace’s pixel campsite guides five stops: Pack, Meet, Keys, Ac
 | Preview autocomplete at the cursor | Option–Shift–Return |
 | Quick hide/show | Option–Shift–Space |
 
-macOS access is granted to the app’s signature. When replacing an ad-hoc development build, a checked Accessibility switch may still reference the older signature. If fresh requests remain denied after restarting, remove only Desktop Pets from the Accessibility list and add the installed app again. A stable Developer ID release is needed to improve this update experience.
+macOS access is granted to the app’s signature. When replacing an ad-hoc development build, a checked Accessibility switch may still reference the older signature. If fresh requests remain denied after restarting, remove only Desktop Pets from the Accessibility list and add the installed app again. Use the same signing identity across updates to preserve code identity; public releases still need Developer ID signing and notarization.
 
-All four shortcuts are editable, checked for conflicts, and practiced in onboarding. Add names or specialist words under Dictation vocabulary; these reach the decoder as hints, not guaranteed spelling. Optional writing examples guide autocomplete without enabling ambient memory.
+All four shortcuts use a key recorder: press your own combination, then Save. They are checked for conflicts and practiced in onboarding. Add names or specialist words under Dictation vocabulary; these reach the decoder as hints, not guaranteed spelling. Optional writing examples guide autocomplete without enabling ambient memory.
 
 For meetings, choose the audio application and click Start meeting. Prefer headphones to reduce microphone/system echo. Pace stays silent during recording. Hiding Pace stops dictation; meeting recording keeps its menu-bar indicator. Content protection is applied to every app window and passed a controlled full-display screenshot/live-stream probe on the tested Mac. It remains **best effort** across macOS and sharing applications; Quick Hide is available and no universal invisibility is promised.
 
@@ -82,7 +82,7 @@ npm run native:test
 python3 native/scripts/test-inference.py
 ```
 
-The inference check requires the installed model pack and verifies actual local generation under a macOS network-denying sandbox. Browser contract tests use clearly labelled synthetic fixtures. See [native validation](docs/native-validation.md) and [current companion validation](docs/companion-validation-2026-11-13.md) for the tested scope and remaining hardware checks.
+The inference check requires the installed model pack and verifies actual local generation under a macOS network-denying sandbox. Browser contract tests use clearly labelled synthetic fixtures. See [native validation](docs/native-validation.md) and [historical companion validation](docs/companion-validation-2026-11-13.md) and [current contract and checks](docs/snappy-companion-2026-11-13.md) for the tested scope and remaining hardware checks.
 
 Generate a labelled two-speaker audio fixture without recording a microphone:
 
@@ -101,9 +101,10 @@ python3 scripts/package-pet.py
 bash scripts/package-macos.sh
 ```
 
-Local/ad-hoc builds are not notarized releases. Public installers need a Developer ID signing and notarization setup. Native build resources and third-party notices must travel with the helper.
+Set `PACE_CODESIGN_IDENTITY` to an existing signing identity when packaging local updates; otherwise the script uses ad-hoc signing. Local builds are not notarized releases. Public installers need a Developer ID signing and notarization setup. Native build resources and third-party notices must travel with the helper.
 
 - [Create a pet pack](docs/pet-packs.md)
+- [Sprite consistency skill](docs/skills/desktop-pet-sprites/SKILL.md)
 - [Measured model comparisons](docs/snappy-models-research-2026-11-13.md)
 - [Dictation, capture privacy and tiny-model research](docs/dictation-privacy-research-2026-11-13.md)
 - [Model selection](docs/model-selection.md)

@@ -3,7 +3,7 @@
   "id": "pace",
   "name": "Pace",
   "license": "CC-BY-4.0",
-  "attribution": "Outpaced / Desktop Pets. Twelve original Velo mascot actions; talking/listening states generated and calibrated for Desktop Pets, 2026-11-13.",
+  "attribution": "Outpaced / Desktop Pets. Twelve original Velo mascot actions; four generated companion derivatives refined to the original palette and grid, 2026-11-13.",
   "actions": [
     {
       "id": "idle",
@@ -103,7 +103,7 @@
     },
     {
       "id": "talk",
-      "src": "talk.webp",
+      "src": "talk-v2.webp",
       "frameWidth": 256,
       "frameHeight": 256,
       "frameCount": 8,
@@ -111,7 +111,7 @@
     },
     {
       "id": "listen",
-      "src": "listen.webp",
+      "src": "listen-v2.webp",
       "frameWidth": 256,
       "frameHeight": 256,
       "frameCount": 8,
@@ -119,7 +119,15 @@
     },
     {
       "id": "dictate",
-      "src": "dictate.webp",
+      "src": "dictate-v2.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 8
+    },
+    {
+      "id": "hush",
+      "src": "hush-v2.webp",
       "frameWidth": 256,
       "frameHeight": 256,
       "frameCount": 8,

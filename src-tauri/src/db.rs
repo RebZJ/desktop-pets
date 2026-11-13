@@ -8,7 +8,7 @@ pub struct Database(Mutex<Connection>);
 
 pub fn defaults() -> Value {
     json!({
-        "onboardingCompleted":false,
+        "onboardingCompleted":false, "theme":"camp", "interfaceFont":"pixel", "captureProtectionEnabled":true,
         "language":"auto", "voice":"Kiki", "voiceEngine":"auto", "speechEnabled":false,
         "dictationShortcut":"Alt+Shift+D", "completionShortcut":"Alt+Shift+Enter", "dictationLanguage":"en", "dictationVocabulary":"", "writingExamples":"",
         "soundEnabled":true, "petSize":160, "activePack":"pace", "volume":0.65, "pitch":1.05, "rate":1.0,
@@ -78,6 +78,16 @@ impl Database {
                 return Err(format!("Invalid value for {key}"));
             }
             match key.as_str() {
+                "theme"
+                    if !["camp", "night", "handheld"].contains(&value.as_str().unwrap_or("")) =>
+                {
+                    return Err("Unsupported theme".into())
+                }
+                "interfaceFont"
+                    if !["pixel", "inter", "fira"].contains(&value.as_str().unwrap_or("")) =>
+                {
+                    return Err("Unsupported interface font".into())
+                }
                 "dictationLanguage"
                     if !["auto", "en", "zh", "ja", "es"]
                         .contains(&value.as_str().unwrap_or("")) =>
@@ -357,6 +367,43 @@ mod tests {
             .update_settings(&json!({"onboardingCompleted":"yes"}))
             .is_err());
         assert_eq!(db.settings().unwrap()["onboardingCompleted"], true);
+    }
+    #[test]
+    fn appearance_and_capture_settings_are_persisted_and_validated() {
+        let db = database();
+        db.0.lock()
+            .unwrap()
+            .execute(
+                "UPDATE settings SET data=?1 WHERE id=1",
+                [json!({"language":"ja"}).to_string()],
+            )
+            .unwrap();
+        let defaults = db.settings().unwrap();
+        assert_eq!(defaults["language"], "ja");
+        assert_eq!(defaults["theme"], "camp");
+        assert_eq!(defaults["interfaceFont"], "pixel");
+        assert_eq!(defaults["captureProtectionEnabled"], true);
+        for theme in ["camp", "night", "handheld"] {
+            for font in ["pixel", "inter", "fira"] {
+                db.update_settings(
+                    &json!({"theme":theme,"interfaceFont":font,"captureProtectionEnabled":false}),
+                )
+                .unwrap();
+                let settings = db.settings().unwrap();
+                assert_eq!(settings["theme"], theme);
+                assert_eq!(settings["interfaceFont"], font);
+                assert_eq!(settings["captureProtectionEnabled"], false);
+            }
+        }
+        for patch in [
+            json!({"theme":"unknown"}),
+            json!({"interfaceFont":"comic"}),
+            json!({"captureProtectionEnabled":"yes"}),
+        ] {
+            assert!(db.update_settings(&patch).is_err());
+        }
+        assert_eq!(db.settings().unwrap()["theme"], "handheld");
+        assert_eq!(db.settings().unwrap()["captureProtectionEnabled"], false);
     }
     #[test]
     fn concurrent_settings_patches_preserve_each_other() {

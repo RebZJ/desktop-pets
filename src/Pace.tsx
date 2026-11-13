@@ -18,6 +18,7 @@ export const actions = {
   talk: { label: 'Talking', frames: 8, fps: 8, frameSize: 256 },
   listen: { label: 'Listening', frames: 8, fps: 8, frameSize: 256 },
   dictate: { label: 'Big ear', frames: 8, fps: 8, frameSize: 256 },
+  hush: { label: 'Quiet company', frames: 8, fps: 8, frameSize: 256 },
 } as const;
 export type PaceAction = keyof typeof actions;
 export const validAction = (action: string): PaceAction => action in actions ? action as PaceAction : 'idle';
@@ -26,7 +27,7 @@ const builtinSounds: Record<PaceAction, string> = {
   idle: 'attention', wave: 'attention', think: 'curious-trill', type: 'curious-trill',
   create: 'curious-trill', review: 'attention', schedule: 'attention', sprint: 'happy-chirp',
   celebrate: 'celebration', sleep: 'sleepy-purr', happy: 'happy-chirp', annoyed: 'surprised-squeak',
-  talk: 'attention', listen: 'attention', dictate: 'attention',
+  talk: 'attention', listen: 'attention', dictate: 'attention', hush: 'attention',
 };
 let petAudio: HTMLAudioElement | undefined;
 export function stopPetSound() { petAudio?.pause(); petAudio = undefined; }
@@ -50,7 +51,7 @@ export function playPetSound(action: PaceAction, volume: number, pack?: PetPack)
 export function Pace({ action = 'idle', size = 160, paused = false, flip = false, label, className = '', pack }: { action?: PaceAction; size?: number; paused?: boolean; flip?: boolean; label?: string; className?: string; pack?: PetPack }) {
   const custom = pack?.id !== 'pace' ? pack?.actions?.find(item => item.id === action) || pack?.actions?.find(item => item.id === 'idle') : undefined;
   const config = custom ? { frames: custom.frameCount, fps: custom.fps } : actions[action];
-  const source = custom ? isNative() && pack?.directory ? convertFileSrc(`${pack.directory}/${custom.src}`) : custom.src : `/pets/pace/${action}.webp`;
+  const source = custom ? isNative() && pack?.directory ? convertFileSrc(`${pack.directory}/${custom.src}`) : custom.src : `/pets/pace/${action}${['talk', 'listen', 'dictate', 'hush'].includes(action) ? '-v2' : ''}.webp`;
   return <span role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true} className={`pace-sprite ${className}`} style={{
     '--pace-bound': `${size}px`, '--pace-size': 'calc(var(--pace-bound) / max(1, var(--pace-ratio)))', '--pace-frames': config.frames, '--pace-duration': `${config.frames / config.fps}s`,
     '--pace-ratio': custom ? custom.frameWidth / custom.frameHeight : 1,

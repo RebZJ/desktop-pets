@@ -1,7 +1,4 @@
-use crate::{
-    action, emit, model_status, open_companion_for_request, set_pet_visible, stop_dictation,
-    AppState,
-};
+use crate::{action, emit, open_companion_for_request, set_pet_visible, stop_dictation, AppState};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Manager};
@@ -13,38 +10,9 @@ async fn start(app: &AppHandle, state: &AppState, ui_epoch: u64) -> Result<Value
         .as_str()
         .or_else(|| settings["language"].as_str())
         .unwrap_or("en");
-    let dictation_model = moonshine_model(language);
-    if !model_status(app, state)
-        .await
-        .as_array()
-        .is_some_and(|models| {
-            models.iter().any(|model| {
-                model["installed"] == true
-                    && (model["id"] == "whisper-turbo"
-                        || dictation_model.is_some_and(|id| model["id"] == id))
-            })
-        })
-    {
-        return Err(
-            "Install the dictation language pack or Whisper in Local models before dictating"
-                .into(),
-        );
-    }
     if state.dictating.swap(true, Ordering::SeqCst) {
         return Err("Dictation is already recording".into());
     }
-    if !request_is_current(&state.ui_epoch, ui_epoch) {
-        state.dictating.store(false, Ordering::SeqCst);
-        return Err("Dictation cancelled".into());
-    }
-    let _ = state
-        .native
-        .request(
-            app,
-            "voice.stop",
-            json!({"_speechEpoch":state.speech_epoch.load(Ordering::SeqCst)}),
-        )
-        .await;
     if !request_is_current(&state.ui_epoch, ui_epoch) {
         state.dictating.store(false, Ordering::SeqCst);
         return Err("Dictation cancelled".into());
@@ -54,7 +22,7 @@ async fn start(app: &AppHandle, state: &AppState, ui_epoch: u64) -> Result<Value
         .request(
             app,
             "audio.start",
-            json!({"outputDir":state.data_dir.join("recordings")}),
+            json!({"outputDir":state.data_dir.join("recordings"),"language":language,"_speechEpoch":state.speech_epoch.load(Ordering::SeqCst)}),
         )
         .await;
     if result.is_err() {
@@ -64,22 +32,6 @@ async fn start(app: &AppHandle, state: &AppState, ui_epoch: u64) -> Result<Value
         emit(app, "dictation.state", json!({"phase":"recording"}));
     }
     result
-}
-
-fn moonshine_model(language: &str) -> Option<&'static str> {
-    match language
-        .split(['-', '_'])
-        .next()
-        .unwrap_or("")
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "en" => Some("moonshine-tiny-en"),
-        "zh" => Some("moonshine-tiny-zh"),
-        "ja" => Some("moonshine-tiny-ja"),
-        "es" => Some("moonshine-tiny-es"),
-        _ => None,
-    }
 }
 
 pub async fn start_review(app: &AppHandle, state: &AppState) -> Result<Value, String> {
@@ -265,7 +217,7 @@ fn require_accessibility(status: &Value) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{moonshine_model, request_is_current, require_accessibility};
+    use super::{request_is_current, require_accessibility};
     use serde_json::json;
     use std::sync::{
         atomic::{AtomicU64, Ordering},
@@ -300,15 +252,5 @@ mod tests {
         grant.send(()).unwrap();
         assert!(!pending.await.unwrap());
         assert!(request_is_current(&epoch, 1));
-    }
-
-    #[test]
-    fn monolingual_packs_never_claim_auto_detection() {
-        assert_eq!(moonshine_model("en-AU"), Some("moonshine-tiny-en"));
-        assert_eq!(moonshine_model("zh_CN"), Some("moonshine-tiny-zh"));
-        assert_eq!(moonshine_model("JA"), Some("moonshine-tiny-ja"));
-        assert_eq!(moonshine_model("es"), Some("moonshine-tiny-es"));
-        assert_eq!(moonshine_model("auto"), None);
-        assert_eq!(moonshine_model("fr"), None);
     }
 }

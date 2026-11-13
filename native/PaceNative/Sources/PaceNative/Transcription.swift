@@ -6,6 +6,29 @@ actor TranscriptionService {
     private var busy = false
     private var dictationModel: MoonshineASR?
     private var dictationModelID: String?
+
+    func prepareDictation(language: String) throws -> [String: Any]? {
+        try Task.checkCancellation()
+        let language = MoonshineBundle.language(language)
+        guard !busy, let id = MoonshineBundle.modelID(for: language),
+              let model = try? ModelDefinition.find(id), ModelStore.isInstalled(model) else { return nil }
+        let (_, cold, loadMs) = try loadDictationModel(model, language: language)
+        return ["model": id, "cold": cold, "loadMs": loadMs]
+    }
+
+    private func loadDictationModel(_ model: ModelDefinition, language: String) throws -> (MoonshineASR, Bool, Double) {
+        try Task.checkCancellation()
+        let started = Date()
+        let cold = dictationModelID != model.id || dictationModel == nil
+        if cold {
+            dictationModel = nil; dictationModelID = nil
+            dictationModel = try MoonshineASR(model: model, language: language)
+            dictationModelID = model.id
+        }
+        guard let runtime = dictationModel else { throw WorkerError("model_load_failed", "The dictation model did not load.") }
+        return (runtime, cold, Date().timeIntervalSince(started) * 1000)
+    }
+
     func transcribe(params: [String: Any]) async throws -> [String: Any] {
         guard !busy else { throw WorkerError("busy", "A transcription is already running.") }
         guard let path = params["path"] as? String, path.hasPrefix("/"), FileManager.default.fileExists(atPath: path) else { throw WorkerError("invalid_params", "Provide an existing absolute WAV path.") }
@@ -20,15 +43,7 @@ actor TranscriptionService {
         let vocabulary = dictation ? try MoonshineBundle.vocabulary(params["dictationVocabulary"]) : []
         if dictation, let id = MoonshineBundle.modelID(for: language), let model = try? ModelDefinition.find(id), ModelStore.isInstalled(model) {
             busy = true; defer { busy = false }
-            let started = Date()
-            let cold = dictationModelID != id || dictationModel == nil
-            if cold {
-                dictationModel = nil; dictationModelID = nil
-                dictationModel = try MoonshineASR(model: model, language: language)
-                dictationModelID = id
-            }
-            guard let runtime = dictationModel else { throw WorkerError("model_load_failed", "The dictation model did not load.") }
-            let loadMs = Date().timeIntervalSince(started) * 1000
+            let (runtime, cold, loadMs) = try loadDictationModel(model, language: language)
             try Task.checkCancellation()
             var result = try runtime.transcribe(input, language: language, vocabulary: vocabulary)
             result["cold"] = cold; result["loadMs"] = loadMs

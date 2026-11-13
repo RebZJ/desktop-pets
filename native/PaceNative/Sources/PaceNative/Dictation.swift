@@ -77,6 +77,20 @@ private func validDictationRange(_ range: NSRange, in text: String) -> Bool {
 enum CompletionService {
     private static var target: DictationSnapshot?
 
+    static func availability() -> [String: Any] {
+        do {
+            let (app, element, _) = try BridgeService.focused()
+            guard BridgeService.isSettable(element, kAXSelectedTextAttribute),
+                  BridgeService.selectionRange(element) != nil else {
+                return ["available": false, "reason": "Place your cursor in an editable text field."]
+            }
+            return ["available": true, "app": app.localizedName ?? "App"]
+        } catch {
+            return ["available": false, "reason": error.localizedDescription,
+                    "permissionRequired": (error as? BridgeError)?.code == "permission_required"]
+        }
+    }
+
     static func capture() throws -> [String: Any] {
         target = nil
         let (app, element, _) = try BridgeService.focused(allowCompanion: true)

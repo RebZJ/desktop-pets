@@ -28,7 +28,7 @@ use tauri::{
     tray::TrayIconBuilder,
     AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition,
 };
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use uuid::Uuid;
 
 struct AppState {
@@ -46,6 +46,8 @@ struct AppState {
     speech_epoch: AtomicU64,
     ui_epoch: AtomicU64,
     shutting_down: AtomicBool,
+    shortcut_recording: AtomicBool,
+    shortcut_recording_epoch: AtomicU64,
     meeting_silent: AtomicBool,
     dictating: AtomicBool,
     dictation_target: Mutex<Option<Value>>,
@@ -53,6 +55,7 @@ struct AppState {
     completion_epoch: AtomicU64,
     dictation_lock: tokio::sync::Mutex<()>,
     generation_lock: tokio::sync::Mutex<()>,
+    capture_protection_lock: tokio::sync::Mutex<()>,
 }
 
 fn text_param<'a>(params: &'a Value, key: &str) -> Result<&'a str, String> {
@@ -105,7 +108,10 @@ fn set_pet_visible(app: &AppHandle, visible: bool) -> Result<Value, String> {
             };
         }
         if !currently_visible {
-            for label in ["bubble", "command", "main"] {
+            for label in companion::WINDOW_LABELS
+                .into_iter()
+                .filter(|label| *label != "pet")
+            {
                 if let Some(window) = handle.get_webview_window(label) {
                     let _ = window.hide();
                 }
@@ -118,7 +124,10 @@ fn set_pet_visible(app: &AppHandle, visible: bool) -> Result<Value, String> {
                 .map(|pet| pet["visible"] != true)
                 .unwrap_or(true)
             {
-                for label in ["bubble", "command", "main"] {
+                for label in companion::WINDOW_LABELS
+                    .into_iter()
+                    .filter(|label| *label != "pet")
+                {
                     if let Some(window) = handle.get_webview_window(label) {
                         let _ = window.hide();
                     }
@@ -169,17 +178,70 @@ fn show_companion_on_main(app: &AppHandle, label: &str, focus: bool) {
             let _ = window.set_position(PhysicalPosition::new(x, y));
         }
     }
-    for other in ["bubble", "command"] {
+    for other in companion::COMPANION_LABELS {
         if other != label {
             if let Some(other) = app.get_webview_window(other) {
                 let _ = other.hide();
             }
         }
     }
-    let _ = window.show();
     if focus {
+        let _ = window.show();
         let _ = window.set_focus();
+    } else {
+        let _ = show_without_focus(&window);
     }
+}
+
+fn show_without_focus(window: &tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        pet_panel::show_without_focus(window)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        window.show().map_err(|error| error.to_string())
+    }
+}
+
+fn apply_capture_protection_on_main(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    companion::request_capture_cover(enabled, |label, enabled| {
+        let window = app
+            .get_webview_window(label)
+            .ok_or_else(|| "window is unavailable".to_owned())?;
+        #[cfg(target_os = "macos")]
+        {
+            pet_panel::set_capture_protection(&window, enabled)
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            window
+                .set_content_protected(enabled)
+                .map_err(|error| error.to_string())
+        }
+    })
+}
+
+async fn apply_capture_protection(app: &AppHandle) -> Result<(), String> {
+    let handle = app.clone();
+    let (send, receive) = tokio::sync::oneshot::channel();
+    app.run_on_main_thread(move || {
+        let result = handle
+            .state::<AppState>()
+            .db
+            .settings()
+            .and_then(|settings| {
+                apply_capture_protection_on_main(
+                    &handle,
+                    settings["captureProtectionEnabled"]
+                        .as_bool()
+                        .unwrap_or(true),
+                )
+            });
+        let _ = send.send(result);
+    })
+    .map_err(|error| error.to_string())?;
+    receive.await.map_err(|error| error.to_string())?
 }
 
 fn open_companion(app: &AppHandle, label: &'static str, focus: bool) {
@@ -267,12 +329,36 @@ fn open_completion(app: &AppHandle, bounds: Option<&Value>) {
         if !positioned {
             show_companion_on_main(&handle, "command", false);
         } else {
-            if let Some(bubble) = handle.get_webview_window("bubble") {
-                let _ = bubble.hide();
+            for label in ["bubble", "meeting"] {
+                if let Some(other) = handle.get_webview_window(label) {
+                    let _ = other.hide();
+                }
             }
-            let _ = window.show();
+            let _ = show_without_focus(&window);
         }
     });
+}
+
+fn is_function_key(key: Code) -> bool {
+    key.to_string()
+        .strip_prefix('F')
+        .and_then(|value| value.parse::<u8>().ok())
+        .is_some_and(|number| (1..=24).contains(&number))
+}
+
+fn reserved_shortcut(shortcut: Shortcut) -> bool {
+    let modifiers = shortcut.mods;
+    (modifiers == Modifiers::SUPER
+        && matches!(
+            shortcut.key,
+            Code::KeyQ | Code::KeyW | Code::KeyH | Code::KeyM | Code::Tab | Code::Space
+        ))
+        || (modifiers == (Modifiers::SUPER | Modifiers::SHIFT) && shortcut.key == Code::Tab)
+        || (modifiers == (Modifiers::SUPER | Modifiers::ALT) && shortcut.key == Code::Escape)
+        || ((modifiers == Modifiers::ALT || modifiers == (Modifiers::ALT | Modifiers::SHIFT))
+            && shortcut.key == Code::Tab)
+        || (modifiers == Modifiers::ALT && shortcut.key == Code::F4)
+        || (modifiers == (Modifiers::CONTROL | Modifiers::ALT) && shortcut.key == Code::Delete)
 }
 
 fn configured_shortcuts(settings: &Value) -> Result<[Shortcut; 4], String> {
@@ -298,13 +384,54 @@ fn configured_shortcuts(settings: &Value) -> Result<[Shortcut; 4], String> {
         .map_err(|_| "Four shortcuts are required".into())
 }
 
+fn validate_shortcut_changes(settings: &Value, patch: &Value) -> Result<(), String> {
+    let shortcuts = configured_shortcuts(settings)?;
+    for ((key, name), shortcut) in [
+        ("hideShortcut", "Hide"),
+        ("commandShortcut", "Talk"),
+        ("dictationShortcut", "Dictation"),
+        ("completionShortcut", "Completion"),
+    ]
+    .into_iter()
+    .zip(shortcuts)
+    {
+        // Existing bindings remain usable; apply the safer rules only to edited choices.
+        if patch.get(key).is_none() {
+            continue;
+        }
+        if shortcut.mods.is_empty()
+            || (shortcut.mods == Modifiers::SHIFT && !is_function_key(shortcut.key))
+        {
+            return Err(format!("The {name} shortcut needs Control, Alt/Option, or Command/Super; Shift can be used with a function key."));
+        }
+        if reserved_shortcut(shortcut) {
+            return Err(format!(
+                "The {name} shortcut is reserved by the system. Choose another combination."
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
     let [hide, command, dictation, completion] = configured_shortcuts(settings)?;
+    if app
+        .state::<AppState>()
+        .shortcut_recording
+        .load(Ordering::SeqCst)
+    {
+        return Ok(());
+    }
     let shortcuts = app.global_shortcut();
     shortcuts.unregister_all().map_err(|e| e.to_string())?;
     shortcuts
         .on_shortcut(hide, |app, _, event| {
-            if event.state == ShortcutState::Pressed {
+            if event.state == ShortcutState::Pressed
+                && !app
+                    .state::<AppState>()
+                    .shortcut_recording
+                    .load(Ordering::SeqCst)
+            {
                 emit(app, "shortcut.triggered", json!({"action":"hide"}));
                 let visible = app
                     .state::<AppState>()
@@ -318,7 +445,12 @@ fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
         .map_err(|e| format!("Could not register the hide shortcut: {e}"))?;
     shortcuts
         .on_shortcut(command, |app, _, event| {
-            if event.state == ShortcutState::Pressed {
+            if event.state == ShortcutState::Pressed
+                && !app
+                    .state::<AppState>()
+                    .shortcut_recording
+                    .load(Ordering::SeqCst)
+            {
                 emit(app, "shortcut.triggered", json!({"action":"talk"}));
                 open_companion(app, "bubble", true);
             }
@@ -326,7 +458,12 @@ fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
         .map_err(|e| format!("Could not register the command shortcut: {e}"))?;
     shortcuts
         .on_shortcut(dictation, |app, _, event| {
-            if event.state == ShortcutState::Pressed {
+            if event.state == ShortcutState::Pressed
+                && !app
+                    .state::<AppState>()
+                    .shortcut_recording
+                    .load(Ordering::SeqCst)
+            {
                 emit(app, "shortcut.triggered", json!({"action":"dictate"}));
                 let handle = app.clone();
                 tauri::async_runtime::spawn(async move {
@@ -343,7 +480,12 @@ fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
         .map_err(|e| format!("Could not register the dictation shortcut: {e}"))?;
     shortcuts
         .on_shortcut(completion, |app, _, event| {
-            if event.state == ShortcutState::Pressed {
+            if event.state == ShortcutState::Pressed
+                && !app
+                    .state::<AppState>()
+                    .shortcut_recording
+                    .load(Ordering::SeqCst)
+            {
                 emit(app, "shortcut.triggered", json!({"action":"complete"}));
                 let handle = app.clone();
                 tauri::async_runtime::spawn(async move {
@@ -361,6 +503,47 @@ fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
         })
         .map_err(|e| format!("Could not register the completion shortcut: {e}"))?;
     Ok(())
+}
+
+fn set_shortcut_recording(app: &AppHandle, active: bool, reason: &str) -> Result<Value, String> {
+    let state = app.state::<AppState>();
+    let epoch = state
+        .shortcut_recording_epoch
+        .fetch_add(1, Ordering::SeqCst)
+        + 1;
+    state.shortcut_recording.store(active, Ordering::SeqCst);
+    let result = if active {
+        app.global_shortcut()
+            .unregister_all()
+            .map_err(|e| e.to_string())
+    } else {
+        register_shortcuts(app, &state.db.settings()?)
+    };
+    if let Err(error) = result {
+        state.shortcut_recording.store(false, Ordering::SeqCst);
+        let _ = register_shortcuts(app, &state.db.settings()?);
+        return Err(error);
+    }
+    emit(
+        app,
+        "shortcut.recording",
+        json!({"active":active,"reason":reason}),
+    );
+    if active {
+        let handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            let state = handle.state::<AppState>();
+            if state.shortcut_recording_epoch.load(Ordering::SeqCst) == epoch
+                && state.shortcut_recording.load(Ordering::SeqCst)
+            {
+                if let Err(error) = set_shortcut_recording(&handle, false, "timeout") {
+                    emit(&handle, "shortcut.error", json!({"error":error}));
+                }
+            }
+        });
+    }
+    Ok(json!({"active":active}))
 }
 
 async fn model_status(app: &AppHandle, state: &AppState) -> Value {
@@ -544,13 +727,18 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
         }
         "settings.update" => {
             let patch = params.get("patch").unwrap_or(&params);
+            let _capture_guard = if patch.get("captureProtectionEnabled").is_some() {
+                Some(state.capture_protection_lock.lock().await)
+            } else {
+                None
+            };
             if let Some(id) = patch["activePack"].as_str() {
                 if id != "pace" {
                     state.db.get("pack", id)?;
                 }
             }
             let old = state.db.settings()?;
-            let updated = state.db.update_settings(patch)?;
+            let mut updated = state.db.update_settings(patch)?;
             state.capture_epoch.fetch_add(1, Ordering::SeqCst);
             if patch.get("speechEnabled").is_some() {
                 let epoch = state.speech_epoch.fetch_add(1, Ordering::SeqCst) + 1;
@@ -570,10 +758,35 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
             .iter()
             .any(|key| patch.get(*key).is_some())
             {
-                if let Err(error) = register_shortcuts(&app, &updated) {
-                    let _ = state.db.update_settings(&old);
-                    let _ = register_shortcuts(&app, &old);
+                if let Err(error) = validate_shortcut_changes(&updated, patch)
+                    .and_then(|_| register_shortcuts(&app, &updated))
+                {
+                    let rollback: serde_json::Map<String, Value> = patch
+                        .as_object()
+                        .into_iter()
+                        .flat_map(|patch| patch.keys())
+                        .filter_map(|key| old.get(key).map(|value| (key.clone(), value.clone())))
+                        .collect();
+                    let _ = state.db.update_settings(&Value::Object(rollback));
+                    if let Ok(current) = state.db.settings() {
+                        let _ = register_shortcuts(&app, &current);
+                    }
                     return Err(error);
+                }
+            }
+            let mut cover_error = None;
+            if patch.get("captureProtectionEnabled").is_some() {
+                if let Err(error) = apply_capture_protection(&app).await {
+                    let rolled_back = state.db.update_settings(&json!({"captureProtectionEnabled":old["captureProtectionEnabled"].as_bool().unwrap_or(true)}));
+                    let restored = apply_capture_protection(&app).await;
+                    let restore_note = if rolled_back.is_err() || restored.is_err() {
+                        " Restoring the previous cover request also failed; use Quick hide."
+                    } else {
+                        ""
+                    };
+                    cover_error = Some(format!(
+                        "Could not update screen-share cover: {error}.{restore_note}"
+                    ));
                 }
             }
             let click_through = patch
@@ -595,8 +808,13 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
                     }
                 });
             }
+            updated = state.db.settings()?;
             emit(&app, "settings.updated", updated.clone());
-            Ok(updated)
+            if let Some(error) = cover_error {
+                Err(error)
+            } else {
+                Ok(updated)
+            }
         }
         "models.status" => Ok(model_status(&app, &state).await),
         "models.install" => state.native.request(&app, "models.install", params).await,
@@ -787,6 +1005,20 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
             Ok(json!({"text":answer,"contextId":params["contextId"]}))
         }
         "writing.apply" => state.native.request(&app, "writing.apply", params).await,
+        "shortcut.recording" => {
+            let active = params["active"]
+                .as_bool()
+                .ok_or("active must be a boolean")?;
+            set_shortcut_recording(&app, active, "requested")
+        }
+        "completion.available" => {
+            let mut available = state
+                .native
+                .request(&app, "completion.available", json!({}))
+                .await?;
+            available["shortcut"] = state.db.settings()?["completionShortcut"].clone();
+            Ok(available)
+        }
         "completion.suggest" => completion::suggest(app.clone()).await,
         "completion.current" => completion::current(&state),
         "completion.apply" => completion::apply(&app, &state, params).await,
@@ -810,16 +1042,9 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
                 }
             }
             state.meeting_silent.store(true, Ordering::SeqCst);
-            let _ = state
-                .native
-                .request(
-                    &app,
-                    "voice.stop",
-                    json!({"_speechEpoch":state.speech_epoch.load(Ordering::SeqCst)}),
-                )
-                .await;
             let mut capture = params.clone();
             capture["outputDir"] = json!(state.data_dir.join("recordings"));
+            capture["_speechEpoch"] = json!(state.speech_epoch.load(Ordering::SeqCst));
             let started = match state.native.request(&app, "meeting.start", capture).await {
                 Ok(value) => value,
                 Err(error) => {
@@ -1118,6 +1343,7 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
                 "talk",
                 "listen",
                 "dictate",
+                "hush",
             ]
             .contains(&name)
             {
@@ -1141,6 +1367,22 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
             open_companion(&app, "bubble", true);
             Ok(json!({"opened":true}))
         }
+        "window.meeting" => {
+            open_companion(&app, "meeting", true);
+            Ok(json!({"opened":true}))
+        }
+        "meeting.tip.current" => {
+            let id = text_param(&params, "id")?;
+            state.db.get("meeting", id)?;
+            let text = state
+                .tip_text
+                .lock()
+                .map_err(|error| error.to_string())?
+                .get(id)
+                .cloned()
+                .unwrap_or_default();
+            Ok(json!({"sessionId":id,"text":text}))
+        }
         "window.main" => {
             if let Some(window) = app.get_webview_window("main") {
                 window.show().map_err(|e| e.to_string())?;
@@ -1159,7 +1401,13 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
                 ]
                 .contains(page)
             }) {
-                emit(&app, "navigation.open", json!({"page":page}));
+                let mut navigation = json!({"page":page});
+                if let Some(section) =
+                    companion::settings_section(page, params["section"].as_str().unwrap_or(""))
+                {
+                    navigation["section"] = json!(section);
+                }
+                emit(&app, "navigation.open", navigation);
             }
             Ok(json!({"opened":true}))
         }
@@ -1198,7 +1446,7 @@ async fn stop_dictation(app: &AppHandle, state: &AppState) -> Result<Value, Stri
     if result.is_ok() {
         let _ = std::fs::remove_file(path);
     }
-    result
+    result.map_err(|error| format!("{error} Your audio is saved at {path}."))
 }
 
 async fn finish_hidden_dictation(app: &AppHandle) {
@@ -1376,7 +1624,23 @@ pub(crate) async fn handle_native_event(app: AppHandle, message: Value) {
     } else if event == "runtime.stopped" {
         let state = app.state::<AppState>();
         state.meeting_silent.store(false, Ordering::SeqCst);
-        state.dictating.store(false, Ordering::SeqCst);
+        if state.dictating.swap(false, Ordering::SeqCst) {
+            if let Ok(mut target) = state.dictation_target.lock() {
+                target.take();
+            }
+            let error = "The local listener stopped. Start dictation again; any saved audio remains in your recordings folder.";
+            emit(
+                &app,
+                "dictation.state",
+                json!({"phase":"error","error":error}),
+            );
+            emit(
+                &app,
+                "dictation.finished",
+                json!({"inserted":false,"error":error}),
+            );
+            action(&app, "idle");
+        }
         recording_status(&app, false);
         if let Ok(meetings) = state.db.list("meeting") {
             for mut meeting in meetings {
@@ -1395,6 +1659,7 @@ pub(crate) async fn handle_native_event(app: AppHandle, message: Value) {
 async fn process_chunk(app: &AppHandle, chunk: &Value) -> Result<Value, String> {
     let state = app.state::<AppState>();
     let id = text_param(chunk, "sessionId")?;
+    let ui_epoch = state.ui_epoch.load(Ordering::SeqCst);
     if state.db.get("meeting", id)?["status"] != "recording" {
         return Ok(json!({"processed":false,"reason":"meeting_not_recording"}));
     }
@@ -1490,6 +1755,7 @@ async fn process_chunk(app: &AppHandle, chunk: &Value) -> Result<Value, String> 
                         && tip.len() < 1000
                         && normalized_tip(&tip) != normalized_tip(&previous)
                         && state.db.get("meeting", id)?["status"] == "recording"
+                        && state.db.settings()?["meetingTips"] == true
                     {
                         state
                             .tip_text
@@ -1497,7 +1763,7 @@ async fn process_chunk(app: &AppHandle, chunk: &Value) -> Result<Value, String> 
                             .map_err(|e| e.to_string())?
                             .insert(id.to_owned(), tip.clone());
                         tip_generated = true;
-                        show_bubble(app, &tip);
+                        show_meeting_tip(app, id, ui_epoch);
                         emit(app, "meeting.tip", json!({"sessionId":id,"text":tip}));
                     }
                 }
@@ -1575,25 +1841,36 @@ fn merge_segments(segments: Vec<Value>) -> Vec<Value> {
     merged
 }
 
-fn show_bubble(app: &AppHandle, text: &str) {
+fn show_meeting_tip(app: &AppHandle, session_id: &str, epoch: u64) {
     let handle = app.clone();
-    let text = text.to_string();
-    // Window queries must not hold up audio/model tasks when the desktop is locked.
-    let _ = app.run_on_main_thread(move || show_bubble_on_main(&handle, &text));
-}
-
-fn show_bubble_on_main(app: &AppHandle, text: &str) {
-    let visible = app
-        .state::<AppState>()
-        .pet
-        .lock()
-        .map(|p| p["visible"] == true)
-        .unwrap_or(false);
-    if !visible {
-        return;
-    }
-    show_companion_on_main(app, "bubble", false);
-    emit(app, "pet.bubble", json!({"text":text}));
+    let session_id = session_id.to_owned();
+    let _ = app.run_on_main_thread(move || {
+        let state = handle.state::<AppState>();
+        let visible = state
+            .pet
+            .lock()
+            .map(|pet| pet["visible"] == true)
+            .unwrap_or(false);
+        let talk = handle
+            .get_webview_window("bubble")
+            .is_some_and(|window| window.is_visible().unwrap_or(false));
+        let completion = handle
+            .get_webview_window("command")
+            .is_some_and(|window| window.is_visible().unwrap_or(false));
+        if companion::passive_meeting_allowed(
+            visible,
+            epoch,
+            state.ui_epoch.load(Ordering::SeqCst),
+            talk,
+            completion,
+        ) && state
+            .db
+            .get("meeting", &session_id)
+            .is_ok_and(|meeting| meeting["status"] == "recording")
+        {
+            show_companion_on_main(&handle, "meeting", false);
+        }
+    });
 }
 
 async fn finalize_meeting(app: &AppHandle, state: &AppState, id: &str) -> Result<Value, String> {
@@ -1799,10 +2076,13 @@ pub fn run() {
             let database=Database::open(&data_dir.join("desktop-pets.sqlite")).map_err(std::io::Error::other)?;
             for mut meeting in database.list("meeting").map_err(std::io::Error::other)? {if meeting["status"]=="recording" || meeting["status"]=="finalizing" {let id=meeting["id"].as_str().unwrap_or("").to_string();meeting["status"]=json!("interrupted");meeting["error"]=json!("The app closed during this meeting. Saved transcripts and audio have been preserved.");let _=database.put("meeting",&id,&meeting);}}
             let settings=database.settings().map_err(std::io::Error::other)?;
+            if let Err(error)=apply_capture_protection_on_main(app.handle(),settings["captureProtectionEnabled"].as_bool().unwrap_or(true)){eprintln!("Screen-share cover request: {error}");}
             if settings["onboardingCompleted"] != true { if let Some(main) = app.get_webview_window("main") { let _ = main.show(); let _ = main.set_focus(); } }
             app.asset_protocol_scope().allow_directory(data_dir.join("packs"),true)?;
-            app.manage(AppState{db:database,native:NativeManager::default(),data_dir,contexts:Mutex::new(HashMap::new()),pet:Mutex::new(json!({"visible":true,"action":"idle"})),meeting_lock:tokio::sync::Mutex::new(()),meeting_lifecycle:tokio::sync::Mutex::new(()),asr_lock:tokio::sync::Mutex::new(()),last_tip:Mutex::new(HashMap::new()),tip_text:Mutex::new(HashMap::new()),capture_epoch:AtomicU64::new(0),speech_epoch:AtomicU64::new(0),ui_epoch:AtomicU64::new(0),shutting_down:AtomicBool::new(false),meeting_silent:AtomicBool::new(false),dictating:AtomicBool::new(false),dictation_target:Mutex::new(None),completion_preview:Mutex::new(None),completion_epoch:AtomicU64::new(0),dictation_lock:tokio::sync::Mutex::new(()),generation_lock:tokio::sync::Mutex::new(())});
+            app.manage(AppState{db:database,native:NativeManager::default(),data_dir,contexts:Mutex::new(HashMap::new()),pet:Mutex::new(json!({"visible":true,"action":"idle"})),meeting_lock:tokio::sync::Mutex::new(()),meeting_lifecycle:tokio::sync::Mutex::new(()),asr_lock:tokio::sync::Mutex::new(()),last_tip:Mutex::new(HashMap::new()),tip_text:Mutex::new(HashMap::new()),capture_epoch:AtomicU64::new(0),speech_epoch:AtomicU64::new(0),ui_epoch:AtomicU64::new(0),shutting_down:AtomicBool::new(false),shortcut_recording:AtomicBool::new(false),shortcut_recording_epoch:AtomicU64::new(0),meeting_silent:AtomicBool::new(false),dictating:AtomicBool::new(false),dictation_target:Mutex::new(None),completion_preview:Mutex::new(None),completion_epoch:AtomicU64::new(0),dictation_lock:tokio::sync::Mutex::new(()),generation_lock:tokio::sync::Mutex::new(()),capture_protection_lock:tokio::sync::Mutex::new(())});
             if let Err(message)=register_shortcuts(app.handle(),&settings){eprintln!("{message}");}
+            let runtime_handle=app.handle().clone();
+            tauri::async_runtime::spawn(async move { let _=runtime_handle.state::<AppState>().native.request(&runtime_handle,"permissions.status",json!({})).await; });
             if let (Some(pet),Ok(Some(monitor)))=(app.get_webview_window("pet"),app.primary_monitor()) {let size=monitor.size();let scale=monitor.scale_factor();let pet_size=settings["petSize"].as_f64().unwrap_or(160.0);let _=pet.set_position(PhysicalPosition::new((size.width as f64-(pet_size+40.0)*scale).max(0.0) as i32,(size.height as f64-(pet_size+80.0)*scale).max(0.0) as i32));let _=pet.set_ignore_cursor_events(settings["clickThrough"]==true);let _=pet.set_size(LogicalSize::new(pet_size+64.0,pet_size+64.0));}
             let show=MenuItem::with_id(app,"show","Open Desktop Pets",true,None::<&str>)?;
             let pet=MenuItem::with_id(app,"pet","Hide / show Pace",true,None::<&str>)?;
@@ -1823,7 +2103,14 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {loop{tokio::time::sleep(Duration::from_secs(5)).await;let state=handle.state::<AppState>();let _=capture_memory(&handle,&state).await;}});
             Ok(())
         })
-        .on_window_event(|window,event|if window.label()=="main" {if let tauri::WindowEvent::CloseRequested{api,..}=event{api.prevent_close();let _=window.hide();}})
+        .on_window_event(|window,event|if window.label()=="main" {
+            if matches!(event, tauri::WindowEvent::Focused(false) | tauri::WindowEvent::CloseRequested{..}) {
+                if window.app_handle().try_state::<AppState>().is_some_and(|state| state.shortcut_recording.load(Ordering::SeqCst)) {
+                    if let Err(error)=set_shortcut_recording(window.app_handle(),false,"focus-lost") { emit(window.app_handle(),"shortcut.error",json!({"error":error})); }
+                }
+            }
+            if let tauri::WindowEvent::CloseRequested{api,..}=event{api.prevent_close();let _=window.hide();}
+        })
         .invoke_handler(tauri::generate_handler![dispatch])
         .build(tauri::generate_context!())
         .expect("Desktop Pets could not start")
@@ -1841,6 +2128,20 @@ mod tests {
     }
     #[test]
     fn shortcut_validation_checks_all_bindings_before_registration() {
+        for invalid in ["D", "Shift+Enter", "Super+Q"] {
+            let patch = json!({"dictationShortcut":invalid});
+            assert!(validate_shortcut_changes(&patch, &patch).is_err());
+        }
+        for valid in ["Shift+F12", "Super+Shift+Q"] {
+            let patch = json!({"dictationShortcut":valid});
+            assert!(validate_shortcut_changes(&patch, &patch).is_ok());
+        }
+        assert!(configured_shortcuts(&json!({"dictationShortcut":"F12"})).is_ok());
+        assert!(validate_shortcut_changes(
+            &json!({"dictationShortcut":"F12","commandShortcut":"Control+Space"}),
+            &json!({"commandShortcut":"Control+Space"})
+        )
+        .is_ok());
         assert!(configured_shortcuts(&json!({})).is_ok());
         assert!(
             configured_shortcuts(&json!({"completionShortcut":"Shift+Alt+D"}))

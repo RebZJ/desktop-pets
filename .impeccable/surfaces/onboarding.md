@@ -1,27 +1,27 @@
 # Pace’s campsite onboarding
 
-Requested 2026-11-13: “a stellar pixel style almost roguelike or sprite like GBA style onboarding experience.” The existing workspace stays in its established paper-and-brick world; this bounded introduction opens into an original warm GBA grassland campsite. No separate game system is needed.
+Mode: Experience for meeting Pace; Operate for optional setup. Native main-window introduction with browser development captures.
 
 ## Direction contract
 
-**THESIS:** Meet a real little companion at its pixel campsite, then take four optional setup stops. The first meeting carries the experience; a generic setup checklist does not.
+**THESIS:** Meet a real little companion at its pixel campsite while choosing only the local tools, shortcuts and access needed.
 
-**OWN-WORLD:** Original GBA-style grassland art, forest framing, cream dialogue paper, brick-red actions and self-hosted Silkscreen display lettering. Readable platform sans carries explanations. Square frames and speech tails belong only to this introduction; the workspace retains its established identity.
+**OWN-WORLD:** The user’s GBA/8-bit world spans onboarding, companion clouds and workspace. Original grassland art, forest framing, cream dialogue and square controls carry the campsite. Current shared lettering defaults to Pixelify Sans controls/headings with Inter prose; Inter and Fira Sans options apply here too. The authored campsite scenery retains its scoped colors.
 
-**STORY:** Meet → Pack → Access → Home, freely navigable. A real pat changes Pace’s authored pose and plays its earcon when sound is enabled. Explore optional downloads and access, then enter the workspace; replay is available in Settings.
+**STORY:** **Pack → Meet → Keys → Access → Home**, freely navigable. Optional model selection comes first. Petting changes Pace’s authored pose and plays an earcon only when sound is enabled. Keys records and practices all four shortcuts using the same recorder as Settings. Enter the desktop companion; replay remains available from Settings.
 
-**FIRST VIEWPORT:** A large campsite and Pace occupy the left half; stop navigation, a pixel heading, Pace’s greeting and one forward action occupy the cream right pane. Desktop keeps navigation and primary controls outside the scrolling dialogue body. Mobile stacks the scene above dialogue.
+**FIRST VIEWPORT:** Campsite art and Pace occupy the left half; stop navigation, a pixel heading, dialogue and one forward action occupy the right. Navigation and primary controls stay outside scrolling dialogue. At 760px the scene stacks above dialogue.
 
-**FORM:** Direct code-led extension of the user’s precisely specified pixel/GBA request. No concept tournament, seed, decision card or approved comp was generated. The split frame, original scene and live companion are the implementation reference.
+**FORM:** Direct code-led execution of the user-prescribed pixel world. No concept tournament, seed, decision card or approved comp. The earlier four-stop, Silkscreen and onboarding-only styling descriptions are superseded; their dated captures remain historical evidence.
 
 **FINISH:** unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 
 ## Product and verification boundaries
 
-Truth boundaries: downloads are optional, use the actual model catalog/progress, and start only on a Download click. OS access is optional and requested separately. Memory and spoken replies keep the user’s existing settings. No invented inference, recording, grant, model readiness, or hidden screen-sharing claim. The only completion write is onboardingCompleted=true, acknowledged before exiting. A failed write stays retryable in the tour. Utility pet/writing/bubble windows never display onboarding. Replay from Settings does not reset stored preferences or the completion flag.
+Downloads are optional and start on Download; actual catalog/progress owns readiness. The selected dictation pack, 149 MB KittenTTS voice and optional 3.06 GB Qwen3.5 4B brain have separate roles; meeting extras remain separately installable. Access requests are explicit. Memory and speech retain existing settings. No invented inference, grant, recording or hidden-screen-sharing claim.
 
-Required viewports: 1180×780 desktop, 800×560 native minimum, and 390×844 browser preview. Each of the four stops must fit horizontally; compact layouts can scroll vertically. Keyboard focus, semantic controls, visible progress/errors and reduced-motion support are required. All assets are bundled for offline rendering.
+The key recorder captures real combinations for Talk, Dictate, Autocomplete and Quick Hide. Save is acknowledged; conflicts and reserved keys show errors. Escape, blur and a 45-second timeout cancel unsaved capture. Native shortcuts unregister while recording and restore afterward. Completing onboarding acknowledges `onboardingCompleted=true` before exiting; failure remains retryable. Replay does not reset saved preferences. Utility windows do not show onboarding.
 
-The dialogue has a short, restrained entrance; reduced motion freezes the sprite and entrance animation. First-round captures and the finish review are under `.impeccable/review/onboarding/`; behavioral validation is in `tests/e2e/onboarding.spec.ts`. Asset provenance and the complete generation prompt are in `docs/onboarding-assets.md`.
+Required viewports: 1180×780, native minimum 800×560, and browser preview 390×844. Five steps must fit horizontally with vertical scrolling where needed. Preserve keyboard focus, IME, semantic controls, real progress/errors and reduced motion. Assets are bundled for offline rendering; provenance and prompts live in `docs/onboarding-assets.md`.
 
-Manual detector ran once on the changed UI. Its split-frame and speech-tail side-border warnings are intentional game geometry. The new palette/type vocabulary is documented as scoped additions in `DESIGN.md` and `.impeccable/design.json`; it does not replace the incumbent workspace system.
+The earlier manual detector pass covered onboarding; its split frame and speech tail were intentional game geometry. Its dated screenshots/review are under `.impeccable/review/onboarding/`. They do not constitute latest companion finish review or native integration signoff. Current outcomes are in `docs/snappy-companion-2026-11-13.md`: manual ship for two scored fixes, 56 native-host integration operations, and browser coverage across full/focused runs. Final-installer permission behavior remains pending.

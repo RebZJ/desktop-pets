@@ -1,166 +1,193 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-13T09:33:14.256417+00:00",
+  "generatedAt": "2026-11-13T11:29:07.749720+00:00",
   "title": "Design System: Desktop Pets",
   "extensions": {
     "colorMeta": {
       "paper": {
         "role": "neutral",
         "displayName": "Paper",
+        "canonical": "#f6eed8",
         "tonalRamp": [
-          "oklch(from #f7f0dc 15% c h)",
-          "oklch(from #f7f0dc 25% c h)",
-          "oklch(from #f7f0dc 35% c h)",
-          "oklch(from #f7f0dc 45% c h)",
-          "oklch(from #f7f0dc 55% c h)",
-          "oklch(from #f7f0dc 65% c h)",
-          "oklch(from #f7f0dc 80% c h)",
-          "oklch(from #f7f0dc 95% c h)"
+          "oklch(from #f6eed8 15% c h)",
+          "oklch(from #f6eed8 25% c h)",
+          "oklch(from #f6eed8 35% c h)",
+          "oklch(from #f6eed8 45% c h)",
+          "oklch(from #f6eed8 55% c h)",
+          "oklch(from #f6eed8 65% c h)",
+          "oklch(from #f6eed8 80% c h)",
+          "oklch(from #f6eed8 95% c h)"
         ]
       },
       "surface": {
         "role": "neutral",
         "displayName": "Surface",
+        "canonical": "#fff8e6",
         "tonalRamp": [
-          "oklch(from #fff8e8 15% c h)",
-          "oklch(from #fff8e8 25% c h)",
-          "oklch(from #fff8e8 35% c h)",
-          "oklch(from #fff8e8 45% c h)",
-          "oklch(from #fff8e8 55% c h)",
-          "oklch(from #fff8e8 65% c h)",
-          "oklch(from #fff8e8 80% c h)",
-          "oklch(from #fff8e8 95% c h)"
+          "oklch(from #fff8e6 15% c h)",
+          "oklch(from #fff8e6 25% c h)",
+          "oklch(from #fff8e6 35% c h)",
+          "oklch(from #fff8e6 45% c h)",
+          "oklch(from #fff8e6 55% c h)",
+          "oklch(from #fff8e6 65% c h)",
+          "oklch(from #fff8e6 80% c h)",
+          "oklch(from #fff8e6 95% c h)"
         ]
       },
       "sidebar": {
         "role": "neutral",
         "displayName": "Sidebar",
+        "canonical": "#dbe6ca",
         "tonalRamp": [
-          "oklch(from #e7ecd8 15% c h)",
-          "oklch(from #e7ecd8 25% c h)",
-          "oklch(from #e7ecd8 35% c h)",
-          "oklch(from #e7ecd8 45% c h)",
-          "oklch(from #e7ecd8 55% c h)",
-          "oklch(from #e7ecd8 65% c h)",
-          "oklch(from #e7ecd8 80% c h)",
-          "oklch(from #e7ecd8 95% c h)"
+          "oklch(from #dbe6ca 15% c h)",
+          "oklch(from #dbe6ca 25% c h)",
+          "oklch(from #dbe6ca 35% c h)",
+          "oklch(from #dbe6ca 45% c h)",
+          "oklch(from #dbe6ca 55% c h)",
+          "oklch(from #dbe6ca 65% c h)",
+          "oklch(from #dbe6ca 80% c h)",
+          "oklch(from #dbe6ca 95% c h)"
         ]
       },
       "ink": {
         "role": "neutral",
         "displayName": "Ink",
+        "canonical": "#1c3422",
         "tonalRamp": [
-          "oklch(from #243b2e 15% c h)",
-          "oklch(from #243b2e 25% c h)",
-          "oklch(from #243b2e 35% c h)",
-          "oklch(from #243b2e 45% c h)",
-          "oklch(from #243b2e 55% c h)",
-          "oklch(from #243b2e 65% c h)",
-          "oklch(from #243b2e 80% c h)",
-          "oklch(from #243b2e 95% c h)"
+          "oklch(from #1c3422 15% c h)",
+          "oklch(from #1c3422 25% c h)",
+          "oklch(from #1c3422 35% c h)",
+          "oklch(from #1c3422 45% c h)",
+          "oklch(from #1c3422 55% c h)",
+          "oklch(from #1c3422 65% c h)",
+          "oklch(from #1c3422 80% c h)",
+          "oklch(from #1c3422 95% c h)"
         ]
       },
       "muted": {
         "role": "neutral",
         "displayName": "Muted",
+        "canonical": "#445540",
         "tonalRamp": [
-          "oklch(from #53644f 15% c h)",
-          "oklch(from #53644f 25% c h)",
-          "oklch(from #53644f 35% c h)",
-          "oklch(from #53644f 45% c h)",
-          "oklch(from #53644f 55% c h)",
-          "oklch(from #53644f 65% c h)",
-          "oklch(from #53644f 80% c h)",
-          "oklch(from #53644f 95% c h)"
+          "oklch(from #445540 15% c h)",
+          "oklch(from #445540 25% c h)",
+          "oklch(from #445540 35% c h)",
+          "oklch(from #445540 45% c h)",
+          "oklch(from #445540 55% c h)",
+          "oklch(from #445540 65% c h)",
+          "oklch(from #445540 80% c h)",
+          "oklch(from #445540 95% c h)"
         ]
       },
       "line": {
         "role": "neutral",
         "displayName": "Line",
+        "canonical": "#a7b395",
         "tonalRamp": [
-          "oklch(from #b6c09e 15% c h)",
-          "oklch(from #b6c09e 25% c h)",
-          "oklch(from #b6c09e 35% c h)",
-          "oklch(from #b6c09e 45% c h)",
-          "oklch(from #b6c09e 55% c h)",
-          "oklch(from #b6c09e 65% c h)",
-          "oklch(from #b6c09e 80% c h)",
-          "oklch(from #b6c09e 95% c h)"
+          "oklch(from #a7b395 15% c h)",
+          "oklch(from #a7b395 25% c h)",
+          "oklch(from #a7b395 35% c h)",
+          "oklch(from #a7b395 45% c h)",
+          "oklch(from #a7b395 55% c h)",
+          "oklch(from #a7b395 65% c h)",
+          "oklch(from #a7b395 80% c h)",
+          "oklch(from #a7b395 95% c h)"
         ]
       },
-      "primary": {
+      "accent": {
         "role": "primary",
-        "displayName": "Primary",
+        "displayName": "Accent",
+        "canonical": "#9e2e21",
         "tonalRamp": [
-          "oklch(from #b63c31 15% c h)",
-          "oklch(from #b63c31 25% c h)",
-          "oklch(from #b63c31 35% c h)",
-          "oklch(from #b63c31 45% c h)",
-          "oklch(from #b63c31 55% c h)",
-          "oklch(from #b63c31 65% c h)",
-          "oklch(from #b63c31 80% c h)",
-          "oklch(from #b63c31 95% c h)"
+          "oklch(from #9e2e21 15% c h)",
+          "oklch(from #9e2e21 25% c h)",
+          "oklch(from #9e2e21 35% c h)",
+          "oklch(from #9e2e21 45% c h)",
+          "oklch(from #9e2e21 55% c h)",
+          "oklch(from #9e2e21 65% c h)",
+          "oklch(from #9e2e21 80% c h)",
+          "oklch(from #9e2e21 95% c h)"
         ]
       },
-      "primary-hover": {
+      "accent-hover": {
         "role": "primary",
-        "displayName": "Primary hover",
+        "displayName": "Accent Hover",
+        "canonical": "#7c1e14",
         "tonalRamp": [
-          "oklch(from #8f2d2b 15% c h)",
-          "oklch(from #8f2d2b 25% c h)",
-          "oklch(from #8f2d2b 35% c h)",
-          "oklch(from #8f2d2b 45% c h)",
-          "oklch(from #8f2d2b 55% c h)",
-          "oklch(from #8f2d2b 65% c h)",
-          "oklch(from #8f2d2b 80% c h)",
-          "oklch(from #8f2d2b 95% c h)"
+          "oklch(from #7c1e14 15% c h)",
+          "oklch(from #7c1e14 25% c h)",
+          "oklch(from #7c1e14 35% c h)",
+          "oklch(from #7c1e14 45% c h)",
+          "oklch(from #7c1e14 55% c h)",
+          "oklch(from #7c1e14 65% c h)",
+          "oklch(from #7c1e14 80% c h)",
+          "oklch(from #7c1e14 95% c h)"
         ]
       },
-      "primary-pale": {
-        "role": "neutral",
-        "displayName": "Primary pale",
+      "accent-pale": {
+        "role": "primary",
+        "displayName": "Accent Pale",
+        "canonical": "#f8d9af",
         "tonalRamp": [
-          "oklch(from #f2dfc3 15% c h)",
-          "oklch(from #f2dfc3 25% c h)",
-          "oklch(from #f2dfc3 35% c h)",
-          "oklch(from #f2dfc3 45% c h)",
-          "oklch(from #f2dfc3 55% c h)",
-          "oklch(from #f2dfc3 65% c h)",
-          "oklch(from #f2dfc3 80% c h)",
-          "oklch(from #f2dfc3 95% c h)"
+          "oklch(from #f8d9af 15% c h)",
+          "oklch(from #f8d9af 25% c h)",
+          "oklch(from #f8d9af 35% c h)",
+          "oklch(from #f8d9af 45% c h)",
+          "oklch(from #f8d9af 55% c h)",
+          "oklch(from #f8d9af 65% c h)",
+          "oklch(from #f8d9af 80% c h)",
+          "oklch(from #f8d9af 95% c h)"
         ]
       },
-      "success": {
+      "green": {
         "role": "secondary",
-        "displayName": "Success",
+        "displayName": "Green",
+        "canonical": "#325033",
         "tonalRamp": [
-          "oklch(from #426348 15% c h)",
-          "oklch(from #426348 25% c h)",
-          "oklch(from #426348 35% c h)",
-          "oklch(from #426348 45% c h)",
-          "oklch(from #426348 55% c h)",
-          "oklch(from #426348 65% c h)",
-          "oklch(from #426348 80% c h)",
-          "oklch(from #426348 95% c h)"
+          "oklch(from #325033 15% c h)",
+          "oklch(from #325033 25% c h)",
+          "oklch(from #325033 35% c h)",
+          "oklch(from #325033 45% c h)",
+          "oklch(from #325033 55% c h)",
+          "oklch(from #325033 65% c h)",
+          "oklch(from #325033 80% c h)",
+          "oklch(from #325033 95% c h)"
         ]
       },
       "danger": {
         "role": "neutral",
         "displayName": "Danger",
+        "canonical": "#942318",
         "tonalRamp": [
-          "oklch(from #9f322c 15% c h)",
-          "oklch(from #9f322c 25% c h)",
-          "oklch(from #9f322c 35% c h)",
-          "oklch(from #9f322c 45% c h)",
-          "oklch(from #9f322c 55% c h)",
-          "oklch(from #9f322c 65% c h)",
-          "oklch(from #9f322c 80% c h)",
-          "oklch(from #9f322c 95% c h)"
+          "oklch(from #942318 15% c h)",
+          "oklch(from #942318 25% c h)",
+          "oklch(from #942318 35% c h)",
+          "oklch(from #942318 45% c h)",
+          "oklch(from #942318 55% c h)",
+          "oklch(from #942318 65% c h)",
+          "oklch(from #942318 80% c h)",
+          "oklch(from #942318 95% c h)"
+        ]
+      },
+      "on-accent": {
+        "role": "neutral",
+        "displayName": "On Accent",
+        "canonical": "#fff8e6",
+        "tonalRamp": [
+          "oklch(from #fff8e6 15% c h)",
+          "oklch(from #fff8e6 25% c h)",
+          "oklch(from #fff8e6 35% c h)",
+          "oklch(from #fff8e6 45% c h)",
+          "oklch(from #fff8e6 55% c h)",
+          "oklch(from #fff8e6 65% c h)",
+          "oklch(from #fff8e6 80% c h)",
+          "oklch(from #fff8e6 95% c h)"
         ]
       },
       "forest": {
         "role": "secondary",
         "displayName": "Forest",
+        "canonical": "#203d2d",
         "tonalRamp": [
           "oklch(from #203d2d 15% c h)",
           "oklch(from #203d2d 25% c h)",
@@ -174,7 +201,8 @@
       },
       "deep-forest": {
         "role": "neutral",
-        "displayName": "Deep forest",
+        "displayName": "Deep Forest",
+        "canonical": "#152b21",
         "tonalRamp": [
           "oklch(from #152b21 15% c h)",
           "oklch(from #152b21 25% c h)",
@@ -189,6 +217,7 @@
       "cream": {
         "role": "neutral",
         "displayName": "Cream",
+        "canonical": "#fff5d9",
         "tonalRamp": [
           "oklch(from #fff5d9 15% c h)",
           "oklch(from #fff5d9 25% c h)",
@@ -202,7 +231,8 @@
       },
       "dialogue-paper": {
         "role": "neutral",
-        "displayName": "Dialogue paper",
+        "displayName": "Dialogue Paper",
+        "canonical": "#faf0d6",
         "tonalRamp": [
           "oklch(from #faf0d6 15% c h)",
           "oklch(from #faf0d6 25% c h)",
@@ -216,7 +246,8 @@
       },
       "dialogue-ink": {
         "role": "neutral",
-        "displayName": "Dialogue ink",
+        "displayName": "Dialogue Ink",
+        "canonical": "#233c2c",
         "tonalRamp": [
           "oklch(from #233c2c 15% c h)",
           "oklch(from #233c2c 25% c h)",
@@ -230,7 +261,8 @@
       },
       "dialogue-muted": {
         "role": "neutral",
-        "displayName": "Dialogue muted",
+        "displayName": "Dialogue Muted",
+        "canonical": "#596046",
         "tonalRamp": [
           "oklch(from #596046 15% c h)",
           "oklch(from #596046 25% c h)",
@@ -244,7 +276,8 @@
       },
       "dialogue-line": {
         "role": "neutral",
-        "displayName": "Dialogue line",
+        "displayName": "Dialogue Line",
+        "canonical": "#d4c9a5",
         "tonalRamp": [
           "oklch(from #d4c9a5 15% c h)",
           "oklch(from #d4c9a5 25% c h)",
@@ -258,7 +291,8 @@
       },
       "dialogue-primary": {
         "role": "primary",
-        "displayName": "Dialogue primary",
+        "displayName": "Dialogue Primary",
+        "canonical": "#a83e29",
         "tonalRamp": [
           "oklch(from #a83e29 15% c h)",
           "oklch(from #a83e29 25% c h)",
@@ -272,7 +306,8 @@
       },
       "dialogue-primary-hover": {
         "role": "primary",
-        "displayName": "Dialogue primary hover",
+        "displayName": "Dialogue Primary Hover",
+        "canonical": "#8d2e1d",
         "tonalRamp": [
           "oklch(from #8d2e1d 15% c h)",
           "oklch(from #8d2e1d 25% c h)",
@@ -292,7 +327,7 @@
       },
       "body": {
         "displayName": "Readable prose",
-        "purpose": "Explanations and longer writing use platform sans."
+        "purpose": "Explanations and longer writing use the selected body face, Inter by default."
       },
       "cloud-body": {
         "displayName": "Cloud reply",
@@ -312,7 +347,7 @@
       },
       {
         "name": "cloud",
-        "value": "inset 0 0 0 3px #faf0d6, inset 0 0 0 4px #d4c9a5, 0 4px 12px #152b2122",
+        "value": "inset 0 0 0 3px var(--cloud-paper), inset 0 0 0 4px var(--cloud-line), 0 4px 12px #152b2122",
         "purpose": "Layered dialogue paper and ambient separation."
       },
       {
@@ -339,13 +374,13 @@
       },
       {
         "name": "pet-selector-reveal",
-        "value": "120ms ease-out",
-        "purpose": "Fade from opacity 0 and translateY(4px); hover or keyboard focus reveals selector. Reduced motion removes transforms and transitions."
+        "value": "120ms cubic-bezier(.16,1,.3,1)",
+        "purpose": "Opacity/visibility reveal for the icon arc above Pace; reduced motion removes transitions."
       },
       {
         "name": "pet-selector-slot",
         "value": "140ms cubic-bezier(.16,1,.3,1)",
-        "purpose": "Hovered/focused slot lifts 3px and scales 1.1; hovered neighbors lift 1px and scale 1.03. Reduced motion removes transforms and transitions."
+        "purpose": "Hovered/focused icon scales 1.12; hovered adjacent icons scale 1.04. Reduced motion removes transforms and transitions."
       }
     ],
     "breakpoints": [
@@ -382,7 +417,7 @@
       "refersTo": "button-primary",
       "description": "Explicit workspace action.",
       "html": "<button class=\"ds-primary\">Continue</button>",
-      "css": ".ds-primary{font:400 12px/1.25 Silkscreen,monospace;border:2px solid var(--ink,#243b2e);border-radius:0;padding:9px 12px;min-height:36px;box-shadow:2px 2px 0 var(--green,#426348);cursor:pointer;background:var(--accent,#b63c31);color:var(--surface,#fff8e8);}.ds-primary:hover{background:var(--accent-hover,#8f2d2b)}.ds-primary:focus-visible{outline:2px solid var(--accent,#b63c31);outline-offset:3px}.ds-primary:active{box-shadow:none}"
+      "css": ".ds-primary{font:400 13px/1.25 var(--ui-font,\"Pixelify Sans\",sans-serif);border:2px solid var(--ink,#1c3422);border-radius:0;padding:9px 12px;min-height:36px;box-shadow:2px 2px 0 var(--green,#325033);cursor:pointer;background:var(--accent,#9e2e21);color:var(--on-accent,#fff8e6);}.ds-primary:hover{background:var(--accent-hover,#7c1e14)}.ds-primary:focus-visible{outline:2px solid var(--accent,#9e2e21);outline-offset:3px}.ds-primary:active{box-shadow:none}"
     },
     {
       "name": "Secondary button",
@@ -390,7 +425,7 @@
       "refersTo": "button-secondary",
       "description": "Explicit workspace action.",
       "html": "<button class=\"ds-secondary\">Continue</button>",
-      "css": ".ds-secondary{font:400 12px/1.25 Silkscreen,monospace;border:2px solid var(--ink,#243b2e);border-radius:0;padding:9px 12px;min-height:36px;box-shadow:2px 2px 0 var(--green,#426348);cursor:pointer;background:var(--surface,#fff8e8);color:var(--ink,#243b2e);}.ds-secondary:hover{background:#efe7cd}.ds-secondary:focus-visible{outline:2px solid var(--accent,#b63c31);outline-offset:3px}.ds-secondary:active{box-shadow:none}"
+      "css": ".ds-secondary{font:400 13px/1.25 var(--ui-font,\"Pixelify Sans\",sans-serif);border:2px solid var(--ink,#1c3422);border-radius:0;padding:9px 12px;min-height:36px;box-shadow:2px 2px 0 var(--green,#325033);cursor:pointer;background:var(--surface,#fff8e6);color:var(--ink,#1c3422);}.ds-secondary:hover{background:#efe7cd}.ds-secondary:focus-visible{outline:2px solid var(--accent,#9e2e21);outline-offset:3px}.ds-secondary:active{box-shadow:none}"
     },
     {
       "name": "Text field",
@@ -398,21 +433,21 @@
       "refersTo": "input",
       "description": "Readable prose inside square paper fields.",
       "html": "<label class=\"ds-field\">Your words<input placeholder=\"Project names…\"></label>",
-      "css": ".ds-field{display:grid;gap:7px;color:var(--ink,#243b2e);font:12px/1.5 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}.ds-field input{font:inherit;padding:10px 12px;background:var(--surface,#fff8e8);color:var(--ink,#243b2e);border:1px solid var(--green,#426348);border-radius:0}.ds-field input:hover{border-color:var(--ink,#243b2e)}.ds-field input:focus-visible{outline:2px solid var(--accent,#b63c31)}"
+      "css": ".ds-field{display:grid;gap:7px;color:var(--ink,#1c3422);font:12px/1.5 var(--body-font,Inter,sans-serif)}.ds-field input{font:inherit;padding:10px 12px;background:var(--surface,#fff8e6);color:var(--ink,#1c3422);border:1px solid var(--green,#325033);border-radius:0}.ds-field input:hover{border-color:var(--ink,#1c3422)}.ds-field input:focus-visible{outline:2px solid var(--accent,#9e2e21)}"
     },
     {
       "name": "Navigation item",
       "kind": "nav",
       "description": "Selected supporting workspace destination.",
       "html": "<nav class=\"ds-nav\"><button aria-current=\"page\">Conversations</button><button>Meetings</button></nav>",
-      "css": ".ds-nav{display:grid;gap:3px;background:var(--sidebar,#e7ecd8);padding:10px}.ds-nav button{font:400 13px/1.5 Silkscreen,monospace;text-align:left;padding:12px 14px;min-height:43px;color:var(--muted,#53644f);border:1px solid transparent;border-radius:0;background:none}.ds-nav button:hover{background:#dce5cc;color:var(--ink,#243b2e)}.ds-nav [aria-current=page]{background:var(--accent-pale,#f2dfc3);color:var(--accent,#b63c31);border-color:var(--ink,#243b2e);box-shadow:inset 3px 0 var(--accent,#b63c31)}.ds-nav button:focus-visible{outline:2px solid var(--accent,#b63c31);outline-offset:3px}"
+      "css": ".ds-nav{display:grid;gap:3px;background:var(--sidebar,#dbe6ca);padding:10px}.ds-nav button{font:400 15px/1.5 var(--ui-font,\"Pixelify Sans\",sans-serif);text-align:left;padding:12px 14px;min-height:43px;color:var(--muted,#445540);border:1px solid transparent;border-radius:0;background:none}.ds-nav button:hover{background:#dbe6ca;color:var(--ink,#1c3422)}.ds-nav [aria-current=page]{background:var(--accent-pale,#f8d9af);color:var(--accent,#9e2e21);border-color:var(--ink,#1c3422);box-shadow:inset 3px 0 var(--accent,#9e2e21)}.ds-nav button:focus-visible{outline:2px solid var(--accent,#9e2e21);outline-offset:3px}"
     },
     {
       "name": "Work panel",
       "kind": "card",
       "description": "Principal workspace surface.",
       "html": "<section class=\"ds-panel\"><h2>Local models</h2><p>Install only the tools you want to use.</p></section>",
-      "css": ".ds-panel{background:var(--surface,#fff8e8);color:var(--ink,#243b2e);border:2px solid var(--ink,#243b2e);border-radius:0;box-shadow:3px 3px 0 var(--green,#426348);padding:20px}.ds-panel h2{font:400 15px/1.4 Silkscreen,monospace;margin:0 0 10px;color:var(--green,#426348)}.ds-panel p{font:13px/1.65 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;margin:0}"
+      "css": ".ds-panel{background:var(--surface,#fff8e6);color:var(--ink,#1c3422);border:2px solid var(--ink,#1c3422);border-radius:0;box-shadow:3px 3px 0 var(--green,#325033);padding:20px}.ds-panel h2{font:400 18px/1.35 var(--ui-font,\"Pixelify Sans\",sans-serif);margin:0 0 10px;color:var(--green,#325033)}.ds-panel p{font:13px/1.65 var(--body-font,Inter,sans-serif);margin:0}"
     },
     {
       "name": "Speech cloud",
@@ -420,30 +455,30 @@
       "refersTo": "cloud",
       "description": "Layered dialogue with the pet’s stepped speech tail.",
       "html": "<section class=\"ds-cloud\"><p>What would you like to do?</p><button>Talk</button><i aria-hidden=\"true\"></i></section>",
-      "css": ".ds-cloud{position:relative;margin:8px 10px 20px;padding:12px;border:3px solid #203d2d;border-radius:0;background:#fff5d9;color:#203d2d;box-shadow:inset 0 0 0 3px #faf0d6,inset 0 0 0 4px #d4c9a5,0 4px 12px #152b2122}.ds-cloud p{font:14px/1.65 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}.ds-cloud button{font:10px/1.5 Silkscreen,sans-serif;border:0;border-radius:0;background:#a83e29;color:#fff5d9;padding:6px 7px;min-height:30px}.ds-cloud button:hover{background:#8d2e1d}.ds-cloud button:focus-visible{outline:2px solid #a83e29;outline-offset:3px}.ds-cloud i{position:absolute;bottom:-12px;left:calc(50% - 9px);width:18px;height:12px;background:#fff5d9;border:3px solid #203d2d;border-top:0}.ds-cloud i:after{content:\"\";position:absolute;bottom:-6px;left:3px;width:6px;height:6px;background:#203d2d}"
+      "css": ".ds-cloud{position:relative;margin:8px 10px 20px;padding:12px;border:3px solid var(--ink,#1c3422);border-radius:0;background:var(--surface,#fff8e6);color:var(--ink,#1c3422);box-shadow:inset 0 0 0 3px var(--surface,#fff8e6),inset 0 0 0 4px var(--line,#a7b395),0 4px 12px #152b2122}.ds-cloud p{font:14px/1.65 var(--body-font,Inter,sans-serif)}.ds-cloud button{font:10px/1.5 var(--ui-font,\"Pixelify Sans\",sans-serif);border:0;border-radius:0;background:var(--accent,#9e2e21);color:var(--on-accent,#fff8e6);padding:6px 7px;min-height:30px}.ds-cloud button:hover{background:var(--accent-hover,#7c1e14)}.ds-cloud button:focus-visible{outline:2px solid var(--accent,#9e2e21);outline-offset:3px}.ds-cloud i{position:absolute;bottom:-12px;left:calc(50% - 9px);width:18px;height:12px;background:var(--surface,#fff8e6);border:3px solid var(--ink,#1c3422);border-top:0}.ds-cloud i:after{content:\"\";position:absolute;bottom:-6px;left:3px;width:6px;height:6px;background:var(--ink,#1c3422)}"
     },
     {
       "name": "Campsite stop",
       "kind": "nav",
-      "description": "Current stop in the five-part introduction.",
+      "description": "Current stop in the five-part Pack, Meet, Keys, Access, Home introduction.",
       "html": "<nav class=\"ds-stops\"><button aria-current=\"step\"><span>1</span>Pack</button><button><span>2</span>Meet</button></nav>",
-      "css": ".ds-stops{display:flex;gap:28px;background:#faf0d6;padding:12px}.ds-stops button{display:grid;gap:8px;border:0;border-radius:0;background:none;color:#596046;font:10px/1.5 Silkscreen,sans-serif;text-align:left;padding:0}.ds-stops span{display:grid;place-items:center;width:24px;height:24px;border:2px solid #8b9677;background:#faf0d6;color:#203d2d}.ds-stops [aria-current=step]{color:#a83e29}.ds-stops [aria-current=step] span{background:#a83e29;border-color:#a83e29;color:#fff5d9}.ds-stops button:hover span{border-color:#a83e29}.ds-stops button:focus-visible{outline:3px solid #a83e29;outline-offset:4px}"
+      "css": ".ds-stops{display:flex;gap:28px;background:#faf0d6;padding:12px}.ds-stops button{display:grid;gap:8px;border:0;border-radius:0;background:none;color:#596046;font:10px/1.5 var(--ui-font,\"Pixelify Sans\",sans-serif);text-align:left;padding:0}.ds-stops span{display:grid;place-items:center;width:24px;height:24px;border:2px solid #8b9677;background:#faf0d6;color:#203d2d}.ds-stops [aria-current=step]{color:#a83e29}.ds-stops [aria-current=step] span{background:#a83e29;border-color:#a83e29;color:#faf0d6}.ds-stops button:hover span{border-color:#a83e29}.ds-stops button:focus-visible{outline:3px solid #a83e29;outline-offset:4px}"
     },
     {
       "name": "Pet selector",
       "kind": "custom",
-      "description": "Idle pet reveals three tool slots underneath on hover or keyboard focus.",
-      "html": "<div class=\"ds-pet-actions\"><button class=\"ds-pet-focus\">Pace</button><nav class=\"ds-selector\" aria-label=\"Pace actions\"><button>Talk</button><button>Dictate</button><button>Write for me</button></nav></div>",
-      "css": ".ds-pet-actions{display:inline-flex;flex-direction:column;align-items:center;gap:0}.ds-pet-focus{border:0;background:transparent;color:#203d2d;font:12px/1.5 Silkscreen,sans-serif;padding:20px}.ds-selector{display:flex;gap:2px;padding:3px;border:2px solid #203d2d;background:#fff5d9;opacity:0;visibility:hidden;pointer-events:none;transform:translateY(4px);transition:opacity 120ms ease-out,transform 120ms ease-out,visibility 120ms}.ds-pet-actions:has(.ds-pet-focus:hover) .ds-selector,.ds-selector:hover,.ds-pet-actions:has(:focus-visible) .ds-selector{opacity:1;visibility:visible;pointer-events:auto;transform:none}.ds-selector button{font:7px/1.3 Silkscreen,sans-serif;border:0;border-radius:0;background:transparent;color:#203d2d;height:33px;padding:2px 6px;transform-origin:bottom center;transition:transform 140ms cubic-bezier(.16,1,.3,1),background-color 100ms ease-out,color 100ms ease-out}.ds-selector button:hover,.ds-selector button:focus-visible{background:#a83e29;color:#fff5d9;transform:translateY(-3px) scale(1.1)}.ds-selector button:hover+button,.ds-selector button:has(+button:hover){transform:translateY(-1px) scale(1.03)}.ds-pet-actions button:focus-visible{outline:2px solid #a83e29;outline-offset:2px}@media(prefers-reduced-motion:reduce){.ds-selector,.ds-selector button,.ds-selector button:hover,.ds-selector button:focus-visible,.ds-selector button:hover+button,.ds-selector button:has(+button:hover){transition:none;transform:none}}"
+      "description": "Hover or keyboard focus reveals a five-icon semicircle above Pace; no labels beneath the pet.",
+      "html": "<div class=\"ds-pet-actions\"><button class=\"ds-pet-focus\" aria-label=\"Pet Pace\">Pace</button><nav class=\"ds-selector\" aria-label=\"Pace actions\"><button aria-label=\"Talk\" title=\"Talk\" style=\"--slot:0;--arc:56px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M21 11a8 8 0 0 1-8 8H7l-4 3 1-6a8 8 0 1 1 17-5Z\"/></svg></button><button aria-label=\"Dictate\" title=\"Dictate\" style=\"--slot:0.24;--arc:18px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M9 3h6v12H9z M5 11v2a7 7 0 0 0 14 0v-2 M12 20v3\"/></svg></button><button aria-label=\"Meeting\" title=\"Meeting\" style=\"--slot:0.5;--arc:0px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M6 3h12v18H6z M9 8h6 M9 12h6 M9 16h4\"/></svg></button><button aria-label=\"Write\" title=\"Write\" style=\"--slot:0.76;--arc:18px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z\"/></svg></button><button aria-label=\"Settings\" title=\"Settings\" style=\"--slot:1;--arc:56px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M5 7h14 M5 17h14 M9 4v6 M15 14v6\"/></svg></button></nav></div>",
+      "css": ".ds-pet-actions{position:relative;width:224px;height:224px;display:flex;align-items:flex-end;justify-content:center}.ds-pet-focus{border:0;background:none;color:var(--ink,#1c3422);font:16px/1.4 var(--ui-font,\"Pixelify Sans\",sans-serif);padding:35px}.ds-selector{position:absolute;top:4px;left:4px;right:4px;height:94px;opacity:0;visibility:hidden;transition:opacity 120ms cubic-bezier(.16,1,.3,1),visibility 120ms}.ds-pet-actions:hover .ds-selector,.ds-pet-actions:focus-within .ds-selector{opacity:1;visibility:visible}.ds-selector button{position:absolute;left:calc((100% - 32px)*var(--slot));top:var(--arc);display:grid;place-items:center;width:32px;height:32px;padding:0;border:2px solid var(--ink,#1c3422);border-radius:0;background:var(--surface,#fff8e6);color:var(--ink,#1c3422);box-shadow:0 2px 4px #152b2122;transition:transform 140ms cubic-bezier(.16,1,.3,1)}.ds-selector button:hover,.ds-selector button:focus-visible{background:var(--accent,#9e2e21);color:var(--on-accent,#fff8e6);transform:scale(1.12)}.ds-selector button:hover+button,.ds-selector button:has(+button:hover){transform:scale(1.04)}.ds-pet-actions button:focus-visible{outline:2px solid var(--accent,#9e2e21);outline-offset:2px}@media(prefers-reduced-motion:reduce){.ds-selector,.ds-selector button{transition:none;transform:none!important}}"
     }
   ],
   "narrative": {
     "northStar": "A calm workspace for a playful little companion.",
-    "overview": "Pace brings the play; the interface makes room for the task. The user’s GBA/8-bit direction spans the desktop companion, speech clouds, campsite introduction and supporting workspace. Cream paper, forest outlines, brick-red selections and the original yellow cheetah share one world.\n\nSelf-hosted pixel lettering and square controls carry the game character. Editable prose, explanations and transcripts use readable platform sans. The companion’s authored poses remain the focal art; the workspace supports real setup, settings and longer records.",
+    "overview": "Pace brings the play; the interface makes room for the task. The user’s GBA/8-bit direction spans the native desktop pet, speech clouds, campsite introduction and supporting workspace. Square controls, crisp outlines and the original yellow cheetah share one world.\n\nThree selected palettes change the scenery: Camp, Night and Handheld. Bundled Pixelify Sans gives short headings and controls their game character; Inter keeps prose comfortable to read. The companion’s authored poses remain the focal art. Setup, settings and longer records open through explicit workspace actions.",
     "keyCharacteristics": [
       "One pixel world across the app",
-      "Cream paper, forest frames and brick-red actions",
-      "Readable long prose beside pixel controls",
+      "Three palettes with semantic color roles",
+      "Readable prose beside pixel controls",
       "Original sprite identity and calibrated new poses",
       "Explicit, reviewable native actions"
     ],
@@ -455,7 +490,7 @@
       },
       {
         "name": "The Readable Prose Rule",
-        "body": "Use Silkscreen for short display and control text; keep editable text, explanations and transcripts in platform sans.",
+        "body": "Use the selected interface face for short headings and controls; keep editable text, explanations and transcripts in the selected body face.",
         "section": "typography"
       },
       {
@@ -466,7 +501,7 @@
     ],
     "dos": [
       "Do preserve the original Pace artwork, colors and authored timing.",
-      "Do use square controls, forest boundaries and brick-red selections throughout the app.",
+      "Do use the selected palette’s semantic roles across the workspace and clouds.",
       "Do keep generated prose scrollable, selectable and reviewable.",
       "Do preserve keyboard focus, accessible names and reduced-motion behavior.",
       "Do show real model, permission, recording and insertion states."
@@ -474,6 +509,7 @@
     "donts": [
       "Don’t put pixel lettering in long editable prose or transcripts.",
       "Don’t fabricate replies, transcripts, download completion or capture success.",
+      "Don’t place persistent labels or a tool strip beneath Pace.",
       "Don’t replace the companion’s explicit cursor continuation with a primary rewrite workbench.",
       "Don’t promise universal screen-capture exclusion or continuous background autocomplete."
     ]

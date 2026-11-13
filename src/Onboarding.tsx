@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Download, Keyboard, LoaderCircle, Mic, Volume2, VolumeX } from 'lucide-react';
 import { api, errorText, isNative, subscribe, type AppState, type LocalModel, type Settings } from './api';
 import { Pace, playPetSound, stopPetSound, usePetMood } from './Pace';
+import { ShortcutInput } from './ShortcutInput';
 import './onboarding.css';
 
 const stops = ['Pack', 'Meet', 'Keys', 'Access', 'Home'];
@@ -23,10 +24,10 @@ const modelDescriptions: Record<string, string> = {
   'whisper-turbo': 'Multilingual dictation · 574 MB',
 };
 const shortcutActions = [
-  { label: 'Talk', field: 'commandShortcut', choices: ['Alt+Space', 'Control+Alt+Space', 'Control+Shift+Space'] },
-  { label: 'Dictate', field: 'dictationShortcut', choices: ['Alt+Shift+D', 'Control+Alt+D', 'Control+Shift+D'] },
-  { label: 'Autocomplete', field: 'completionShortcut', choices: ['Alt+Shift+Enter', 'Control+Alt+Enter', 'Control+Shift+Enter'] },
-  { label: 'Quick Hide', field: 'hideShortcut', choices: ['Alt+Shift+Space', 'Control+Alt+H', 'Control+Shift+H'] },
+  { label: 'Talk', field: 'commandShortcut' },
+  { label: 'Dictate', field: 'dictationShortcut' },
+  { label: 'Autocomplete', field: 'completionShortcut' },
+  { label: 'Quick Hide', field: 'hideShortcut' },
 ] as const;
 const access = [
   { kind: 'accessibility', title: 'Accessibility', description: 'Read nearby text for autocomplete, then show a continuation to review.' },
@@ -166,8 +167,8 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
     setError(''); setSettingStatus(''); setSettingBusy(String(key));
     try {
       const settings = await api<Settings>('settings.update', { patch: { [key]: value } });
-      onSettings(settings); setSettingStatus(key === 'dictationLanguage' ? 'Dictation language saved.' : 'Shortcut saved.');
-    } catch (cause) { setError(errorText(cause)); }
+      onSettings(settings); if (String(key).endsWith('Shortcut')) setShortcutTest(''); setSettingStatus(key === 'dictationLanguage' ? 'Dictation language saved.' : 'Shortcut saved.'); return true;
+    } catch (cause) { setError(errorText(cause)); return false; }
     finally { setSettingBusy(''); }
   };
   const saveSettingText = async (key: 'dictationVocabulary' | 'writingExamples', value: string) => {
@@ -262,15 +263,11 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
             {!native && <p className="onboarding-preview-note">Browser preview can show your choices, but global shortcut keys only work in the desktop app.</p>}
             <div className="onboarding-shortcut-list">
               {shortcutActions.map(action => {
-                const current = String(state.settings[action.field]);
-                const options = [...action.choices, ...(!action.choices.includes(current as never) ? [current] : [])];
                 const detected = shortcutTest === ({ Talk: 'talk', Dictate: 'dictate', Autocomplete: 'complete', 'Quick Hide': 'hide' } as const)[action.label];
-                return <label className="onboarding-shortcut-row" key={action.field}>
+                return <div className="onboarding-shortcut-row" key={action.field}>
                   <span>{action.label}<small>{detected ? 'Shortcut detected' : 'Press the keys to try it'}</small></span>
-                  <select aria-label={`${action.label} shortcut`} value={current} disabled={saving || Boolean(settingBusy)} onChange={event => void updateSetting(action.field, event.target.value)}>
-                    {options.map((choice, index) => <option value={choice} key={choice}>{index < action.choices.length ? choice : `Current custom · ${choice}`}</option>)}
-                  </select>
-                </label>;
+                  <ShortcutInput label={`${action.label} shortcut`} field={action.field} settings={state.settings} disabled={saving} onSave={value => updateSetting(action.field, value)} />
+                </div>;
               })}
             </div>
             <div className="onboarding-key-try"><button className="onboarding-item-button" disabled={!native} onClick={() => void api('window.talk').catch(cause => setError(errorText(cause)))}><Keyboard size={14} />Try Talk</button><span>Opens Pace’s Talk cloud. It doesn’t verify a global key.</span></div>

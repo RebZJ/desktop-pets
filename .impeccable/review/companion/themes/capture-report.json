@@ -1,0 +1,758 @@
+{
+  "generatedAt": "2026-11-13T11:54:04.301Z",
+  "note": "Current source: icon-only upper pet arc; compact Talk 300×200; real shortcut key recorder; screen-share cover status only. All captures use synthetic browser fixtures. Permission recovery frames follow one explicit Start meeting click which returns a synthetic denial; no actual capture, permissions request, model download, or installed user profile is used. Recovery confirmation: both action buttons are fully inside the error panel and viewport before scrolling or clicking any recovery action; header/footer remain in view.",
+  "captures": [
+    {
+      "name": "settings-camp-pixel-1180x780",
+      "width": 1180,
+      "height": 780,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:53:56.425Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 4,
+      "scroll": [
+        {
+          "class": "main-content ",
+          "client": 682,
+          "scroll": 3427
+        }
+      ],
+      "pageErrors": []
+    },
+    {
+      "name": "settings-shortcuts-camp-pixel-1180x780",
+      "width": 1180,
+      "height": 780,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:53:56.754Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 4,
+      "scroll": [
+        {
+          "class": "main-content ",
+          "client": 682,
+          "scroll": 3427
+        }
+      ],
+      "pageErrors": []
+    },
+    {
+      "name": "settings-shortcuts-camp-pixel-800x560",
+      "width": 800,
+      "height": 560,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:53:57.031Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 4,
+      "scroll": [
+        {
+          "class": "main-content ",
+          "client": 469,
+          "scroll": 3497
+        }
+      ],
+      "pageErrors": []
+    },
+    {
+      "name": "settings-shortcuts-camp-pixel-390x844",
+      "width": 390,
+      "height": 844,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:53:57.587Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 4,
+      "scroll": [
+        {
+          "class": "main-content ",
+          "client": 761,
+          "scroll": 5193
+        }
+      ],
+      "pageErrors": []
+    },
+    {
+      "name": "settings-night-inter-1180x780",
+      "width": 1180,
+      "height": 780,
+      "theme": "night",
+      "font": "inter",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:53:58.178Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 4,
+      "scroll": [
+        {
+          "class": "main-content ",
+          "client": 682,
+          "scroll": 3427
+        }
+      ],
+      "pageErrors": []
+    },
+    {
+      "name": "settings-handheld-fira-800x560",
+      "width": 800,
+      "height": 560,
+      "theme": "handheld",
+      "font": "fira",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:53:58.767Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 4,
+      "scroll": [
+        {
+          "class": "main-content ",
+          "client": 469,
+          "scroll": 3476
+        }
+      ],
+      "pageErrors": []
+    },
+    {
+      "name": "settings-shortcut-recording-800x560",
+      "width": 800,
+      "height": 560,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "recorder",
+      "capturedAt": "2026-11-13T11:53:59.726Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 4,
+      "scroll": [
+        {
+          "class": "main-content ",
+          "client": 469,
+          "scroll": 3497
+        }
+      ],
+      "pageErrors": []
+    },
+    {
+      "name": "settings-cover-status-1180x780",
+      "width": 1180,
+      "height": 780,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:54:00.235Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 4,
+      "scroll": [
+        {
+          "class": "main-content ",
+          "client": 682,
+          "scroll": 3427
+        }
+      ],
+      "pageErrors": []
+    },
+    {
+      "name": "pet-camp-pixel-192x192",
+      "width": 192,
+      "height": 192,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:54:00.757Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [
+        {
+          "label": "Talk",
+          "rect": {
+            "x": 4,
+            "y": 60,
+            "width": 32,
+            "height": 32,
+            "top": 60,
+            "right": 36,
+            "bottom": 92,
+            "left": 4
+          }
+        },
+        {
+          "label": "Dictate into your app",
+          "rect": {
+            "x": 40.46875,
+            "y": 22,
+            "width": 32,
+            "height": 32,
+            "top": 22,
+            "right": 72.46875,
+            "bottom": 54,
+            "left": 40.46875
+          }
+        },
+        {
+          "label": "Meeting buddy",
+          "rect": {
+            "x": 80,
+            "y": 4,
+            "width": 32,
+            "height": 32,
+            "top": 4,
+            "right": 112,
+            "bottom": 36,
+            "left": 80
+          }
+        },
+        {
+          "label": "Write for me",
+          "rect": {
+            "x": 119.515625,
+            "y": 22,
+            "width": 32,
+            "height": 32,
+            "top": 22,
+            "right": 151.515625,
+            "bottom": 54,
+            "left": 119.515625
+          }
+        },
+        {
+          "label": "Settings and shortcuts",
+          "rect": {
+            "x": 156,
+            "y": 60,
+            "width": 32,
+            "height": 32,
+            "top": 60,
+            "right": 188,
+            "bottom": 92,
+            "left": 156
+          }
+        }
+      ],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 0,
+      "scroll": [],
+      "pageErrors": []
+    },
+    {
+      "name": "pet-camp-pixel-224x224",
+      "width": 224,
+      "height": 224,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:54:01.038Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [
+        {
+          "label": "Talk",
+          "rect": {
+            "x": 4,
+            "y": 60,
+            "width": 32,
+            "height": 32,
+            "top": 60,
+            "right": 36,
+            "bottom": 92,
+            "left": 4
+          }
+        },
+        {
+          "label": "Dictate into your app",
+          "rect": {
+            "x": 48.15625,
+            "y": 22,
+            "width": 32,
+            "height": 32,
+            "top": 22,
+            "right": 80.15625,
+            "bottom": 54,
+            "left": 48.15625
+          }
+        },
+        {
+          "label": "Meeting buddy",
+          "rect": {
+            "x": 96,
+            "y": 4,
+            "width": 32,
+            "height": 32,
+            "top": 4,
+            "right": 128,
+            "bottom": 36,
+            "left": 96
+          }
+        },
+        {
+          "label": "Write for me",
+          "rect": {
+            "x": 143.828125,
+            "y": 22,
+            "width": 32,
+            "height": 32,
+            "top": 22,
+            "right": 175.828125,
+            "bottom": 54,
+            "left": 143.828125
+          }
+        },
+        {
+          "label": "Settings and shortcuts",
+          "rect": {
+            "x": 188,
+            "y": 60,
+            "width": 32,
+            "height": 32,
+            "top": 60,
+            "right": 220,
+            "bottom": 92,
+            "left": 188
+          }
+        }
+      ],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 0,
+      "scroll": [],
+      "pageErrors": []
+    },
+    {
+      "name": "pet-camp-pixel-272x272",
+      "width": 272,
+      "height": 272,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:54:01.317Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [
+        {
+          "label": "Talk",
+          "rect": {
+            "x": 4,
+            "y": 60,
+            "width": 32,
+            "height": 32,
+            "top": 60,
+            "right": 36,
+            "bottom": 92,
+            "left": 4
+          }
+        },
+        {
+          "label": "Dictate into your app",
+          "rect": {
+            "x": 59.671875,
+            "y": 22,
+            "width": 32,
+            "height": 32,
+            "top": 22,
+            "right": 91.671875,
+            "bottom": 54,
+            "left": 59.671875
+          }
+        },
+        {
+          "label": "Meeting buddy",
+          "rect": {
+            "x": 120,
+            "y": 4,
+            "width": 32,
+            "height": 32,
+            "top": 4,
+            "right": 152,
+            "bottom": 36,
+            "left": 120
+          }
+        },
+        {
+          "label": "Write for me",
+          "rect": {
+            "x": 180.3125,
+            "y": 22,
+            "width": 32,
+            "height": 32,
+            "top": 22,
+            "right": 212.3125,
+            "bottom": 54,
+            "left": 180.3125
+          }
+        },
+        {
+          "label": "Settings and shortcuts",
+          "rect": {
+            "x": 236,
+            "y": 60,
+            "width": 32,
+            "height": 32,
+            "top": 60,
+            "right": 268,
+            "bottom": 92,
+            "left": 236
+          }
+        }
+      ],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 0,
+      "scroll": [],
+      "pageErrors": []
+    },
+    {
+      "name": "talk-camp-pixel-300x200",
+      "width": 300,
+      "height": 200,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:54:01.615Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 0,
+      "scroll": [],
+      "pageErrors": []
+    },
+    {
+      "name": "talk-night-inter-300x200",
+      "width": 300,
+      "height": 200,
+      "theme": "night",
+      "font": "inter",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:54:01.852Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 0,
+      "scroll": [],
+      "pageErrors": []
+    },
+    {
+      "name": "meeting-ready-camp-pixel-420x380",
+      "width": 420,
+      "height": 380,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "default",
+      "capturedAt": "2026-11-13T11:54:02.214Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 0,
+      "scroll": [
+        {
+          "class": "meeting-cloud-body",
+          "client": 208,
+          "scroll": 213
+        }
+      ],
+      "pageErrors": []
+    },
+    {
+      "name": "meeting-live-camp-pixel-420x380",
+      "width": 420,
+      "height": 380,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "live",
+      "capturedAt": "2026-11-13T11:54:02.746Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 0,
+      "scroll": [
+        {
+          "class": "meeting-cloud-body",
+          "client": 208,
+          "scroll": 208
+        }
+      ],
+      "pageErrors": []
+    },
+    {
+      "name": "meeting-live-handheld-fira-360x300",
+      "width": 360,
+      "height": 300,
+      "theme": "handheld",
+      "font": "fira",
+      "mode": "live",
+      "capturedAt": "2026-11-13T11:54:03.110Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 0,
+      "scroll": [
+        {
+          "class": "meeting-cloud-body",
+          "client": 131,
+          "scroll": 131
+        }
+      ],
+      "pageErrors": []
+    },
+    {
+      "name": "meeting-models-camp-pixel-360x300",
+      "width": 360,
+      "height": 300,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "models",
+      "capturedAt": "2026-11-13T11:54:03.449Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 0,
+      "readOnlyShortcutCount": 0,
+      "scroll": [
+        {
+          "class": "meeting-cloud-body",
+          "client": 131,
+          "scroll": 268
+        }
+      ],
+      "pageErrors": []
+    },
+    {
+      "name": "meeting-permission-recovery-420x380",
+      "width": 420,
+      "height": 380,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "permission",
+      "capturedAt": "2026-11-13T11:54:03.820Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 1,
+      "readOnlyShortcutCount": 0,
+      "scroll": [
+        {
+          "class": "meeting-cloud-body",
+          "client": 141,
+          "scroll": 213
+        }
+      ],
+      "pageErrors": [],
+      "confirmedAt": "2026-11-13T11:56:37.762Z",
+      "recoveryBounds": {
+        "panel": {
+          "x": 25,
+          "y": 97,
+          "width": 370,
+          "height": 80.28125,
+          "top": 97,
+          "right": 395,
+          "bottom": 177.28125,
+          "left": 25
+        },
+        "actions": [
+          {
+            "text": "Allow system audio",
+            "rect": {
+              "x": 34,
+              "y": 144.28125,
+              "width": 103.390625,
+              "height": 26,
+              "top": 144.28125,
+              "right": 137.390625,
+              "bottom": 170.28125,
+              "left": 34
+            }
+          },
+          {
+            "text": "Use microphone only",
+            "rect": {
+              "x": 141.390625,
+              "y": 144.28125,
+              "width": 112.4375,
+              "height": 26,
+              "top": 144.28125,
+              "right": 253.828125,
+              "bottom": 170.28125,
+              "left": 141.390625
+            }
+          }
+        ],
+        "header": {
+          "x": 25,
+          "y": 23,
+          "width": 370,
+          "height": 37,
+          "top": 23,
+          "right": 395,
+          "bottom": 60,
+          "left": 25
+        },
+        "footer": {
+          "x": 25,
+          "y": 304,
+          "width": 370,
+          "height": 41,
+          "top": 304,
+          "right": 395,
+          "bottom": 345,
+          "left": 25
+        },
+        "scrollY": 0,
+        "permissionRequests": 0,
+        "meetingStarts": 1
+      }
+    },
+    {
+      "name": "meeting-permission-recovery-360x300",
+      "width": 360,
+      "height": 300,
+      "theme": "camp",
+      "font": "pixel",
+      "mode": "permission",
+      "capturedAt": "2026-11-13T11:54:04.272Z",
+      "horizontalOverflow": false,
+      "outside": [],
+      "tools": [],
+      "coverSwitch": false,
+      "permissionRequests": [],
+      "meetingStarts": 1,
+      "readOnlyShortcutCount": 0,
+      "scroll": [
+        {
+          "class": "meeting-cloud-body",
+          "client": 79,
+          "scroll": 177
+        }
+      ],
+      "pageErrors": [],
+      "confirmedAt": "2026-11-13T11:56:38.106Z",
+      "recoveryBounds": {
+        "panel": {
+          "x": 25,
+          "y": 97,
+          "width": 310,
+          "height": 80.28125,
+          "top": 97,
+          "right": 335,
+          "bottom": 177.28125,
+          "left": 25
+        },
+        "actions": [
+          {
+            "text": "Allow system audio",
+            "rect": {
+              "x": 34,
+              "y": 144.28125,
+              "width": 103.390625,
+              "height": 26,
+              "top": 144.28125,
+              "right": 137.390625,
+              "bottom": 170.28125,
+              "left": 34
+            }
+          },
+          {
+            "text": "Use microphone only",
+            "rect": {
+              "x": 141.390625,
+              "y": 144.28125,
+              "width": 112.4375,
+              "height": 26,
+              "top": 144.28125,
+              "right": 253.828125,
+              "bottom": 170.28125,
+              "left": 141.390625
+            }
+          }
+        ],
+        "header": {
+          "x": 25,
+          "y": 23,
+          "width": 310,
+          "height": 37,
+          "top": 23,
+          "right": 335,
+          "bottom": 60,
+          "left": 25
+        },
+        "footer": {
+          "x": 25,
+          "y": 227,
+          "width": 310,
+          "height": 38,
+          "top": 227,
+          "right": 335,
+          "bottom": 265,
+          "left": 25
+        },
+        "scrollY": 0,
+        "permissionRequests": 0,
+        "meetingStarts": 1
+      }
+    }
+  ]
+}

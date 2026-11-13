@@ -2,6 +2,9 @@ import { invoke } from '@tauri-apps/api/core';
 
 export interface Settings {
   onboardingCompleted: boolean;
+  theme: 'camp' | 'night' | 'handheld';
+  interfaceFont: 'pixel' | 'inter' | 'fira';
+  captureProtectionEnabled: boolean;
   language: string;
   voice: string;
   voiceEngine: 'auto' | 'kitten' | 'qwen';
@@ -64,7 +67,7 @@ export interface AppState {
   pet: { visible: boolean; action: string };
 }
 
-export const defaultSettings: Settings = { onboardingCompleted: false, language: 'auto', voice: 'Kiki', voiceEngine: 'auto', pitch: 1.05, rate: 1, volume: .65, speechEnabled: false, soundEnabled: true, petSize: 160, memoryEnabled: false, allowedApps: [], allowedDomains: [], retentionDays: 30, meetingTips: true, clickThrough: false, hideShortcut: 'Alt+Shift+Space', commandShortcut: 'Alt+Space', dictationShortcut: 'Alt+Shift+D', completionShortcut: 'Alt+Shift+Enter', dictationLanguage: 'en', dictationVocabulary: '', writingExamples: '', activePack: 'pace' };
+export const defaultSettings: Settings = { onboardingCompleted: false, theme: 'camp', interfaceFont: 'pixel', captureProtectionEnabled: true, language: 'auto', voice: 'Kiki', voiceEngine: 'auto', pitch: 1.05, rate: 1, volume: .65, speechEnabled: false, soundEnabled: true, petSize: 160, memoryEnabled: false, allowedApps: [], allowedDomains: [], retentionDays: 30, meetingTips: true, clickThrough: false, hideShortcut: 'Alt+Shift+Space', commandShortcut: 'Alt+Space', dictationShortcut: 'Alt+Shift+D', completionShortcut: 'Alt+Shift+Enter', dictationLanguage: 'en', dictationVocabulary: '', writingExamples: '', activePack: 'pace' };
 export const initialState: AppState = {
   settings: defaultSettings,
   models: [
@@ -90,7 +93,7 @@ const STORAGE = 'desktop-pets.browser-state.v1';
 function readBrowserState(): AppState {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE) || 'null') as Partial<AppState> | null;
-    return { ...initialState, ...saved, settings: { ...defaultSettings, ...saved?.settings }, models: initialState.models };
+    return { ...initialState, ...saved, settings: normalizeSettings(saved?.settings), models: initialState.models };
   } catch { return initialState; }
 }
 
@@ -101,7 +104,14 @@ function browserDispatch(method: string, params: Record<string, unknown>): unkno
   if (method === 'chat.history') return [];
   if (method === 'apps.list') return [];
   if (method === 'models.status') return state.models;
-  if (method === 'settings.update') { state.settings = { ...state.settings, ...(params.patch as Partial<Settings>) }; save(); return state.settings; }
+  if (method === 'settings.update') {
+    const patch = params.patch as Partial<Settings>;
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new Error('Settings must be an object');
+    if ('theme' in patch && (typeof patch.theme !== 'string' || !['camp', 'night', 'handheld'].includes(patch.theme))) throw new Error('Unsupported theme');
+    if ('interfaceFont' in patch && (typeof patch.interfaceFont !== 'string' || !['pixel', 'inter', 'fira'].includes(patch.interfaceFont))) throw new Error('Unsupported interface font');
+    if ('captureProtectionEnabled' in patch && typeof patch.captureProtectionEnabled !== 'boolean') throw new Error('Invalid value for captureProtectionEnabled');
+    state.settings = { ...state.settings, ...patch }; save(); return state.settings;
+  }
   if (method === 'pet.action') { state.pet.action = String(params.action || 'idle'); save(); return state.pet; }
   if (method === 'pet.toggle') { state.pet.visible = typeof params.visible === 'boolean' ? params.visible : !state.pet.visible; save(); return state.pet; }
   if (method === 'memory.settings') { state.memory = { ...state.memory, ...params }; save(); return state.memory; }
@@ -129,7 +139,11 @@ export async function api<T = unknown>(method: string, params: Record<string, un
 }
 
 export async function subscribe(handler: (event: string, data: unknown) => void): Promise<() => void> {
-  if (!isNative()) return () => {};
+  if (!isNative()) {
+    const changed = (event: StorageEvent) => { if (event.key === STORAGE) handler('settings.updated', readBrowserState().settings); };
+    window.addEventListener('storage', changed);
+    return () => window.removeEventListener('storage', changed);
+  }
   const { listen } = await import('@tauri-apps/api/event');
   return listen<{ event: string; data: unknown }>('pace-event', ({ payload }) => handler(payload.event, payload.data));
 }
@@ -138,6 +152,14 @@ export const errorText = (error: unknown) => error instanceof Error ? error.mess
 export const bytes = (size: number) => size >= 1e9 ? `${(size / 1e9).toFixed(1)} GB` : `${Math.round(size / 1e6)} MB`;
 export const clockTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
 
+export function normalizeSettings(value?: Partial<Settings>): Settings {
+  const settings = { ...defaultSettings, ...value };
+  if (!['camp', 'night', 'handheld'].includes(settings.theme)) settings.theme = defaultSettings.theme;
+  if (!['pixel', 'inter', 'fira'].includes(settings.interfaceFont)) settings.interfaceFont = defaultSettings.interfaceFont;
+  if (typeof settings.captureProtectionEnabled !== 'boolean') settings.captureProtectionEnabled = true;
+  return settings;
+}
+
 export function normalizeState(value: Partial<AppState>): AppState {
-  return { ...initialState, ...value, settings: { ...defaultSettings, ...value.settings }, memory: { ...initialState.memory, ...value.memory }, pet: { ...initialState.pet, ...value.pet }, models: Array.isArray(value.models) ? value.models : initialState.models, meetings: Array.isArray(value.meetings) ? value.meetings : [], extensions: Array.isArray(value.extensions) ? value.extensions : [], packs: Array.isArray(value.packs) ? value.packs : initialState.packs };
+  return { ...initialState, ...value, settings: normalizeSettings(value.settings), memory: { ...initialState.memory, ...value.memory }, pet: { ...initialState.pet, ...value.pet }, models: Array.isArray(value.models) ? value.models : initialState.models, meetings: Array.isArray(value.meetings) ? value.meetings : [], extensions: Array.isArray(value.extensions) ? value.extensions : [], packs: Array.isArray(value.packs) ? value.packs : initialState.packs };
 }

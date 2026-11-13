@@ -61,6 +61,12 @@ enum MoonshineBundle {
         return languages.contains(normalized) ? "moonshine-tiny-\(normalized)" : nil
     }
 
+    static func availableModel(for language: String, isInstalled: (ModelDefinition) -> Bool = ModelStore.isInstalled) -> ModelDefinition? {
+        if let id = modelID(for: language), let model = try? ModelDefinition.find(id), isInstalled(model) { return model }
+        guard let whisper = try? ModelDefinition.find("whisper-turbo"), isInstalled(whisper) else { return nil }
+        return whisper
+    }
+
     static func vocabulary(_ value: Any?) throws -> [String] {
         guard let value else { return [] }
         guard let text = value as? String, text.count <= 4000, !text.contains("\0") else {

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Desktop Pet Sprites"
+  short_description: "Create coherent, calibrated desktop pet sprite sets"
+  default_prompt: "Use $desktop-pet-sprites to refine this pet’s sprite set against its canonical artwork and verify native-size playback."

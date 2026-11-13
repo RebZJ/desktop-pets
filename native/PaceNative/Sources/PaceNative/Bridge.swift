@@ -44,6 +44,7 @@ enum BridgeService {
         case "dictation.capture": return try DictationService.capture()
         case "dictation.insert": return try DictationService.insert(params)
         case "dictation.discard": return DictationService.discard()
+        case "completion.available": return CompletionService.availability()
         case "completion.capture": return try CompletionService.capture()
         case "completion.apply": return try await CompletionService.apply(params)
         case "completion.dismiss": return CompletionService.dismiss(params)

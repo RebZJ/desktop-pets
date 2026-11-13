@@ -3,6 +3,7 @@ set -euo pipefail
 project_root="$(cd "$(dirname "$0")/.." && pwd)"
 source_app="$project_root/src-tauri/target/release/bundle/macos/Desktop Pets.app"
 output="$project_root/artifacts/release"
+signing_identity="${PACE_CODESIGN_IDENTITY:--}"
 test -d "$source_app/Contents/Resources/native"
 mkdir -p "$output"
 stage="$(mktemp -d "$output/macos-stage.XXXXXX")"
@@ -11,16 +12,16 @@ app="$stage/Desktop Pets.app"
 ditto "$source_app" "$app"
 while IFS= read -r -d '' executable; do
   case "$(file -b "$executable")" in
-    *Mach-O*) codesign --force --sign - "$executable" ;;
+    *Mach-O*) codesign --force --sign "$signing_identity" "$executable" ;;
   esac
 done < <(find "$app/Contents/Resources" -type f -print0)
-codesign --force --sign - "$app"
+codesign --force --sign "$signing_identity" "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
 ln -s /Applications "$stage/Applications"
 cat > "$stage/Read me.txt" <<'TXT'
 Desktop Pets 0.1.0 alpha — Apple Silicon, macOS 15+, 16 GB RAM recommended.
 
-This is a local ad-hoc signed build. It is not Apple-notarized and Gatekeeper
+This is a locally signed build. It is not Apple-notarized and Gatekeeper
 may prevent opening a copy downloaded from the internet. Source and build
 instructions: https://github.com/RebZJ/desktop-pets
 

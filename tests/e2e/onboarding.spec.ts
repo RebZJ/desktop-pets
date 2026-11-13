@@ -24,6 +24,7 @@ async function onboardingFixture(page: Page, options: FixtureOptions = {}) {
         if (options.failState) throw new Error('Synthetic startup failure.');
         return structuredClone(state);
       }
+      if (method === 'shortcut.recording') return { active: params.active };
       if (method === 'settings.update') {
         if (failures-- > 0) throw new Error('Synthetic setting write failed.');
         if (options.delaySave) await new Promise<void>(resolve => { (window as any).__finishOnboardingSave = resolve; });
@@ -145,17 +146,21 @@ test('shortcut changes wait for acknowledgement and only native events mark keys
   await stops(page).getByRole('button', { name: 'Keys', exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as any).__onboardingNative.listeners)).toBeGreaterThan(0);
   const changed = [
-    ['Talk', 'commandShortcut', 'Control+Alt+Space'],
-    ['Dictate', 'dictationShortcut', 'Control+Alt+D'],
-    ['Autocomplete', 'completionShortcut', 'Control+Alt+Enter'],
-    ['Quick Hide', 'hideShortcut', 'Control+Alt+H'],
+    ['Talk', 'commandShortcut', 'Control+Alt+K'],
+    ['Dictate', 'dictationShortcut', 'Control+Alt+J'],
+    ['Autocomplete', 'completionShortcut', 'Control+Alt+L'],
+    ['Quick Hide', 'hideShortcut', 'Control+Alt+U'],
   ];
   const talk = page.locator('.onboarding-shortcut-row').filter({ hasText: 'Talk' });
-  await expect(talk.getByRole('combobox', { name: 'Talk shortcut', exact: true })).toHaveValue('Control+Shift+F12');
-  await expect(talk.getByRole('option', { name: 'Current custom · Control+Shift+F12', exact: true })).toBeAttached();
+  await expect(talk.getByRole('textbox', { name: 'Talk shortcut', exact: true })).toHaveValue('Control+Shift+F12');
   for (const [label, field, shortcut] of changed) {
     const row = page.locator('.onboarding-shortcut-row').filter({ hasText: label });
-    await row.getByRole('combobox', { name: `${label} shortcut`, exact: true }).selectOption(shortcut);
+    const input = row.getByRole('textbox', { name: `${label} shortcut`, exact: true });
+    await input.click();
+    await expect(row.locator('.shortcut-input')).toHaveClass(/is-recording/);
+    await input.press(shortcut);
+    await expect(input).toHaveValue(shortcut);
+    await row.getByRole('button', { name: `Save ${label.toLowerCase()} shortcut`, exact: true }).click();
     await expect.poll(async () => (await bridgeCalls(page)).filter(call => call.method === 'settings.update').map(call => call.params.patch)).toContainEqual({ [field]: shortcut });
     await expect(page.getByRole('status')).toContainText('Shortcut saved.');
   }
@@ -167,6 +172,78 @@ test('shortcut changes wait for acknowledgement and only native events mark keys
     await page.evaluate(action => (window as any).__onboardingFixture.emit('shortcut.triggered', { action }), action);
     await expect(page.locator('.onboarding-shortcut-row').filter({ hasText: label }).locator('small')).toHaveText('Shortcut detected');
   }
+});
+
+test('shortcut recorder cancels safely, rejects invalid keys and waits for persistence', async ({ page }) => {
+  await onboardingFixture(page, { nativeEvents: true, delaySave: true }); await page.goto('/');
+  await stops(page).getByRole('button', { name: 'Keys', exact: true }).click();
+  const input = page.getByRole('textbox', { name: 'Talk shortcut', exact: true });
+  const row = page.locator('.onboarding-shortcut-row').filter({ hasText: 'Talk' });
+  const record = async () => { await input.click(); await expect(row.locator('.shortcut-input')).toHaveClass(/is-recording/); };
+  await record();
+  await input.press('Shift');
+  await expect(input).toHaveValue(initialState.settings.commandShortcut);
+  await input.press('a');
+  await expect(row.getByRole('alert')).toContainText('Include Control');
+  await input.press('Alt+Shift+D');
+  await expect(row.getByRole('alert')).toContainText('conflicts');
+  await input.press('Meta+Space');
+  await expect(row.getByRole('alert')).toContainText('reserved');
+  await input.press('Control+Alt+K');
+  await input.press('Escape');
+  await expect(input).toHaveValue(initialState.settings.commandShortcut);
+  await expect(row.locator('.shortcut-input')).not.toHaveClass(/is-recording/);
+  await record(); await input.press('Control+Alt+K');
+  await page.getByRole('heading', { name: 'Keys that feel like yours.' }).click();
+  await expect(input).toHaveValue(initialState.settings.commandShortcut);
+  expect((await bridgeCalls(page)).filter(call => call.method === 'settings.update')).toEqual([]);
+  await record(); await input.press('Control+Alt+K');
+  await row.getByRole('button', { name: 'Save talk shortcut', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => Boolean((window as any).__finishOnboardingSave))).toBe(true);
+  expect(await page.evaluate(() => (window as any).__onboardingFixture.state.settings.commandShortcut)).toBe(initialState.settings.commandShortcut);
+  await expect(row.getByRole('button', { name: 'Save talk shortcut', exact: true })).toBeDisabled();
+  await page.evaluate(() => (window as any).__finishOnboardingSave());
+  await expect(page.getByRole('status')).toContainText('Shortcut saved.');
+  expect(await page.evaluate(() => (window as any).__onboardingFixture.state.settings.commandShortcut)).toBe('Control+Alt+K');
+  await expect.poll(async () => (await bridgeCalls(page)).filter(call => call.method === 'shortcut.recording').at(-1)?.params.active).toBe(false);
+  await page.clock.install();
+  await record(); await input.press('Control+Alt+J');
+  await page.clock.fastForward(45_000);
+  await expect(row.locator('.shortcut-input')).not.toHaveClass(/is-recording/);
+  await expect(input).toHaveValue('Control+Alt+K');
+});
+
+test('recording waits for native suspension and serializes focus changes', async ({ page }) => {
+  await onboardingFixture(page, { nativeEvents: true }); await page.goto('/');
+  await stops(page).getByRole('button', { name: 'Keys', exact: true }).click();
+  await page.evaluate(() => {
+    const bridge = window.__DESKTOP_PETS_BRIDGE__ as (method: string, params: any) => Promise<unknown>;
+    (window as any).__recordingAcks = [];
+    (window as any).__recordingOrder = [];
+    window.__DESKTOP_PETS_BRIDGE__ = async (method, params) => {
+      if (method === 'shortcut.recording') {
+        (window as any).__recordingOrder.push(params.active);
+        if (params.active) await new Promise<void>(resolve => (window as any).__recordingAcks.push(resolve));
+      }
+      return bridge(method, params);
+    };
+  });
+  const talk = page.getByRole('textbox', { name: 'Talk shortcut', exact: true });
+  const dictate = page.getByRole('textbox', { name: 'Dictate shortcut', exact: true });
+  await talk.click(); await talk.press('Control+Alt+K');
+  await expect(talk).toHaveValue(initialState.settings.commandShortcut);
+  await dictate.click();
+  expect(await page.evaluate(() => (window as any).__recordingOrder)).toEqual([true]);
+  await page.evaluate(() => (window as any).__recordingAcks.shift()());
+  await expect.poll(() => page.evaluate(() => (window as any).__recordingOrder)).toEqual([true, false, true]);
+  await expect(page.locator('.shortcut-input.is-recording')).toHaveCount(0);
+  await dictate.press('Control+Alt+J');
+  await expect(dictate).toHaveValue(initialState.settings.dictationShortcut);
+  await page.evaluate(() => (window as any).__recordingAcks.shift()());
+  await expect(dictate.locator('..')).toHaveClass(/is-recording/);
+  await dictate.press('Control+Alt+J'); await expect(dictate).toHaveValue('Control+Alt+J');
+  await dictate.press('Escape');
+  await expect.poll(() => page.evaluate(() => (window as any).__recordingOrder)).toEqual([true, false, true, false]);
 });
 
 test('dictation starts only on its explicit button; vocabulary and examples save after acknowledgement', async ({ page }) => {
