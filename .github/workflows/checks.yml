@@ -35,6 +35,7 @@ jobs:
       matrix:
         os: [macos-15, windows-2022, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
@@ -59,3 +60,5 @@ jobs:
           python -m py_compile native/scripts/build-portable-speech.py native/scripts/build-portable-moonshine.py native/scripts/build-portable-llama.py native/scripts/build-platform-macos.py
       - run: cargo +stable fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo +stable test --manifest-path src-tauri/Cargo.toml --all-targets --locked
+      - name: Build and smoke-test bundled native runtimes
+        run: npm run native:build
