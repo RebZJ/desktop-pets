@@ -20,6 +20,7 @@ Model weights are downloaded separately and retain their own licenses:
 - NeMo-Speech.cpp runtime: Apache-2.0, with its bundled third-party notices under generated `native/share/licenses`.
 - MLX Swift, MLX Swift LM and MLX Audio Swift: MIT. Hugging Face and tokenizer components retain their respective MIT/Apache notices in `native/licenses`.
 - Pinned Swift transitive dependencies and MLX's embedded native components retain their original notices in `native/licenses/swift-packages`, preserving upstream paths. Apple's required Swift compatibility runtime is copied from the selected Xcode toolchain alongside the helper.
+- The macOS-only tauri-nspanel adapter is pinned to revision `3ffa93ed14e0f8e857e43619b4157f2a685d35a4` and dual MIT/Apache-2.0. Both notices and its exact Git source are included in the dependency index.
 - React, Vite, Tauri and Lucide retain their upstream licenses. Package lockfiles identify the exact dependencies.
 
 Bundled Rust and production frontend dependency notices are in `native/licenses/app-dependencies`. Its index lists exact versions, license identifiers, notice hashes and source locations, including the unmodified MPL-2.0 `selectors` crate. Regenerate them with `python3 scripts/collect-runtime-licenses.py` after installing the locked dependencies. Missing archive notices use pinned upstream files; the MPL-2.0 text comes from Mozilla.

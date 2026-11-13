@@ -7,6 +7,8 @@ mod e2e;
 mod extensions;
 mod native;
 mod notes;
+#[cfg(target_os = "macos")]
+mod pet_panel;
 
 use chrono::Utc;
 use db::Database;
@@ -1773,9 +1775,14 @@ fn meeting_markdown(meeting: &Value) -> String {
 }
 
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+    let builder =
+        tauri::Builder::default().plugin(tauri_plugin_global_shortcut::Builder::new().build());
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_nspanel::init());
+    builder
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            pet_panel::setup(app.handle())?;
             let main_config=app.config().app.windows.iter().find(|w|w.label=="main").ok_or("Main window configuration is missing")?.clone();
             tauri::WebviewWindowBuilder::from_config(app,&main_config)?.on_download(|view,event|{
                 match event{
