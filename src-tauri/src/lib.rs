@@ -3,6 +3,7 @@ mod audio;
 mod companion;
 mod db;
 mod dictation;
+mod dictation_shortcut;
 #[cfg(debug_assertions)]
 mod e2e;
 mod engine;
@@ -58,6 +59,7 @@ struct AppState {
     dictating: AtomicBool,
     dictation_target: Mutex<Option<Value>>,
     dictation_lock: tokio::sync::Mutex<()>,
+    dictation_gesture: Mutex<dictation_shortcut::Gesture>,
     generation_lock: tokio::sync::Mutex<()>,
     capture_protection_lock: tokio::sync::Mutex<()>,
 }
@@ -148,12 +150,9 @@ fn set_pet_visible(app: &AppHandle, visible: bool) -> Result<Value, String> {
     Ok(result)
 }
 
-fn show_companion_on_main(app: &AppHandle, label: &str, focus: bool) {
-    if !focus
-        && app
-            .get_webview_window("command")
-            .is_some_and(|window| window.is_visible().unwrap_or(false))
-    {
+fn position_companion_on_main(app: &AppHandle, label: &str) {
+    if label == "bubble" {
+        position_dictation_on_main(app);
         return;
     }
     let Some(window) = app.get_webview_window(label) else {
@@ -188,6 +187,21 @@ fn show_companion_on_main(app: &AppHandle, label: &str, focus: bool) {
             let _ = window.set_position(PhysicalPosition::new(x, y));
         }
     }
+}
+
+fn show_companion_on_main(app: &AppHandle, label: &str, focus: bool) {
+    if !focus
+        && label != "bubble"
+        && app
+            .get_webview_window("command")
+            .is_some_and(|window| window.is_visible().unwrap_or(false))
+    {
+        return;
+    }
+    let Some(window) = app.get_webview_window(label) else {
+        return;
+    };
+    position_companion_on_main(app, label);
     for other in companion::COMPANION_LABELS {
         if other != label {
             if let Some(other) = app.get_webview_window(other) {
@@ -273,6 +287,28 @@ fn open_companion_for_request(app: &AppHandle, label: &'static str, epoch: u64) 
     });
 }
 
+fn position_dictation_on_main(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("bubble") else {
+        return;
+    };
+    let monitor = app
+        .get_webview_window("pet")
+        .and_then(|pet| pet.current_monitor().ok().flatten())
+        .or_else(|| window.current_monitor().ok().flatten());
+    if let Some(monitor) = monitor {
+        let work = monitor.work_area();
+        if let Ok(size) = window.outer_size() {
+            let gap = (24.0 * monitor.scale_factor()).round() as i32;
+            let x = work.position.x + (work.size.width as i32 - size.width as i32) / 2;
+            let y = work.position.y + work.size.height as i32 - size.height as i32 - gap;
+            let _ = window.set_position(PhysicalPosition::new(
+                x.max(work.position.x),
+                y.max(work.position.y),
+            ));
+        }
+    }
+}
+
 fn is_function_key(key: Code) -> bool {
     key.to_string()
         .strip_prefix('F')
@@ -354,6 +390,7 @@ fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
     {
         return Ok(());
     }
+    dictation::reset_shortcut(app);
     let shortcuts = app.global_shortcut();
     shortcuts.unregister_all().map_err(|e| e.to_string())?;
     shortcuts
@@ -390,23 +427,12 @@ fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
         .map_err(|e| format!("Could not register the command shortcut: {e}"))?;
     shortcuts
         .on_shortcut(dictation, |app, _, event| {
-            if event.state == ShortcutState::Pressed
-                && !app
-                    .state::<AppState>()
-                    .shortcut_recording
-                    .load(Ordering::SeqCst)
+            if !app
+                .state::<AppState>()
+                .shortcut_recording
+                .load(Ordering::SeqCst)
             {
-                emit(app, "shortcut.triggered", json!({"action":"dictate"}));
-                let handle = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Err(error) = dictation::toggle(handle.clone()).await {
-                        emit(
-                            &handle,
-                            "dictation.state",
-                            json!({"phase":"error","error":error}),
-                        );
-                    }
-                });
+                dictation::shortcut(app, event.state == ShortcutState::Pressed);
             }
         })
         .map_err(|e| format!("Could not register the dictation shortcut: {e}"))?;
@@ -421,6 +447,9 @@ fn set_shortcut_recording(app: &AppHandle, active: bool, reason: &str) -> Result
         .fetch_add(1, Ordering::SeqCst)
         + 1;
     state.shortcut_recording.store(active, Ordering::SeqCst);
+    if active {
+        dictation::reset_shortcut(app);
+    }
     let result = if active {
         app.global_shortcut()
             .unregister_all()
@@ -663,6 +692,23 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
         | "apps.list" => state.native.request(&app, &method, params).await,
         "audio.transcribe" => transcribe_audio(&app, &state, params).await,
         "audio.diarize" => state.engine.diarize(params).await,
+        "window.dictationSize" => {
+            let (width, height) = match params["mode"].as_str() {
+                Some("compact") => (240.0, 76.0),
+                Some("error") => (320.0, 180.0),
+                Some("draft") => (320.0, 260.0),
+                _ => return Err("Invalid dictation widget size".into()),
+            };
+            let handle = app.clone();
+            app.run_on_main_thread(move || {
+                if let Some(window) = handle.get_webview_window("bubble") {
+                    let _ = window.set_size(LogicalSize::new(width, height));
+                    position_dictation_on_main(&handle);
+                }
+            })
+            .map_err(|error| error.to_string())?;
+            Ok(json!({"resized":true}))
+        }
         "dictation.current" => Ok(state
             .engine
             .dictation_view
@@ -684,6 +730,27 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
             let text = text_param(&params, "text")?;
             if text.chars().count() > 16000 {
                 return Err("Please keep each question below 16,000 characters".into());
+            }
+            if params.get("meetingId").is_none_or(Value::is_null) {
+                let request = params["clientRequestId"].as_str();
+                if request.is_some_and(|value| value.is_empty() || value.len() > 128) {
+                    return Err("Invalid chat request id".into());
+                }
+                let conversation = "pace-pet-chat";
+                let mut history = state.db.messages(conversation)?;
+                if history.len() > 8 {
+                    history = history.split_off(history.len() - 8);
+                }
+                history.push(json!({"role":"user","content":text}));
+                let system = format!("You are Pace, a warm and playful little desktop companion. {} Reply naturally in one or two concise sentences unless the user asks for detail. You have no tools, screen access or actions. Never claim to have recorded audio, taken notes or changed something. Do not claim a model name or make up memories. Avoid repeated catchphrases and animal noises.", language_instruction(&state.db.settings()?));
+                action(&app, "think");
+                let result =
+                    generate_for_request(&app, &state, &system, history, 256, false, request).await;
+                action(&app, "idle");
+                let answer = result?;
+                state.db.add_message(conversation, "user", text)?;
+                let message = state.db.add_message(conversation, "assistant", &answer)?;
+                return Ok(json!({"conversationId":conversation,"text":answer,"message":message}));
             }
             let id = text_param(&params, "meetingId")?;
             let meeting = state.db.get("meeting", id)?;
@@ -758,6 +825,7 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
         "audio.start" => dictation::start_review(&app, &state).await,
         "audio.stop" => dictation::finish(&app, &state, false).await,
         "dictation.toggle" => dictation::toggle(app.clone()).await,
+        "dictation.cancel" => dictation::cancel(&app, &state).await,
         "meeting.status" | "meeting.list" => Ok(json!(state.db.list("meeting")?)),
         "meeting.start" => {
             state.speech_epoch.fetch_add(1, Ordering::SeqCst);
@@ -1134,6 +1202,35 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
             open_companion(&app, "bubble", true);
             Ok(json!({"opened":true}))
         }
+        "window.chat" => {
+            if let Some(id) = params["meetingId"].as_str() {
+                state.db.get("meeting", id)?;
+            }
+            open_companion(&app, "command", true);
+            emit(
+                &app,
+                "chat.context",
+                json!({"meetingId":params["meetingId"]}),
+            );
+            Ok(json!({"opened":true}))
+        }
+        "window.meetingLayout" => {
+            let size = match params["layout"].as_str() {
+                Some("compact") => (300.0, 64.0),
+                Some("message") => (300.0, 148.0),
+                Some("setup") => (300.0, 260.0),
+                _ => return Err("Unknown meeting layout".into()),
+            };
+            let handle = app.clone();
+            app.run_on_main_thread(move || {
+                if let Some(window) = handle.get_webview_window("meeting") {
+                    let _ = window.set_size(LogicalSize::new(size.0, size.1));
+                    position_companion_on_main(&handle, "meeting");
+                }
+            })
+            .map_err(|error| error.to_string())?;
+            Ok(json!({"resized":true}))
+        }
         "window.meeting" => {
             open_companion(&app, "meeting", true);
             Ok(json!({"opened":true}))
@@ -1169,6 +1266,12 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
                 .contains(page)
             }) {
                 let mut navigation = json!({"page":page});
+                if page == "meetings" {
+                    if let Some(id) = params["meetingId"].as_str() {
+                        state.db.get("meeting", id)?;
+                        navigation["meetingId"] = json!(id);
+                    }
+                }
                 if let Some(section) =
                     companion::settings_section(page, params["section"].as_str().unwrap_or(""))
                 {
@@ -1368,14 +1471,29 @@ async fn listen_events(app: AppHandle, mut receiver: tokio::sync::mpsc::Receiver
 
 async fn poll_listener(app: &AppHandle) {
     let state = app.state::<AppState>();
-    if state.shutting_down.load(Ordering::SeqCst) || state.engine.uses_native_capture() {
+    if state.shutting_down.load(Ordering::SeqCst) {
         return;
     }
-    match state.engine.capture_status().await {
+    let capture = if state.engine.uses_native_capture() {
+        state
+            .engine
+            .capture_request(app, "meeting.status", json!({}))
+            .await
+    } else {
+        state.engine.capture_status().await
+    };
+    match capture {
         Ok(status) => {
             if status["recording"] == true && status["mode"] == "dictation" {
                 emit(app, "dictation.level", status["level"].clone());
-            } else if status["error"].as_str().is_some() {
+            } else if status["recording"] == true && status["mode"] == "meeting" {
+                emit(
+                    app,
+                    "meeting.level",
+                    json!({"sessionId":status["sessionId"],"level":status["level"],"tracks":status["tracks"],"durationMs":status["durationMs"]}),
+                );
+            }
+            if status["error"].as_str().is_some() {
                 if status["mode"] == "dictation" && state.dictating.swap(false, Ordering::SeqCst) {
                     let _ = state.db.put("dictation", "recovery", &status);
                     if let Ok(mut saved) = state.engine.saved_dictation.lock() {
@@ -1903,6 +2021,20 @@ async fn finalize_meeting_inner(
         .await?;
         let mut segments = transcription_segments(&transcript, offset, name);
         if !segments.is_empty() {
+            // Preserve recognized words even if speaker recognition or a later track fails.
+            let saved = meeting["segments"]
+                .as_array_mut()
+                .ok_or("Invalid meeting segments")?;
+            saved.retain(|segment| segment["track"] != name);
+            saved.extend(merge_segments(segments.clone()));
+            saved.sort_by(|a, b| {
+                a["start"]
+                    .as_f64()
+                    .unwrap_or(0.0)
+                    .total_cmp(&b["start"].as_f64().unwrap_or(0.0))
+            });
+            state.db.put("meeting", id, &meeting)?;
+            emit(app, "meeting.updated", meeting.clone());
             let diarization = state.engine.diarize(json!({"path":path})).await?;
             let labels = diarization["segments"]
                 .as_array()
@@ -2005,7 +2137,19 @@ fn recover_tracks(data_dir: &Path, id: &str, offsets: &Value) -> Vec<Value> {
 
 async fn summarize_meeting(app: &AppHandle, state: &AppState, id: &str) -> Result<Value, String> {
     let mut meeting = state.db.get("meeting", id)?;
-    let result = notes::build_notes(app, state, &meeting).await?;
+    meeting["status"] = json!("finalizing");
+    state.db.put("meeting", id, &meeting)?;
+    emit(app, "meeting.updated", meeting.clone());
+    let result = match notes::build_notes(app, state, &meeting).await {
+        Ok(result) => result,
+        Err(error) => {
+            meeting["status"] = json!("interrupted");
+            meeting["error"] = json!(error);
+            state.db.put("meeting", id, &meeting)?;
+            emit(app, "meeting.updated", meeting);
+            return Err(error);
+        }
+    };
     meeting["notes"] = json!(result.notes);
     meeting["actionItems"] = json!(result.action_items);
     meeting["status"] = json!("completed");
@@ -2099,7 +2243,7 @@ pub fn run() {
                 }
             }
             let (chunks,receiver)=tokio::sync::mpsc::channel(8);
-            app.manage(AppState{db:database,native:NativeManager::default(),engine,chunks,data_dir,pet:Mutex::new(json!({"visible":true,"action":"idle"})),meeting_lock:tokio::sync::Mutex::new(()),meeting_lifecycle:tokio::sync::Mutex::new(()),asr_lock:tokio::sync::Mutex::new(()),last_tip:Mutex::new(HashMap::new()),tip_text:Mutex::new(HashMap::new()),tip_running:AtomicBool::new(false),capture_epoch:AtomicU64::new(0),speech_epoch:AtomicU64::new(0),ui_epoch:AtomicU64::new(0),shutting_down:AtomicBool::new(false),shortcut_recording:AtomicBool::new(false),shortcut_recording_epoch:AtomicU64::new(0),meeting_silent:AtomicBool::new(false),dictating:AtomicBool::new(false),dictation_target:Mutex::new(None),dictation_lock:tokio::sync::Mutex::new(()),generation_lock:tokio::sync::Mutex::new(()),capture_protection_lock:tokio::sync::Mutex::new(())});
+            app.manage(AppState{db:database,native:NativeManager::default(),engine,chunks,data_dir,pet:Mutex::new(json!({"visible":true,"action":"idle"})),meeting_lock:tokio::sync::Mutex::new(()),meeting_lifecycle:tokio::sync::Mutex::new(()),asr_lock:tokio::sync::Mutex::new(()),last_tip:Mutex::new(HashMap::new()),tip_text:Mutex::new(HashMap::new()),tip_running:AtomicBool::new(false),capture_epoch:AtomicU64::new(0),speech_epoch:AtomicU64::new(0),ui_epoch:AtomicU64::new(0),shutting_down:AtomicBool::new(false),shortcut_recording:AtomicBool::new(false),shortcut_recording_epoch:AtomicU64::new(0),meeting_silent:AtomicBool::new(false),dictating:AtomicBool::new(false),dictation_target:Mutex::new(None),dictation_lock:tokio::sync::Mutex::new(()),dictation_gesture:Mutex::new(dictation_shortcut::Gesture::default()),generation_lock:tokio::sync::Mutex::new(()),capture_protection_lock:tokio::sync::Mutex::new(())});
             if let Err(message)=register_shortcuts(app.handle(),&settings){eprintln!("{message}");}
             let runtime_handle=app.handle().clone();
             tauri::async_runtime::spawn(async move { let _=runtime_handle.state::<AppState>().native.request(&runtime_handle,"permissions.status",json!({})).await; });

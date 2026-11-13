@@ -86,6 +86,8 @@ test('old chat and writing routes open meeting records without general chat',asy
 });
 
 test('meeting lifecycle and notes display keep the saved transcript',async({page})=>{
+  const duplicateKeys: string[] = [];
+  page.on('console', message => { if (/same key/.test(message.text())) duplicateKeys.push(message.text()); });
   await fixtureBridge(page);await page.goto('/#meetings');
   await expect(page.locator('.capture-options').getByRole('combobox')).toHaveCount(0);
   await expect(page.locator('.capture-options').getByRole('checkbox')).toHaveCount(2);
@@ -97,11 +99,20 @@ test('meeting lifecycle and notes display keep the saved transcript',async({page
   await page.getByLabel('Meeting title',{exact:true}).fill('Synthetic release review');
   await page.getByRole('button',{name:'Start meeting',exact:true}).click();
   await expect(page.getByRole('button',{name:/Stop.*meeting|Finish meeting|Stop recording/})).toBeVisible();
+  await expect(page.locator('.meeting-notes')).toHaveCount(1);
+  await expect(page.locator('.meeting-question')).toHaveCount(1);
   expect(await page.evaluate(() => (window as any).__workspaceFixture.calls.filter((call: any) => call.method === 'meeting.start'))).toEqual([{ method: 'meeting.start', params: { title: 'Synthetic release review', language: 'auto', captureMicrophone: false, captureSystem: true } }]);
   await page.getByRole('button',{name:/Stop.*meeting|Finish meeting|Stop recording/}).click();
+  await expect(page.locator('.meeting-notes')).toHaveCount(1);
+  await page.getByRole('tab',{name:'Transcript',exact:true}).click();
+  await expect(page.locator('.meeting-notes')).toHaveCount(0);
   await expect(page.getByText('We will review the release Friday.')).toBeVisible();
   await page.getByRole('tab',{name:'Notes & actions',exact:true}).click();
-  await expect(page.getByText(/Synthetic release review on Friday/)).toBeVisible();
+  await expect(page.locator('.meeting-notes')).toHaveCount(1);
+  await expect(page.locator('.note-document')).toHaveCount(1);
+  await expect(page.locator('.meeting-question')).toHaveCount(1);
+  await expect(page.locator('.note-document')).toContainText('Synthetic release review on Friday');
+  expect(duplicateKeys).toEqual([]);
 });
 
 test('memory remains opt-in, searchable and deletable',async({page})=>{

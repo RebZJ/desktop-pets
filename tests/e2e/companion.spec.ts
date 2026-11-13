@@ -37,6 +37,8 @@ async function fixture(page: Page, options: Options = {}) {
         if (config.holdCurrent && f.currentReads === 1) return new Promise(resolve => { f.resolveCurrent = () => resolve(snapshot); });
         return snapshot;
       }
+      if (method === 'window.dictationSize') return {};
+      if (method === 'dictation.cancel') { current = { phase: 'idle', text: undefined, error: undefined, savedAudio: false }; f.emit('dictation.state', current); return { cancelled: true }; }
       if (method === 'dictation.retry') { current = { phase: 'draft', text: 'Recovered from saved audio.', error: undefined, savedAudio: false }; f.emit('dictation.state', current); return structuredClone(current); }
       if (method === 'dictation.toggle') {
         if (config.toggleError) throw new Error(config.toggleError);
@@ -45,7 +47,7 @@ async function fixture(page: Page, options: Options = {}) {
         f.emit('dictation.state', current); return structuredClone(current);
       }
       if (method === 'pet.action') { state.pet.action = params.action; return state.pet; }
-      if (method === 'window.close' || method === 'window.main' || method === 'window.meeting' || method === 'pet.toggle' || method === 'permissions.request') return {};
+      if (method === 'window.close' || method === 'window.chat' || method === 'window.main' || method === 'window.meeting' || method === 'pet.toggle' || method === 'permissions.request') return {};
       throw new Error(`Unexpected companion request ${method}`);
     };
   }, options);
@@ -63,55 +65,62 @@ async function screenshot(page: Page, name: string) {
 async function calls(page: Page) { return page.evaluate(() => (window as any).__companionFixture.calls as Array<{ method: string; params: any }>); }
 const petName = 'Pet Pace; drag to move; right-click for menu';
 
-test('three icon arc fits each native pet size without Talk or writing', async ({ browser }) => {
+test('four compact action icons fit each native pet size without writing', async ({ browser }) => {
   for (const size of [128, 160, 208]) {
     const width = size + 64; const page = await browser.newPage({ viewport: { width, height: width } });
     await fixture(page, { petSize: size }); await page.goto('/?window=pet');
     const pet = page.getByRole('button', { name: petName }); await pet.hover();
-    const controls = page.locator('.pet-controls'); await expect(controls.getByRole('button')).toHaveCount(3);
+    const controls = page.locator('.pet-controls'); await expect(controls.getByRole('button')).toHaveCount(4);
     await expect(page.getByRole('button', { name: /Talk|Write for me/ })).toHaveCount(0);
     const slots = await controls.getByRole('button').evaluateAll(buttons => buttons.map(button => ({ y: button.getBoundingClientRect().y, words: button.textContent })));
-    expect(slots.map(slot => slot.words)).toEqual(['', '', '']); expect(slots[0].y).toBe(slots[2].y); expect(slots[1].y).toBeLessThan(slots[0].y);
+    expect(slots.map(slot => slot.words)).toEqual(['', '', '', '']); expect(slots[0].y).toBe(slots[3].y); expect(slots[1].y).toBe(slots[2].y); expect(slots[1].y).toBeLessThan(slots[0].y);
     for (const button of await controls.getByRole('button').all()) await inside(button, width, width);
-    await inside(pet, width, width); await screenshot(page, `pet-three-icons-${width}x${width}.png`);
+    await inside(pet, width, width); await screenshot(page, `pet-four-icons-${width}x${width}.png`);
     expect((await calls(page)).some(call => /^(chat|writing|completion)\./.test(call.method))).toBe(false);
     await page.close();
   }
 });
 
-test('pet keyboard navigation and hover expose only Dictate, Meet and settings', async ({ page }) => {
+test('pet keyboard navigation exposes dictation, chat, meetings and settings', async ({ page }) => {
   await page.setViewportSize({ width: 224, height: 224 }); await fixture(page); await page.goto('/?window=pet');
   const pet = page.getByRole('button', { name: petName }); await page.keyboard.press('Tab'); await pet.focus(); await pet.press('ArrowUp');
   const dictate = page.getByRole('button', { name: 'Dictate into your app', exact: true }); await expect(dictate).toBeFocused();
   await expect(page.getByRole('tooltip')).toHaveText('Type into your app · Alt+Shift+D');
-  await dictate.press('ArrowRight'); await expect(page.getByRole('button', { name: 'Meeting buddy' })).toBeFocused();
+  await dictate.press('ArrowRight'); await expect(page.getByRole('button', { name: 'Chat with Pace', exact: true })).toBeFocused();
+  await page.keyboard.press('ArrowRight'); await expect(page.getByRole('button', { name: 'Meeting buddy' })).toBeFocused();
   await page.keyboard.press('End'); await expect(page.getByRole('button', { name: 'Settings and shortcuts' })).toBeFocused();
   await page.keyboard.press('ArrowRight'); await expect(dictate).toBeFocused();
-  await page.getByRole('button', { name: 'Meeting buddy' }).click(); await page.getByRole('button', { name: 'Settings and shortcuts' }).click();
+  await page.getByRole('button', { name: 'Chat with Pace', exact: true }).click(); await page.getByRole('button', { name: 'Meeting buddy' }).click(); await page.getByRole('button', { name: 'Settings and shortcuts' }).click();
+  expect(await calls(page)).toContainEqual({ method: 'window.chat', params: {} });
   expect(await calls(page)).toContainEqual({ method: 'window.meeting', params: {} });
   expect(await calls(page)).toContainEqual({ method: 'window.main', params: { page: 'settings', section: 'shortcuts' } });
 });
 
-test('dictation bubble opens passively, then starts and stops explicitly at 300×200', async ({ page }) => {
-  await page.setViewportSize({ width: 300, height: 200 }); await fixture(page); await page.goto('/?window=bubble');
+test('dictation widget stays compact while listening and expands only to recover words', async ({ page }) => {
+  await page.setViewportSize({ width: 240, height: 76 }); await fixture(page); await page.goto('/?window=bubble');
   await expect(page.getByRole('button', { name: 'Start dictation', exact: true })).toBeEnabled();
   expect((await calls(page)).map(call => call.method)).not.toContain('dictation.toggle');
-  await expect(page.getByRole('textbox', { name: 'Dictation text' })).toHaveValue('');
+  await expect(page.getByRole('textbox', { name: 'Dictation text' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Send|Speak|Talk/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Start dictation', exact: true }).click();
   await expect(page.getByRole('status')).toHaveText('Listening…'); await expect(page.getByRole('img', { name: 'Pace is dictate' })).toBeVisible();
   await page.evaluate(() => (window as any).__companionFixture.emit('dictation.level', { rms: .32, peak: .7 }));
   await expect(page.getByRole('meter', { name: 'Microphone level' })).toHaveAttribute('value', '0.32');
-  await screenshot(page, 'dictation-listening-300x200.png');
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+  for (const button of await page.locator('.dictation-cloud button').all()) await inside(button, 240, 76);
+  await screenshot(page, 'dictation-listening-240x76.png');
+  await page.setViewportSize({ width: 320, height: 260 });
   await page.getByRole('button', { name: 'Stop dictation', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Dictation text' })).toHaveValue('Words kept for review.');
   await expect(page.getByRole('meter')).toHaveCount(0);
   await page.getByRole('button', { name: 'Copy dictation', exact: true }).click(); await expect(page.getByRole('status')).toHaveText('Copied.');
   expect(await page.evaluate(() => (window as any).__companionFixture.copied)).toEqual(['Words kept for review.']);
-  for (const element of await page.locator('.dictation-cloud button, .dictation-cloud textarea').all()) await inside(element, 300, 200);
+  for (const element of await page.locator('.dictation-cloud button, .dictation-cloud textarea').all()) await inside(element, 320, 260);
   expect((await calls(page)).filter(call => call.method === 'dictation.toggle')).toHaveLength(2);
   expect((await calls(page)).some(call => /^(chat|audio|completion|writing)\./.test(call.method))).toBe(false);
-  await screenshot(page, 'dictation-draft-300x200.png');
+  await screenshot(page, 'dictation-draft-320x260.png');
+  expect(await calls(page)).toContainEqual({ method: 'window.dictationSize', params: { mode: 'compact' } });
+  expect(await calls(page)).toContainEqual({ method: 'window.dictationSize', params: { mode: 'draft' } });
 });
 
 test('recognized draft remains copyable without Accessibility and reviewed edits survive reopen', async ({ page }) => {
@@ -125,9 +134,9 @@ test('recognized draft remains copyable without Accessibility and reviewed edits
   expect((await calls(page)).some(call => call.method === 'permissions.request')).toBe(false);
   await inside(page.getByRole('button', { name: 'Start dictation' }), 300, 200);
   await page.evaluate(() => (window as any).__companionFixture.emit('dictation.state', { phase: 'recording', text: 'Older cached words.' }));
-  await expect(input).toHaveValue('My reviewed words.');
+  await expect(input).toHaveCount(0);
   await page.evaluate(() => (window as any).__companionFixture.emit('dictation.state', { phase: 'transcribing', text: 'Older cached words.' }));
-  await expect(input).toHaveValue('My reviewed words.');
+  await expect(input).toHaveCount(0);
   await page.evaluate(() => (window as any).__companionFixture.emit('dictation.state', { phase: 'draft', text: 'Fresh recognized words.' }));
   await expect(input).toHaveValue('Fresh recognized words.');
 });
@@ -140,7 +149,7 @@ test('real state events win over an older cached snapshot and transcribing block
   await page.evaluate(() => (window as any).__companionFixture.emit('dictation.state', { phase: 'transcribing' }));
   await expect(page.getByRole('button', { name: 'Transcribing…' })).toBeDisabled();
   await expect(page.getByRole('img', { name: 'Pace is think' })).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Dictation text' })).not.toHaveValue('Old snapshot.');
+  await expect(page.getByRole('textbox', { name: 'Dictation text' })).toHaveCount(0);
   expect((await calls(page)).some(call => call.method === 'dictation.toggle')).toBe(false);
 });
 
@@ -156,11 +165,11 @@ test('pending toggle cannot duplicate and a microphone failure preserves its dra
   await inside(failed.getByRole('button', { name: 'Allow microphone' }), 300, 200); await inside(failed.getByRole('button', { name: 'Start dictation' }), 300, 200); await failed.close();
 });
 
-test('legacy chat and writing entries do not query or reset stored conversations and drafts', async ({ page }) => {
+test('passive routes preserve drafts and only the explicit chat window shows a composer', async ({ page }) => {
   await fixture(page); await page.addInitScript(() => { for (const [key, value] of Object.entries({ 'pace.chat-draft': 'Existing chat draft.', 'pace.pet-draft': 'Existing pet chat draft.', 'pace.conversation': 'existing-conversation' })) sessionStorage.setItem(key, value); });
   for (const route of ['/#chat', '/#writing', '/?window=bubble', '/?window=command']) {
     await page.goto(route);
-    await expect(page.getByRole('textbox', { name: /Message Pace|Ask Pace$/, exact: true })).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: /Message Pace|Ask Pace$/, exact: true })).toHaveCount(route.includes('window=command') ? 1 : 0);
     await expect(page.getByRole('button', { name: 'Chat with Pace', exact: true })).toHaveCount(0);
     expect((await calls(page)).some(call => /^(chat|writing|completion)\./.test(call.method))).toBe(false);
     expect(await page.evaluate(() => [sessionStorage.getItem('pace.chat-draft'), sessionStorage.getItem('pace.pet-draft'), sessionStorage.getItem('pace.conversation')])).toEqual(['Existing chat draft.', 'Existing pet chat draft.', 'existing-conversation']);
@@ -177,4 +186,21 @@ test('failed ASR offers an explicit saved-audio retry without starting another r
   expect((await calls(page)).filter(call => call.method === 'dictation.retry')).toHaveLength(1);
   expect((await calls(page)).some(call => call.method === 'dictation.toggle')).toBe(false);
   await expect(page.getByRole('button', { name: 'Copy dictation' })).toBeEnabled();
+});
+
+test('starting is not reported as listening and cancellation discards only the active capture', async ({ page }) => {
+  await page.setViewportSize({ width: 240, height: 76 });
+  await fixture(page, { phase: 'starting' }); await page.goto('/?window=bubble');
+  await expect(page.getByRole('status')).toHaveText('Opening mic…');
+  await expect(page.getByRole('meter')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Cancel dictation' }).click();
+  await expect(page.getByRole('status')).toHaveText('Ready to dictate');
+  expect((await calls(page)).filter(call => call.method === 'dictation.cancel')).toHaveLength(1);
+  expect((await calls(page)).some(call => call.method === 'dictation.toggle')).toBe(false);
+  await page.evaluate(() => (window as any).__companionFixture.emit('dictation.state', { phase: 'recording' }));
+  const meter = page.getByRole('meter', { name: 'Microphone level' });
+  await expect(meter).toHaveAttribute('value', '0');
+  await page.evaluate(() => (window as any).__companionFixture.emit('dictation.level', { rms: .4 }));
+  await expect(meter).toHaveAttribute('value', '0.4');
+  await expect(meter).toHaveAttribute('value', '0');
 });

@@ -153,9 +153,9 @@ The workspace headline is 32px/1.2, section titles 18px/1.35, ordinary prose 14p
 
 ## Layout
 
-Pace rests alone in a transparent native Tauri window. Hover or keyboard focus reveals three icon tools in a semicircle **above** him: Dictate, Meeting and Settings. There are no labels beneath the pet. A focused/hovered icon supplies its own hint and accessible name. Dictate hints “Type into your app.” Sprite sizes are 128, 160 or 208px, with a square native window 64px larger.
+Pace rests alone in a transparent native Tauri window. Hover or keyboard focus reveals four compact icon tools in a semicircle **above** him: Dictate, Chat, Meeting and Settings. There are no labels beneath the pet. A focused/hovered icon supplies its own hint and accessible name. Dictate hints “Type into your app.” Sprite sizes are 128, 160 or 208px, with a square native window 64px larger.
 
-Dictation uses a small 300×200 speech bubble. Meeting live words, tips and notes share one 420×380 cloud with a 360×300 minimum. Persistent controls surround scrolling content. These are native utility windows, not a web dashboard that opens on startup.
+Dictation uses a 240×76 bottom-center widget, expanding only for recovery. Meeting recording uses a 300×64 strip; full notes and transcript open in the workspace. Chat uses an explicit 300×200 speech bubble. Persistent controls surround scrolling content. These are native utility windows, not a web dashboard that opens on startup.
 
 The supporting workspace uses 1180×780 with an 800×560 minimum, a 228px rail and a 64px header. At 820px the rail becomes icons; at 600px work columns stack. The 390×844 browser layout is a development/test viewport, not a mobile release. Writing surfaces are deferred; old Chat and Writing pages open meeting records, and legacy command windows show only a paused notice and Close. Stored preferences remain intact.
 
@@ -181,7 +181,7 @@ Paper fields retain labels, nearby validation and visible focus. Longer text use
 
 ### Navigation
 
-The primary rail exposes Meeting notes, Local models and Settings. Saved memory and extension access remain manageable through Settings → Data & extensions. General chat and persona voice are outside the current product flow. The supporting rail uses the selected interface face, sidebar hover and pale-accent selection with an ink border and inset accent edge. Icon-only destinations retain accessible names. Five onboarding stop buttons identify the current step.
+The primary rail exposes Meeting notes, Local models and Settings. Saved memory and extension access remain manageable through Settings → Data & extensions. Explicit text chat uses a small speech bubble; persona voice remains paused. The supporting rail uses the selected interface face, sidebar hover and pale-accent selection with an ink border and inset accent edge. Icon-only destinations retain accessible names. Five onboarding stop buttons identify the current step.
 
 ### Cards / Containers
 
@@ -189,7 +189,7 @@ Principal work surfaces use square boundaries and pixel offset depth. Transcript
 
 ### Companion and dialogue clouds
 
-The icon arc above Pace follows the ring-command interaction reference in Nintendo’s *Secret of Mana* manual, **Ring Commands** section. It is an original tool selector, with explicit activation, keyboard navigation and no Nintendo artwork. Icons fade in over 120ms; hover/focus scales the active icon to 1.12 and adjacent hovered neighbors to 1.04 over 140ms. Reduced motion removes transitions and transforms. The [official manual](https://www.nintendo.com/es-es/games/oms/snes-classic/manuals/secret-of-mana/manual.pdf) is the primary reference.
+The compact four-icon arc above Pace follows the ring-command interaction reference in Nintendo’s *Secret of Mana* manual, **Ring Commands** section. It is an original tool selector, with explicit activation, keyboard navigation and no Nintendo artwork. Icons reveal in three short pixel steps; hover lifts the active icon by 2px and scales it to 1.10, with quieter neighboring lift. Reduced motion removes transitions and transforms. The [official manual](https://www.nintendo.com/es-es/games/oms/snes-classic/manuals/secret-of-mana/manual.pdf) is the primary reference.
 
 The dictation bubble has a compact portrait/status header, Copy, Close, an editable recognized draft and one persistent Start/Stop control. Actual recording/transcription state drives listening/thinking emotes. A real RMS meter appears only during recording. Opening the window never records. Recognition remains reviewable/copyable without Accessibility. Saved-audio retry appears only when actual backend state permits it. Existing chat draft keys remain untouched.
 

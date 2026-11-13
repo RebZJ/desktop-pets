@@ -416,8 +416,8 @@ test('utility windows bypass first-run onboarding', async ({ page }) => {
     await page.goto(`/?window=${kind}`);
     await expect(tour(page)).toHaveCount(0);
     if (kind === 'pet') await expect(page.getByRole('button', { name: 'Pet Pace; drag to move; right-click for menu', exact: true })).toBeVisible();
-    else if (kind === 'bubble') await expect(page.getByRole('textbox', { name: 'Dictation text', exact: true })).toBeVisible();
-    else await expect(page.getByRole('main', { name: 'Writing paused' })).toBeVisible();
+    else if (kind === 'bubble') await expect(page.getByRole('main', { name: 'Dictation with Pace', exact: true })).toBeVisible();
+    else await expect(page.getByRole('main', { name: 'Chat with Pace' })).toBeVisible();
     expect((await bridgeCalls(page)).filter(call => call.method === 'settings.update')).toEqual([]);
   }
 });

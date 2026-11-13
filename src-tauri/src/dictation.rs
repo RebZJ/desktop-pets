@@ -1,4 +1,7 @@
-use crate::{action, emit, open_companion_for_request, set_pet_visible, stop_dictation, AppState};
+use crate::{
+    action, dictation_shortcut::Action, emit, open_companion_for_request, set_pet_visible,
+    stop_dictation, AppState,
+};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Manager};
@@ -51,18 +54,113 @@ pub async fn start_review(app: &AppHandle, state: &AppState) -> Result<Value, St
     result
 }
 
+pub fn shortcut(app: &AppHandle, pressed: bool) {
+    let state = app.state::<AppState>();
+    let busy = state.dictation_lock.try_lock().is_err();
+    let action = state.dictation_gesture.lock().ok().and_then(|mut gesture| {
+        if pressed {
+            gesture.press(
+                std::time::Instant::now(),
+                state.dictating.load(Ordering::SeqCst),
+                busy,
+            )
+        } else {
+            gesture.release(std::time::Instant::now())
+        }
+    });
+    if let Some(action) = action {
+        if pressed {
+            emit(app, "shortcut.triggered", json!({"action":"dictate"}));
+        }
+        run_shortcut(app, action);
+    }
+}
+
+pub fn reset_shortcut(app: &AppHandle) {
+    let action = app
+        .state::<AppState>()
+        .dictation_gesture
+        .lock()
+        .ok()
+        .and_then(|mut gesture| gesture.reset());
+    if let Some(action) = action {
+        run_shortcut(app, action);
+    }
+}
+
+fn run_shortcut(app: &AppHandle, action: Action) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>();
+        let _guard = state.dictation_lock.lock().await;
+        let id = match action {
+            Action::Start(id) | Action::Stop(id) => id,
+        };
+        if !state
+            .dictation_gesture
+            .lock()
+            .is_ok_and(|gesture| gesture.current(id))
+        {
+            return;
+        }
+        match action {
+            Action::Start(_) => {
+                if state.dictating.load(Ordering::SeqCst) {
+                    if let Ok(mut gesture) = state.dictation_gesture.lock() {
+                        gesture.finished(id);
+                    }
+                    return;
+                }
+                let result = start_global(&app, &state).await;
+                let stop = state
+                    .dictation_gesture
+                    .lock()
+                    .ok()
+                    .and_then(|mut gesture| gesture.started(id, result.is_ok()));
+                if stop.is_some() && state.dictating.load(Ordering::SeqCst) {
+                    let _ = finish_locked(&app, &state, true).await;
+                    if let Ok(mut gesture) = state.dictation_gesture.lock() {
+                        gesture.finished(id);
+                    }
+                }
+            }
+            Action::Stop(_) => {
+                if state.dictating.load(Ordering::SeqCst) {
+                    let _ = finish_locked(&app, &state, true).await;
+                }
+                if let Ok(mut gesture) = state.dictation_gesture.lock() {
+                    gesture.finished(id);
+                }
+            }
+        }
+    });
+}
+
 pub async fn toggle(app: AppHandle) -> Result<Value, String> {
     let state = app.state::<AppState>();
-    // Ignore repeated presses while a start or transcription is in flight.
     let Ok(_guard) = state.dictation_lock.try_lock() else {
+        let action = state
+            .dictation_gesture
+            .lock()
+            .ok()
+            .and_then(|mut gesture| gesture.stop());
+        if let Some(action) = action {
+            run_shortcut(&app, action);
+        }
         return Ok(json!({"busy":true}));
     };
     if state.dictating.load(Ordering::SeqCst) {
         return finish_locked(&app, &state, true).await;
     }
+    start_global(&app, &state).await
+}
+
+async fn start_global(app: &AppHandle, state: &AppState) -> Result<Value, String> {
     let ui_epoch = state.ui_epoch.load(Ordering::SeqCst);
     let _ = set_pet_visible(&app, true);
-    match start(&app, &state, ui_epoch).await {
+    emit(app, "dictation.state", json!({"phase":"starting"}));
+    open_companion_for_request(app, "bubble", ui_epoch);
+    match start(app, state, ui_epoch).await {
         Ok(mut result) => {
             // Recording already runs; slow accessibility must not delay the microphone.
             let target = match tokio::time::timeout(
@@ -112,6 +210,9 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
     let ui_epoch = state.ui_epoch.load(Ordering::SeqCst);
     if !state.dictating.load(Ordering::SeqCst) {
         return Err("Dictation is not recording".into());
+    }
+    if let Ok(mut gesture) = state.dictation_gesture.lock() {
+        gesture.clear();
     }
     let target = state
         .dictation_target
@@ -188,6 +289,49 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
         emit(app, "dictation.finished", data.clone());
     }
     Ok(data)
+}
+
+pub async fn cancel(app: &AppHandle, state: &AppState) -> Result<Value, String> {
+    if let Ok(mut gesture) = state.dictation_gesture.lock() {
+        gesture.clear();
+    }
+    let _guard = state.dictation_lock.lock().await;
+    if !state.dictating.swap(false, Ordering::SeqCst) {
+        emit(app, "dictation.state", json!({"phase":"idle"}));
+        return Ok(json!({"cancelled":false}));
+    }
+    let target = state
+        .dictation_target
+        .lock()
+        .map_err(|e| e.to_string())?
+        .take();
+    let result = state
+        .engine
+        .capture_request(app, "audio.stop", json!({}))
+        .await;
+    discard_target(app, state, target.as_ref()).await;
+    action(app, "idle");
+    match result {
+        Ok(recording) => {
+            if let Some(path) = recording["wavPath"]
+                .as_str()
+                .or_else(|| recording["path"].as_str())
+            {
+                // Cancellation discards only this capture, never saved recovery audio.
+                let _ = std::fs::remove_file(path);
+            }
+            emit(app, "dictation.state", json!({"phase":"idle"}));
+            Ok(json!({"cancelled":true}))
+        }
+        Err(error) => {
+            emit(
+                app,
+                "dictation.state",
+                json!({"phase":"error","error":error}),
+            );
+            Err(error)
+        }
+    }
 }
 
 async fn discard_target(app: &AppHandle, state: &AppState, target: Option<&Value>) {

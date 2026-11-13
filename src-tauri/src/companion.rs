@@ -144,10 +144,10 @@ mod tests {
             .iter()
             .find(|window| window["label"] == "meeting")
             .unwrap();
-        assert_eq!(meeting["width"], 420);
-        assert_eq!(meeting["height"], 380);
-        assert_eq!(meeting["minWidth"], 360);
-        assert_eq!(meeting["minHeight"], 300);
+        assert_eq!(meeting["width"], 300);
+        assert_eq!(meeting["height"], 260);
+        assert_eq!(meeting["minWidth"], 300);
+        assert_eq!(meeting["minHeight"], 64);
         assert_eq!(meeting["focus"], false);
         assert_eq!(meeting["visible"], false);
         assert_eq!(meeting["acceptFirstMouse"], true);

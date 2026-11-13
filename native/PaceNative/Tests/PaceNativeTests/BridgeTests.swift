@@ -61,12 +61,36 @@ final class BridgeTests: XCTestCase {
         }
         let sink = try AudioSink(url: folder.appendingPathComponent("converted.wav"), sessionId: "fixture", track: "system", startDate: Date(), emit: { _ in })
         sink.append(buffer)
+        let live = try XCTUnwrap(sink.status()["level"] as? [String: Double])
+        XCTAssertGreaterThan(try XCTUnwrap(live["rms"]), 0.1)
+        XCTAssertGreaterThan(try XCTUnwrap(live["peak"]), 0.2)
         let result = try sink.finish()
         XCTAssertNil(result["error"])
         let frames = try XCTUnwrap(result["frames"] as? Int64)
         XCTAssertEqual(frames, 1600)
         let wav = try Data(contentsOf: folder.appendingPathComponent("converted.wav"))
         XCTAssertTrue(wav.dropFirst(44).contains(where: { $0 != 0 }))
+    }
+
+    func testInputLevelsDistinguishDigitalSilenceAndExpireWhenInputStops() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let sink = try AudioSink(url: folder.appendingPathComponent("levels.wav"), sessionId: "fixture", track: "microphone", startDate: Date(), emit: { _ in })
+        try sink.appendPCMForTesting(Data(repeating: 0, count: 3200))
+        XCTAssertEqual(sink.status()["level"] as? [String: Double], ["rms": 0, "peak": 0])
+        var pcm = Data()
+        for value: Int16 in [16384, -16384, Int16.min, 0] {
+            var value = value.littleEndian
+            withUnsafeBytes(of: &value) { pcm.append(contentsOf: $0) }
+        }
+        try sink.appendPCMForTesting(pcm)
+        let level = try XCTUnwrap(sink.status()["level"] as? [String: Double])
+        XCTAssertEqual(try XCTUnwrap(level["peak"]), 1)
+        XCTAssertEqual(try XCTUnwrap(level["rms"]), sqrt(0.375), accuracy: 0.000001)
+        Thread.sleep(forTimeInterval: 0.3)
+        XCTAssertEqual(sink.status()["level"] as? [String: Double], ["rms": 0, "peak": 0])
+        _ = try sink.finish()
     }
 
     func testSystemAudioDelegateCopiesFloatStereoSampleBuffersToPCM16WAV() throws {
@@ -105,6 +129,8 @@ final class BridgeTests: XCTestCase {
                 capture.stream(stream, didOutputSampleBuffer: sample, of: .audio)
                 control.append(pcm)
             }
+            let live = try XCTUnwrap(sink.status()["level"] as? [String: Double])
+            XCTAssertGreaterThan(try XCTUnwrap(live["rms"]), 0.02, "The input meter must see converted system audio: \(suffix)")
             let result = try sink.finish()
             let controlResult = try control.finish()
             XCTAssertNil(result["error"])

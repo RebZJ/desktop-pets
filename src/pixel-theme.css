@@ -287,3 +287,5 @@ h2, .settings-section>h2, .extension-section>h2 { font-size: 18px; line-height: 
   .shortcut-input { width: 100%; max-width: none; }
   .setting-row:has(.shortcut-input) .setting-control { justify-content: flex-start; }
 }
+
+.note-document{max-width:70ch;font:14px/1.65 var(--body-font,Inter,sans-serif);overflow-wrap:anywhere}.note-document h3{font:20px/1.25 var(--ui-font);margin:26px 0 10px;color:var(--ink)}.note-document h3:first-child{margin-top:8px}.note-document p{margin:7px 0}.note-bullet{display:flex;gap:9px}.note-bullet>span:first-child{color:var(--accent);font-weight:700}.note-document button{font:inherit}

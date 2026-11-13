@@ -249,7 +249,7 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
               {shortcutActions.map(action => {
                 const detected = shortcutTest === ({ 'Dictation window': 'talk', Dictate: 'dictate', 'Quick Hide': 'hide' } as const)[action.label];
                 return <div className="onboarding-shortcut-row" key={action.field}>
-                  <span>{action.label}<small>{detected ? 'Shortcut detected' : 'Press the keys to try it'}</small></span>
+                  <span>{action.label}<small>{detected ? 'Shortcut detected' : action.field === 'dictationShortcut' ? 'Hold to speak · tap to start or stop' : 'Press the keys to try it'}</small></span>
                   <ShortcutInput label={`${action.label} shortcut`} field={action.field} settings={state.settings} disabled={saving} onSave={value => updateSetting(action.field, value)} />
                 </div>;
               })}

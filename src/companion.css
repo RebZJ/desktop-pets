@@ -1,13 +1,13 @@
 .companion-pet{position:relative;padding:0 0 8px;width:100%;gap:0;justify-content:flex-end;pointer-events:none}
 .companion-pet .overlay-pet-button{flex:none;max-width:100%;border-radius:0;pointer-events:auto}
-.pet-controls{position:absolute;top:4px;left:4px;right:4px;height:94px;z-index:2;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 120ms cubic-bezier(.16,1,.3,1),visibility 120ms}
-.controls-open .pet-controls{opacity:1;visibility:visible}
-.pet-controls button{position:absolute;left:calc((100% - 32px)*var(--slot));top:var(--arc);display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:2px solid var(--cloud-ink);border-radius:0;background:var(--cloud-paper);color:var(--cloud-ink);box-shadow:0 2px 4px #152b2122;transform-origin:center;transition:transform 140ms cubic-bezier(.16,1,.3,1);pointer-events:none}
+.pet-controls{position:absolute;top:4px;left:4px;right:4px;height:80px;z-index:2;opacity:0;visibility:hidden;pointer-events:none;transform:translateY(3px);transition:opacity 90ms steps(3,end),transform 120ms steps(3,end),visibility 90ms}
+.controls-open .pet-controls{opacity:1;visibility:visible;transform:translateY(0)}
+.pet-controls button{position:absolute;left:calc((100% - 28px)*var(--slot));top:var(--arc);display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:2px solid var(--cloud-ink);border-radius:0;background:var(--cloud-paper);color:var(--cloud-ink);box-shadow:0 2px 4px #152b2122;transform-origin:center;transition:transform 100ms steps(3,end),background-color 80ms steps(2,end);pointer-events:none}
 .controls-open .pet-controls button{pointer-events:auto}
 .pet-controls button[hidden]{display:none}
-.pet-dictate{--slot:0;--arc:48px}.pet-meeting{--slot:.5;--arc:0px}.pet-settings{--slot:1;--arc:48px}
-.pet-controls button:hover,.pet-controls button:focus-visible{background:var(--cloud-red);color:var(--on-accent);transform:scale(1.12);z-index:1}
-.pet-controls button:hover+button,.pet-controls button:has(+button:hover){transform:scale(1.04)}
+.pet-dictate{--slot:0;--arc:42px}.pet-chat{--slot:.33;--arc:4px}.pet-meeting{--slot:.67;--arc:4px}.pet-settings{--slot:1;--arc:42px}
+.pet-controls button:hover,.pet-controls button:focus-visible{background:var(--cloud-red);color:var(--on-accent);transform:translateY(-2px) scale(1.10);z-index:1}
+.pet-controls button:hover+button,.pet-controls button:has(+button:hover){transform:translateY(-1px) scale(1.04)}
 .pet-controls button:active{transform:scale(.96)}
 .pet-controls button[aria-pressed=true]{background:var(--cloud-red);color:var(--on-accent)}
 .pet-controls button:disabled{opacity:.65;cursor:wait}

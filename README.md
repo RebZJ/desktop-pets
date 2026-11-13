@@ -1,8 +1,8 @@
 # Desktop Pets
 
-**Pace is a pixel companion for local dictation, speaker-labeled meeting notes and a meeting copilot.**
+**Pace is a pixel companion for local dictation, speaker-labeled meeting notes a meeting copilot, and quick chats.**
 
-Hover Pace to open Dictate, Meeting or Settings. Recording starts only after an explicit action. The meeting copilot answers from the selected meeting's transcript; it has no general tool access. General chat, voice replies, writing and cursor autocomplete are paused. Existing saved records, models and preferences are preserved.
+Hover Pace to open Dictate, Chat, Meeting or Settings. Recording starts only after an explicit action. The meeting copilot answers from the selected meeting's transcript; it has no general tool access. Chat opens only when requested. Voice replies, writing and cursor autocomplete remain paused. Existing saved records, models and preferences are preserved.
 
 This source uses a portable **Tauri 2 + React + Rust** application. Rust owns microphone capture, buffering, speech recognition, model management and text inference. Windows/Linux system audio uses CPAL; macOS system audio uses a small ScreenCaptureKit adapter because the CPAL process tap stalled in live testing. The same macOS adapter handles accessibility insertion. Local runtimes are bundled; the adapter contains no MLX inference.
 
@@ -45,7 +45,7 @@ Dictation does not require Qwen. The app starts its authenticated loopback llama
 
 ## Everyday use
 
-- Open Dictate or use the global shortcut. Stop to review the transcript. Successful target insertion rechecks the captured field; Copy remains the recovery path. A failed recognition keeps saved audio for retry when available. A retry never silently inserts into an old target.
+- Tap the configured dictation shortcut to start/stop, or hold it and release to finish. Open Dictate to use the widget controls. Stop to review the transcript. Successful target insertion rechecks the captured field; Copy remains the recovery path. A failed recognition keeps saved audio for retry when available. A retry never silently inserts into an old target.
 - Start a meeting with the selected microphone/system source. Live words, quiet suggestions and the meeting question field share one cloud. Stop recording before final notes are generated. Full records hold editable notes, action items and exports.
 - Open Settings to choose language, dictation vocabulary, shortcuts, models and appearance. Previous chat/draft/settings data remains saved; paused capabilities are not re-enabled by this update.
 
@@ -72,6 +72,6 @@ npm run tauri -- build
 
 The Tauri packaging command builds the native runtimes and chooses the host's installer targets. Model weights are excluded. Signing, notarization and release publication are separate; there is no claim of a newly verified public installer.
 
-See [portable implementation and validation](docs/portable-native-validation-2026-11-14.md), [model selection](docs/model-selection.md), and [native architecture/builds](native/README.md). The historical [Swift validation](docs/native-validation.md) and [60-minute soak](docs/soak-validation.md) describe earlier implementations and do not establish the portable runtime's device behavior.
+See [the compact interface update and research](docs/companion-ux-2026-11-14.md), [portable implementation and validation](docs/portable-native-validation-2026-11-14.md), [model selection](docs/model-selection.md), and [native architecture/builds](native/README.md). The historical [Swift validation](docs/native-validation.md) and [60-minute soak](docs/soak-validation.md) describe earlier implementations and do not establish the portable runtime's device behavior.
 
 Code is **MIT**. Original Pace artwork is **CC BY 4.0**, credited to Outpaced / Desktop Pets. Model/runtime licenses remain separate; see [NOTICE](NOTICE.md). [Pet pack format](docs/pet-packs.md) and [contributing](CONTRIBUTING.md) remain available.

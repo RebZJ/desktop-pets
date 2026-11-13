@@ -204,7 +204,6 @@ impl Database {
         transaction.commit().map_err(|error| error.to_string())
     }
 
-    #[cfg(test)]
     pub fn add_message(
         &self,
         conversation: &str,

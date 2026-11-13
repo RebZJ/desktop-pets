@@ -1,0 +1,13 @@
+.pace-cloud.chat-cloud{gap:8px;padding:10px;margin:6px 6px 16px;height:calc(100vh - 22px);width:calc(100vw - 12px);max-width:none;font:12px/1.5 var(--body-font,Inter,sans-serif)}
+.chat-cloud .cloud-header{padding:0;min-height:28px}
+.chat-cloud .cloud-header strong{font:14px/1.2 var(--ui-font)}
+.chat-cloud button{display:inline-flex;align-items:center;justify-content:center;background:transparent;color:var(--cloud-ink);border:0;min-width:28px;min-height:28px}
+.chat-cloud button:hover{background:var(--accent-pale)}
+.chat-reply{flex:1;min-height:0;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:0 2px;font-size:13px}
+.chat-reply p{margin:0}.chat-reply button{display:block;text-decoration:underline;font:inherit}
+.chat-emote{color:var(--accent);margin-left:6px}
+.chat-cloud form{display:flex;gap:6px;flex:none;border-top:1px solid var(--line);padding-top:6px}
+.chat-cloud input{width:0;flex:1;min-width:0;border:0;background:transparent;padding:6px;color:var(--cloud-ink);font:12px var(--body-font,Inter,sans-serif)}
+.chat-cloud form button{background:var(--accent);color:var(--on-accent);border:1px solid var(--ink)}
+.chat-cloud button:disabled{opacity:.5}
+.chat-cloud :focus-visible{outline:2px solid var(--accent);outline-offset:1px}

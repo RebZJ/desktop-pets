@@ -30,11 +30,18 @@ final class AudioSink: @unchecked Sendable {
     private var closed = false
     private var failure: String?
     private var firstOffsetMs: Int?
+    private var level = ["rms": 0.0, "peak": 0.0]
+    private var levelAt = Date.distantPast
     private let startDate: Date
 
     var offsetMs: Int? {
         lock.lock(); defer { lock.unlock() }
         return firstOffsetMs
+    }
+
+    func status() -> [String: Any] {
+        lock.lock(); defer { lock.unlock() }
+        return ["track": track, "frames": frames, "level": Date().timeIntervalSince(levelAt) < 0.25 ? level : ["rms": 0.0, "peak": 0.0]]
     }
 
     init(url: URL, sessionId: String, track: String, startDate: Date, emit: @escaping ([String: Any]) -> Void) throws {
@@ -92,6 +99,18 @@ final class AudioSink: @unchecked Sendable {
     private func appendPCM(_ pcm: Data) throws {
         guard frames * 2 + Int64(pcm.count) < Int64(UInt32.max) - 44 else { throw BridgeError("recording_too_long", "Recording reached the WAV size limit.") }
         try file.write(contentsOf: pcm)
+        if !pcm.isEmpty {
+            var squares = 0.0, peak = 0.0
+            pcm.withUnsafeBytes { bytes in
+                for index in stride(from: 0, to: bytes.count, by: 2) {
+                    let sample = Double(Int16(littleEndian: bytes.loadUnaligned(fromByteOffset: index, as: Int16.self))) / 32768
+                    squares += sample * sample
+                    peak = max(peak, abs(sample))
+                }
+            }
+            level = ["rms": sqrt(squares / Double(pcm.count / 2)), "peak": peak]
+            levelAt = Date()
+        }
         frames += Int64(pcm.count / 2)
         pending.append(pcm)
         while pending.count >= 480_000 {
@@ -405,6 +424,14 @@ enum MeetingService {
         var result: [String: Any] = ["recording": sessionId != nil, "starting": starting, "dictating": dictation != nil]
         if let sessionId { result["sessionId"] = sessionId }
         if let startDate { result["startedAt"] = ISO8601DateFormatter().string(from: startDate) }
+        if sessionId != nil {
+            let tracks = [microphone?.sink.status(), system?.sink.status()].compactMap { $0 }
+            result["tracks"] = tracks
+            result["mode"] = "meeting"
+            result["durationMs"] = Int(Date().timeIntervalSince(startDate ?? Date()) * 1000)
+            result["level"] = ["rms": tracks.compactMap { ($0["level"] as? [String: Double])?["rms"] }.max() ?? 0,
+                               "peak": tracks.compactMap { ($0["level"] as? [String: Double])?["peak"] }.max() ?? 0]
+        }
         return result
     }
 
