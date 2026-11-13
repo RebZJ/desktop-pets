@@ -44,7 +44,7 @@ const request = async (method, params = {}, expectedError) => {
 };
 
 const state = await request('app.state');
-assert.equal(state.models.filter(model => model.installed).length, 4, 'Install the real model pack before this test.');
+for (const id of ['qwen3.5-4b', 'whisper-turbo', 'nemotron-diarization', 'kitten-tts-micro-0.8', 'moonshine-tiny-en']) assert(state.models.some(model => model.id === id && model.installed), `Install ${id} before this test.`);
 const runtime = await request('runtime.status');
 assert.equal(path.resolve(runtime.dataDirectory), path.dirname(bridgeFile));
 assert.equal(runtime.offline, true);
@@ -143,7 +143,7 @@ assert.match((await request('meeting.export', { id: meetingId })).content, /Spea
 await assert.rejects(fs.access(recording), /ENOENT/);
 const answer = await request('chat.send', { conversationId: `meeting-${meetingId}`, meetingId, text: 'When did we decide to launch?', quiet: true });
 assert.match(answer.text, /Monday/i);
-const voice = await request('voice.speak', { text: 'Hello, I am Pace.', language: 'auto', voice: 'Ono_Anna', play: false });
+const voice = await request('voice.speak', { text: 'Hello, I am Pace.', language: 'auto', voice: 'Kiki', voiceEngine: 'kitten', play: false });
 assert((await fs.stat(voice.path)).size > 10000);
 await request('voice.stop');
 assert.equal((await request('runtime.status')).voiceLoaded, false);

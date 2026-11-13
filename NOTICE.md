@@ -2,6 +2,8 @@
 
 Application code is MIT licensed. The original Pace mascot artwork, including the app icon and twelve strips under `public/pets/pace`, is **CC BY 4.0**: credit **Outpaced / Desktop Pets**, link to the project and the [license](https://creativecommons.org/licenses/by/4.0/), and identify changes. Its original source name was Velo. The source artwork revision is `84a38c2879b08a2b298b523d2670c44d45d18739` in Outpaced. This repository reuses that artwork with the owner's permission.
 
+Three generated derivative strips—talking, listening and big-ear dictation—are also CC BY 4.0. Their prompts, original source renders, alignment checks and delivery details are recorded in [sprite provenance](docs/sprite-quality-2026-11-13.md).
+
 The six original procedural critter sounds are also CC BY 4.0, credited to Desktop Pets. Their deterministic generator is MIT licensed.
 
 The original generated campsite background at `public/onboarding/pace-camp.webp` is also **CC BY 4.0**, credited to **Outpaced / Desktop Pets** with the same project link, license link and change-identification requirements as the Pace artwork. Its generation prompt, source and delivery details are in [onboarding asset provenance](docs/onboarding-assets.md).
@@ -11,6 +13,8 @@ Silkscreen regular is bundled unchanged at `public/fonts/silkscreen/Silkscreen-R
 Model weights are downloaded separately and retain their own licenses:
 
 - Qwen3.5 and Qwen3-TTS: Apache-2.0. The bundled notice is `native/licenses/Qwen-Apache-2.0.txt`; the upstream model cards retain their own attribution.
+- KittenTTS Micro 0.8 and Misaki pronunciation assets: Apache-2.0; see `native/licenses/KittenTTS-NOTICES.txt` and the complete bundled licenses. A model-card discrepancy for the pronunciation assets is documented there; upstream Apache notices are preserved.
+- Moonshine v0.1.6 runtime/model packs: MIT, with ONNX Runtime and the source tree’s required third-party/dataset notices under `native/licenses/moonshine`. The compatibility build and buffer-clear patch are reproducible from pinned sources.
 - Whisper / whisper.cpp and Silero VAD: MIT. The VAD model is installed with Whisper; its notice is in `native/licenses/Silero-VAD.txt`.
 - Nemotron-3 Diarization: OpenMDW-1.1; consult the pinned model's license before redistributing weights.
 - NeMo-Speech.cpp runtime: Apache-2.0, with its bundled third-party notices under generated `native/share/licenses`.

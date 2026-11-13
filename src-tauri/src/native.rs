@@ -169,6 +169,19 @@ impl NativeManager {
             Ok(Err(_)) => Err("The local assistant disconnected".into()),
             Err(_) => {
                 worker.pending.lock().await.remove(&id);
+                // Cancellation is scoped to this request, including a capture that just committed.
+                let cancel = async {
+                    let payload = format!("{}\n", cancellation_message(&id));
+                    let mut input = worker.input.lock().await;
+                    input.write_all(payload.as_bytes()).await?;
+                    input.flush().await
+                };
+                if !matches!(
+                    tokio::time::timeout(Duration::from_secs(2), cancel).await,
+                    Ok(Ok(()))
+                ) {
+                    let _ = worker.child.lock().await.kill().await;
+                }
                 Err(format!(
                     "{method} took too long. Saved work was preserved; cancel or retry."
                 ))
@@ -180,6 +193,24 @@ impl NativeManager {
         if let Some(worker) = self.worker.lock().await.take() {
             let _ = worker.child.lock().await.kill().await;
         }
+    }
+}
+
+fn cancellation_message(request_id: &str) -> Value {
+    json!({"id":Uuid::new_v4().to_string(),"method":"runtime.cancel","params":{"id":request_id}})
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn timeout_cancellation_targets_only_the_original_request() {
+        let message = super::cancellation_message("pending-microphone-permission");
+        assert_eq!(message["method"], "runtime.cancel");
+        assert_eq!(
+            message["params"],
+            serde_json::json!({"id":"pending-microphone-permission"})
+        );
+        assert_ne!(message["id"], message["params"]["id"]);
     }
 }
 
@@ -201,7 +232,12 @@ fn worker_path(app: &AppHandle) -> Result<PathBuf, String> {
 pub fn model_catalog() -> Value {
     json!([
         {"id":"qwen3.5-4b","name":"Qwen 3.5 · 4B","role":"Chat & writing","sizeBytes":3060000000_u64,"installed":false,"status":"not-installed"},
+        {"id":"kitten-tts-micro-0.8","name":"KittenTTS · Micro 0.8","role":"Quick English voice","sizeBytes":149000000_u64,"installed":false,"status":"not-installed"},
         {"id":"qwen3-tts-0.6b","name":"Qwen 3 · Voice","role":"Multilingual voice","sizeBytes":1970000000_u64,"installed":false,"status":"not-installed"},
+        {"id":"moonshine-tiny-en","name":"Moonshine Tiny · English","role":"Quick dictation","sizeBytes":45398523,"installed":false,"status":"not-installed"},
+        {"id":"moonshine-tiny-zh","name":"Moonshine Tiny · Chinese","role":"Quick dictation","sizeBytes":32290152,"installed":false,"status":"not-installed"},
+        {"id":"moonshine-tiny-ja","name":"Moonshine Tiny · Japanese","role":"Quick dictation","sizeBytes":32319961,"installed":false,"status":"not-installed"},
+        {"id":"moonshine-tiny-es","name":"Moonshine Tiny · Spanish","role":"Quick dictation","sizeBytes":32316573,"installed":false,"status":"not-installed"},
         {"id":"whisper-turbo","name":"Whisper · Turbo","role":"Transcription & dictation","sizeBytes":574000000_u64,"installed":false,"status":"not-installed"},
         {"id":"nemotron-diarization","name":"Nemotron 3 · Speakers","role":"Speaker diarization","sizeBytes":107012128_u64,"installed":false,"status":"not-installed"}
     ])

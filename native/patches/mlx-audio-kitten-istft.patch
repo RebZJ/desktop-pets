@@ -1,0 +1,24 @@
+--- a/Sources/MLXAudioTTS/Models/StyleTTS2/KittenTTS/KittenTTSISTFTNet.swift
++++ b/Sources/MLXAudioTTS/Models/StyleTTS2/KittenTTS/KittenTTSISTFTNet.swift
+@@ -142,6 +142,8 @@
+             let framesFreq = MLXFFT.irfft(complexSpec, axis: 0)
+             let framesTime = framesFreq.transposed(1, 0)
+             let windowedFrames = framesTime * window
++            // Materialize once; per-frame reads force thousands of GPU synchronizations.
++            let frameData = windowedFrames.asArray(Float.self)
+ 
+             let numFrames = windowedFrames.shape[0]
+             let outputLength = (numFrames - 1) * hopSize + winLength
+@@ -150,10 +152,9 @@
+ 
+             for i in 0..<numFrames {
+                 let start = i * hopSize
+-                let frameData = windowedFrames[i].asArray(Float.self)
+-                for j in 0..<min(winLength, frameData.count) {
++                for j in 0..<winLength {
+                     if start + j < outputLength {
+-                        audioSamples[start + j] += frameData[j]
++                        audioSamples[start + j] += frameData[i * winLength + j]
+                         windowSum[start + j] += windowSqArray[j]
+                     }
+                 }

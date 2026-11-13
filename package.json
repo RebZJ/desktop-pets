@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A playful, local-first desktop companion for writing, memory and meetings.",
+  "description": "A playful, local-first desktop pet with dictation, cursor autocomplete and meeting help.",
   "license": "MIT",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -13,7 +13,7 @@
     "desktop": "tauri dev",
     "native:build": "bash native/build.sh && bash native/scripts/bootstrap-diarization.sh",
     "native:diarization": "bash native/scripts/bootstrap-diarization.sh",
-    "native:test": "swift test --package-path native/PaceNative -c release -j 6 && bash native/scripts/test-bridge.sh",
+    "native:test": "bash native/scripts/bootstrap-moonshine.sh && bash native/scripts/patch-mlx-audio.sh && swift test --package-path native/PaceNative -c release -j 6 && bash native/scripts/test-bridge.sh",
     "native:test:inference": "python3 native/scripts/test-inference.py",
     "test": "playwright test",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",

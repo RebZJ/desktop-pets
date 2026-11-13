@@ -43,12 +43,22 @@ test('IME composition Enter and WebKit 229 do not send Chinese or Japanese candi
 test('overlay pet activates by keyboard while a pointer drag does not pet it', async ({ page }) => {
   await interactionFixture(page); await page.goto('/?window=pet');
   const pet = page.getByRole('button', { name: 'Pet Pace; drag to move; right-click for menu', exact: true });
-  await pet.focus(); await pet.press('Enter'); await pet.press('Space');
+  const controls = page.locator('.pet-controls');
+  await expect(controls).toBeHidden();
+  // WebKit leaves the transparent overlay on its first Tab; retain keyboard modality before focusing the pet.
+  await page.keyboard.press('Tab');
+  await pet.focus();
+  await expect(pet).toBeFocused();
+  await expect(controls).toBeVisible();
+  await pet.press('Enter'); await pet.press('Space');
   await expect.poll(() => page.evaluate(() => (window as any).__interactionCalls.pet.length)).toBe(2);
   const box = await pet.boundingBox(); expect(box).not.toBeNull();
   await page.mouse.move(box!.x + 40, box!.y + 40); await page.mouse.down();
   await page.mouse.move(box!.x + 60, box!.y + 45, { steps: 3 }); await page.mouse.up();
   expect(await page.evaluate(() => (window as any).__interactionCalls.pet.length)).toBe(2);
+  await pet.evaluate(element => element.blur());
+  await page.mouse.move(0, 0);
+  await expect(controls).toBeHidden();
 });
 
 test('MCP one-shot confirmation is consumed on success and failure', async ({ page }) => {
@@ -86,7 +96,7 @@ test('Download notes delivers the returned Markdown file unchanged', async ({ pa
 
 test('pet artwork and menu fit every configured native pet size', async ({ browser }) => {
   for (const size of [128, 160, 208]) {
-    const width = size + 20, height = size + 40;
+    const width = size + 64, height = size + 64;
     const page = await browser.newPage({ viewport: { width, height } });
     await page.addInitScript((petSize: number) => {
       (window as any).__DESKTOP_PETS_BRIDGE__ = async (method: string) => {
@@ -96,14 +106,20 @@ test('pet artwork and menu fit every configured native pet size', async ({ brows
     }, size);
     await page.goto('http://127.0.0.1:1420/?window=pet');
     await expect(page.locator('.overlay-pet-button .pace-sprite')).toHaveCSS('width', `${size}px`);
-    await page.getByRole('button', { name: 'Pace menu', exact: true }).click();
+    const pet = page.getByRole('button', { name: 'Pet Pace; drag to move; right-click for menu', exact: true });
+    await expect(page.locator('.pet-controls')).toBeHidden();
+    await pet.hover();
+    await expect(page.locator('.pet-controls')).toBeVisible();
+    await pet.click({ button: 'right' });
+    const menu = page.locator('.pet-menu');
+    await expect(menu).toBeVisible();
+    for (const name of ['Meeting notes', 'Pet settings', 'A tiny victory!', 'Hide Pace']) await expect(menu.getByRole('button', { name, exact: true })).toBeVisible();
     for (const selector of ['.overlay-pet-button', '.pet-menu']) {
       const box = await page.locator(selector).boundingBox();
       expect(box, `${size}: ${selector}`).not.toBeNull();
       expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.y).toBeGreaterThanOrEqual(0);
       expect(box!.x + box!.width).toBeLessThanOrEqual(width); expect(box!.y + box!.height).toBeLessThanOrEqual(height);
     }
-    await page.screenshot({ path: `.impeccable/review/pet-size-${size}.png`, omitBackground: true });
     await page.close();
   }
 });

@@ -9,7 +9,8 @@ pub struct Database(Mutex<Connection>);
 pub fn defaults() -> Value {
     json!({
         "onboardingCompleted":false,
-        "language":"auto", "voice":"Ono_Anna", "speechEnabled":false,
+        "language":"auto", "voice":"Kiki", "voiceEngine":"auto", "speechEnabled":false,
+        "dictationShortcut":"Alt+Shift+D", "completionShortcut":"Alt+Shift+Enter", "dictationLanguage":"en", "dictationVocabulary":"", "writingExamples":"",
         "soundEnabled":true, "petSize":160, "activePack":"pace", "volume":0.65, "pitch":1.05, "rate":1.0,
         "memoryEnabled":false, "allowedApps":[], "allowedDomains":[],
         "retentionDays":30, "meetingTips":true, "clickThrough":false,
@@ -77,6 +78,31 @@ impl Database {
                 return Err(format!("Invalid value for {key}"));
             }
             match key.as_str() {
+                "dictationLanguage"
+                    if !["auto", "en", "zh", "ja", "es"]
+                        .contains(&value.as_str().unwrap_or("")) =>
+                {
+                    return Err("Unsupported dictation language".into())
+                }
+                "dictationVocabulary"
+                    if value
+                        .as_str()
+                        .is_some_and(|text| text.chars().count() > 4000) =>
+                {
+                    return Err("Keep custom vocabulary below 4,000 characters".into())
+                }
+                "writingExamples"
+                    if value
+                        .as_str()
+                        .is_some_and(|text| text.chars().count() > 8000) =>
+                {
+                    return Err("Keep writing examples below 8,000 characters".into())
+                }
+                "voiceEngine"
+                    if !["auto", "kitten", "qwen"].contains(&value.as_str().unwrap_or("")) =>
+                {
+                    return Err("Unsupported voice engine".into())
+                }
                 "volume" if !(0.0..=1.0).contains(&value.as_f64().unwrap_or(-1.0)) => {
                     return Err("Volume must be between 0 and 1".into())
                 }

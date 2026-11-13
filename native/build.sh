@@ -22,6 +22,8 @@ cp "$whisper_source/LICENSE" "$native_dir/licenses/whisper.cpp.txt"
 curl --fail --location --silent --show-error \
   https://raw.githubusercontent.com/snakers4/silero-vad/be95df9152c0d7618fa1edfeb296fc3dae32376f/LICENSE \
   -o "$native_dir/licenses/Silero-VAD.txt"
+bash "$native_dir/scripts/bootstrap-moonshine.sh"
+bash "$native_dir/scripts/patch-mlx-audio.sh"
 swift build --package-path "$native_dir/PaceNative" -c release -j 6
 checkout_dir="$native_dir/PaceNative/.build/checkouts"
 while IFS= read -r -d '' license_file; do

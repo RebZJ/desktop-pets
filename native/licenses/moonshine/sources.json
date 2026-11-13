@@ -1,0 +1,21 @@
+{
+  "moonshineRevision": "d8d8fa29d05ca67441a7719e70099f9f48917a93",
+  "onnxruntimeVersion": "1.23.2",
+  "sources": {
+    "Moonshine-LICENSE.txt": "https://raw.githubusercontent.com/moonshine-ai/moonshine/d8d8fa29d05ca67441a7719e70099f9f48917a93/LICENSE",
+    "cpp-annote-LICENSE.txt": "https://raw.githubusercontent.com/moonshine-ai/moonshine/d8d8fa29d05ca67441a7719e70099f9f48917a93/core/cpp-annote/LICENSE",
+    "Eigen-COPYING.MPL2.txt": "https://raw.githubusercontent.com/moonshine-ai/moonshine/d8d8fa29d05ca67441a7719e70099f9f48917a93/core/third-party/Eigen/COPYING.MPL2",
+    "kaldi-native-fbank-LICENSE.txt": "https://raw.githubusercontent.com/moonshine-ai/moonshine/d8d8fa29d05ca67441a7719e70099f9f48917a93/core/third-party/kaldi-native-fbank/LICENSE",
+    "kissfft-COPYING.txt": "https://raw.githubusercontent.com/moonshine-ai/moonshine/d8d8fa29d05ca67441a7719e70099f9f48917a93/core/third-party/kissfft/COPYING",
+    "nlohmann-LICENSE.MIT.txt": "https://raw.githubusercontent.com/moonshine-ai/moonshine/d8d8fa29d05ca67441a7719e70099f9f48917a93/core/third-party/nlohmann/LICENSE.MIT",
+    "onnxruntime-LICENSE.txt": "https://raw.githubusercontent.com/moonshine-ai/moonshine/d8d8fa29d05ca67441a7719e70099f9f48917a93/core/third-party/onnxruntime/LICENSE.txt",
+    "utf-8-LICENSE.txt": "https://raw.githubusercontent.com/moonshine-ai/moonshine/d8d8fa29d05ca67441a7719e70099f9f48917a93/core/third-party/utf-8/LICENSE.txt",
+    "utf8proc-LICENSE.md": "https://raw.githubusercontent.com/moonshine-ai/moonshine/d8d8fa29d05ca67441a7719e70099f9f48917a93/core/third-party/utf8proc/LICENSE.md",
+    "onnxruntime-ThirdPartyNotices.txt": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.23.2/ThirdPartyNotices.txt",
+    "kissfft-BSD-3-Clause.txt": "https://raw.githubusercontent.com/mborgerding/kissfft/131.1.0/LICENSES/BSD-3-Clause",
+    "CC-BY-4.0.txt": "https://raw.githubusercontent.com/spdx/license-list-data/main/text/CC-BY-4.0.txt",
+    "VCTK-corpus": "https://doi.org/10.7488/ds/2645",
+    "pyannote-community-1": "https://huggingface.co/pyannote/speaker-diarization-community-1",
+    "cpp-annote-provenance": "https://github.com/moonshine-ai/moonshine/blob/d8d8fa29d05ca67441a7719e70099f9f48917a93/core/cpp-annote/README.md"
+  }
+}

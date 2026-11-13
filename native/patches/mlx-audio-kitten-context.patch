@@ -1,0 +1,12 @@
+--- a/Sources/MLXAudioTTS/Models/StyleTTS2/KittenTTS/KittenTTSModel.swift
++++ b/Sources/MLXAudioTTS/Models/StyleTTS2/KittenTTS/KittenTTSModel.swift
+@@ -158,6 +158,9 @@
+         }
+ 
+         let tokens = try phonemize(text, language: language)
++        guard tokens.count + 2 <= contextLength else {
++            throw AudioGenerationError.invalidInput("This text is too long for Kitten voice. Shorten it or select Qwen voice.")
++        }
+         var tokenArray = [Int32(0)]
+         tokenArray.append(contentsOf: tokens.map { Int32($0) })
+         tokenArray.append(0)

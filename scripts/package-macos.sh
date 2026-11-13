@@ -24,9 +24,10 @@ This is a local ad-hoc signed build. It is not Apple-notarized and Gatekeeper
 may prevent opening a copy downloaded from the internet. Source and build
 instructions: https://github.com/RebZJ/desktop-pets
 
-Drag Desktop Pets to Applications. Install the models in Local models before
-chat, voice or meeting transcription. The full model pack is about 5.7 GB.
-Core inference runs offline after installation. Ambient memory starts off.
+Drag Desktop Pets to Applications. Onboarding begins with model downloads:
+about 45 MB for English dictation, 149 MB for Kiki voice, 3.06 GB for local chat.
+Meeting and multilingual voice packs are optional. Core inference runs offline
+after installation. Ambient memory starts off.
 
 Microphone, system-audio and cross-app editing permissions need your review.
 Read the validation report before relying on live meetings or screen sharing.

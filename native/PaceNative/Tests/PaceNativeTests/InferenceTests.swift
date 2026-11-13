@@ -160,6 +160,20 @@ final class InferenceTests: XCTestCase {
         XCTAssertEqual(TranscriptionService.ownedSegments(words, window: boundary, isLast: false).count, 2)
     }
 
+    func testDiarizationSegmentsKeepModelTimesAndRejectInvalidLabels() throws {
+        let segments = try parseDiarizationSegments(Data("""
+        {"segments":[{"start":0.0,"end":5.559,"speaker":1},{"start":5.871,"end":12.01,"speaker":2}]}
+        """.utf8))
+        XCTAssertEqual(segments.map { $0["speaker"] as! Int }, [1, 2])
+        XCTAssertEqual(segments.map { $0["startMs"] as! Int }, [0, 5871])
+        XCTAssertThrowsError(try parseDiarizationSegments(Data("""
+        {"segments":[{"start":0,"end":1,"speaker":0}]}
+        """.utf8)))
+        XCTAssertThrowsError(try parseDiarizationSegments(Data("""
+        {"segments":[{"start":2,"end":1,"speaker":1}]}
+        """.utf8)))
+    }
+
     func testVADRegionsUseCentisecondsAndMergeContextWithoutCompressingTime() throws {
         let regions = try TranscriptionService.speechRegions("Detected 3 speech segments:\nSpeech segment 0: start = 269.00, end = 829.00\nSpeech segment 1: start = 840.00, end = 900.00\nSpeech segment 2: start = 1261.00, end = 1814.00\n", frames: 20 * 16_000)
         XCTAssertEqual(regions.count, 2)

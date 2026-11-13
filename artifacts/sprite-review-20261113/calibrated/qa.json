@@ -1,0 +1,236 @@
+{
+  "talk": {
+    "frames": [
+      {
+        "frame": 0,
+        "bbox128": [
+          64,
+          48,
+          195,
+          224
+        ],
+        "height": 176,
+        "floor": 224,
+        "footCenter": 151.5
+      },
+      {
+        "frame": 1,
+        "bbox128": [
+          64,
+          48,
+          195,
+          224
+        ],
+        "height": 176,
+        "floor": 224,
+        "footCenter": 152.0
+      },
+      {
+        "frame": 2,
+        "bbox128": [
+          64,
+          48,
+          195,
+          224
+        ],
+        "height": 176,
+        "floor": 224,
+        "footCenter": 151.5
+      },
+      {
+        "frame": 3,
+        "bbox128": [
+          64,
+          48,
+          195,
+          224
+        ],
+        "height": 176,
+        "floor": 224,
+        "footCenter": 152.0
+      },
+      {
+        "frame": 4,
+        "bbox128": [
+          64,
+          48,
+          195,
+          224
+        ],
+        "height": 176,
+        "floor": 224,
+        "footCenter": 151.5
+      },
+      {
+        "frame": 5,
+        "bbox128": [
+          64,
+          48,
+          195,
+          224
+        ],
+        "height": 176,
+        "floor": 224,
+        "footCenter": 152.0
+      },
+      {
+        "frame": 6,
+        "bbox128": [
+          64,
+          48,
+          194,
+          224
+        ],
+        "height": 176,
+        "floor": 224,
+        "footCenter": 151.5
+      },
+      {
+        "frame": 7,
+        "bbox128": [
+          64,
+          48,
+          195,
+          224
+        ],
+        "height": 176,
+        "floor": 224,
+        "footCenter": 152.0
+      }
+    ],
+    "maxAdjacentBodySilhouetteDisplacement256px": 2,
+    "maxAdjacentBodySilhouetteDisplacement160px": 1.25,
+    "adjacentDisplacement": [
+      1,
+      1,
+      1,
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "fps": 8,
+    "frameSize": [
+      256,
+      256
+    ]
+  },
+  "listen": {
+    "frames": [
+      {
+        "frame": 0,
+        "bbox128": [
+          69,
+          48,
+          196,
+          224
+        ],
+        "height": 176,
+        "floor": 224,
+        "footCenter": 151.5
+      },
+      {
+        "frame": 1,
+        "bbox128": [
+          69,
+          48,
+          196,
+          224
+        ],
+        "height": 176,
+        "floor": 224,
+        "footCenter": 151.0
+      },
+      {
+        "frame": 2,
+        "bbox128": [
+          69,
+          48,
+          196,
+          224
+        ],
+        "height": 176,
+        "floor": 224,
+        "footCenter": 151.5
+      },
+      {
+        "frame": 3,
+        "bbox128": [
+          69,
+          48,
+          196,
+          224
+        ],
+        "height": 176,
+        "floor": 224,
+        "footCenter": 151.5
+      },
+      {
+        "frame": 4,
+        "bbox128": [
+          69,
+          49,
+          196,
+          224
+        ],
+        "height": 175,
+        "floor": 224,
+        "footCenter": 151.5
+      },
+      {
+        "frame": 5,
+        "bbox128": [
+          69,
+          49,
+          196,
+          224
+        ],
+        "height": 175,
+        "floor": 224,
+        "footCenter": 151.5
+      },
+      {
+        "frame": 6,
+        "bbox128": [
+          69,
+          49,
+          196,
+          224
+        ],
+        "height": 175,
+        "floor": 224,
+        "footCenter": 151.5
+      },
+      {
+        "frame": 7,
+        "bbox128": [
+          69,
+          49,
+          196,
+          224
+        ],
+        "height": 175,
+        "floor": 224,
+        "footCenter": 151.5
+      }
+    ],
+    "maxAdjacentBodySilhouetteDisplacement256px": 2,
+    "maxAdjacentBodySilhouetteDisplacement160px": 1.25,
+    "adjacentDisplacement": [
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      2
+    ],
+    "fps": 8,
+    "frameSize": [
+      256,
+      256
+    ]
+  }
+}

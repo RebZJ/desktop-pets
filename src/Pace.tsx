@@ -15,6 +15,9 @@ export const actions = {
   sleep: { label: 'Sleep', frames: 8, fps: 5, frameSize: 512 },
   happy: { label: 'Petted', frames: 24, fps: 16, frameSize: 256 },
   annoyed: { label: 'Annoyed', frames: 24, fps: 16, frameSize: 256 },
+  talk: { label: 'Talking', frames: 8, fps: 8, frameSize: 256 },
+  listen: { label: 'Listening', frames: 8, fps: 8, frameSize: 256 },
+  dictate: { label: 'Big ear', frames: 8, fps: 8, frameSize: 256 },
 } as const;
 export type PaceAction = keyof typeof actions;
 export const validAction = (action: string): PaceAction => action in actions ? action as PaceAction : 'idle';
@@ -23,6 +26,7 @@ const builtinSounds: Record<PaceAction, string> = {
   idle: 'attention', wave: 'attention', think: 'curious-trill', type: 'curious-trill',
   create: 'curious-trill', review: 'attention', schedule: 'attention', sprint: 'happy-chirp',
   celebrate: 'celebration', sleep: 'sleepy-purr', happy: 'happy-chirp', annoyed: 'surprised-squeak',
+  talk: 'attention', listen: 'attention', dictate: 'attention',
 };
 let petAudio: HTMLAudioElement | undefined;
 export function stopPetSound() { petAudio?.pause(); petAudio = undefined; }

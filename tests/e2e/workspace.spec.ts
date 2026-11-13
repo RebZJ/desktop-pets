@@ -75,7 +75,7 @@ test('chat, writing preview and stale edit protection use the bridge contract',a
   await fixtureBridge(page);await page.goto('/');
   await page.getByLabel('Message Pace').fill('Help me plan');await page.getByRole('button',{name:'Send message',exact:true}).click();
   await expect(page.locator('.message.assistant')).toContainText('Synthetic test reply');
-  await page.getByRole('button',{name:'Writing help',exact:true}).click();
+  await page.goto('/#writing');
   await page.getByRole('button',{name:'Use selected text'}).click();
   await expect(page.getByLabel('Your words',{exact:true})).toHaveValue('This sentence is very very unclear.');
   await page.getByRole('button',{name:'Rewrite',exact:true}).click();

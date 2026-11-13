@@ -1,0 +1,45 @@
+# Companion and local-runtime validation — 13 November 2026
+
+Test machine: Apple M1 Pro, 16 GB, macOS 26.6.2. The installer targets Apple Silicon and macOS 15+. This report extends the historical [alpha validation](validation.md); it does not repeat or re-label the earlier hour-long synthetic meeting soak.
+
+## Current behavior
+
+Pace rests alone. Hovering the sprite reveals Talk, Dictate and Write for me underneath, with a small slot lift/enlargement and neighbour response. Keyboard focus reveals the same controls; reduced motion disables movement. Right-click opens supporting actions. Talk has one compact header and composer. Global dictation uses the big-ear pose without opening a Talk panel on successful start. Missing Accessibility access produces an explicit recovery action before microphone capture starts.
+
+Write for me is explicitly triggered cursor autocomplete: nearby field text and optional writing examples produce a short preview above the caret. Accept checks the original field, text and UTF-16 selection before insertion. A changed or unsupported target keeps a copyable preview; a rejected target disables Accept until a new suggestion. Continuous background autocomplete is not implemented.
+
+## Checks
+
+| Check | Result |
+| --- | --- |
+| Production frontend and Tauri app build | Passed |
+| Chromium UI/contract suite | 51/51 passed |
+| WebKit UI/contract suite | 51/51 passed after correcting the test's keyboard-modality setup |
+| Rust host tests | 38/38 passed |
+| Release Swift tests | 38 completed, 2 opt-in model-fixture skips, no failures |
+| Lightweight native bridge/cancellation checks | 14/14 passed |
+| Actual final-helper desktop integration | 55 operations passed using isolated data and actual models |
+| Native UI handlers | Talk/Close/Write/Dismiss responded in the installed/bundled UI |
+| Sprite starter | Reproducible ZIP, 25 files, 15 actions and 6 earcons checked |
+| Visual finish review | `disposition: ship`; see the [fresh review](../.impeccable/review/companion/hover-finish-review.md) |
+| Installer | Nested signatures and DMG checksums passed; final helper hash verified |
+
+Browser tests use synthetic bridge fixtures. Native integration uses the actual Rust host, SQLite, Swift worker, installed weights, native windows and a synthetic two-speaker recording. It covers chat in four languages; factual compatibility editing; synthetic memory search/citations/deletion; MCP grants; pet-pack import/removal; hide/show; native Markdown export; worker failure and meeting recovery; ASR, anonymous speaker labels, notes/actions; and actual Kiki audio generation/unloading. Its debug bridge is excluded from release builds. Meeting recovery/finalization passed three factual checks; this is not a new live-meeting or long-duration soak.
+
+Earlier candidate checks accidentally selected an older helper from debug resources. Those runs are not the final-helper evidence above. The final integration used helper SHA-256 `f704a567dffba23e2815fc98339d32a4d3ffdc054a1d58bd2e6922bedffb4888`, matching the installed release's native binary. A subsequent Rust-only accessibility preflight is covered by the 38-test host suite and included in the installed release.
+
+## Tiny models and performance limits
+
+Dictation can start with Moonshine English **45.4 MB**, or separate Chinese/Japanese/Spanish packs of about **32 MB** each. Kiki uses KittenTTS Micro 0.8, about **149 MB** including offline pronunciation assets. The **3.06 GB** Qwen3.5 4B language model is optional for chat/autocomplete; dictation does not need it. Whisper remains the meeting/Auto-language fallback. Custom vocabulary reaches the decoder but cannot guarantee a spelling.
+
+The actual offline Moonshine comparison matched all 24 reference words in one 8.6-second human sample: warm decode **232 ms**, versus Whisper **1,945 ms**. Synthetic Kiki speech exposed more errors than Whisper (37 versus 27 normalized edits across 116 reference words). This tiny corpus is not a general WER or multilingual accuracy benchmark. Silence returned no words in all four packs. The native SDK was rebuilt for macOS 15, with a tested VAD buffer-clear patch and a fresh stream per dictation.
+
+A Kitten ISTFT optimization preserved a seeded waveform exactly and reduced its warm synthesis from 4.27 seconds to 114 ms. Twenty-one offline clip checks had a 138 ms median synthesis time. Playback scheduling and cold loading are separate costs: the busy full-host integration took **16.92 seconds** for its fresh voice request. Do not present the warm synthesis number as first audible-response latency or promise instant cold starts. See [model research](snappy-models-research-2026-11-13.md) and [dictation/privacy research](dictation-privacy-research-2026-11-13.md).
+
+The tested smaller language models responded faster but invented personal memories or meeting actions. The default remains 4B; size alone did not justify a quality regression. Newer Kitten 2 tiny variants were researched but have not been integrated into the pinned Swift runtime.
+
+## Permission and hardware boundary
+
+Actual native insertion-kernel tests passed in disposable AppKit fields, including surrounding text, emoji selections, explicit focus restoration, single-use targets and rejection after cursor/text changes. The final bundled identity initially lacked Accessibility access. User permission was requested only after installation; granted-access release UI verification is recorded separately below when complete. Handler activation is not proof of physical first-mouse focus behavior. A synthetic fixture can also lose focus while a person uses other applications; tests must reject that condition rather than insert elsewhere.
+
+Scoped cancellation, late permission, EOF cleanup, mute epochs and Hide epochs have deterministic regressions. They do not replace a real delayed OS permission-dialog trial. Screen protection passed controlled full-display SCScreenshotManager and live SCStream probes on this Mac, with a visible unprotected control; it remains best effort across capture paths. Older macOS execution, every conferencing app, a clean Mac, real meeting audio and Apple notarization remain unverified.

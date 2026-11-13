@@ -1,0 +1,17 @@
+--- a/Sources/MLXAudioTTS/Models/StyleTTS2/G2P/MisakiTextProcessor.swift
++++ b/Sources/MLXAudioTTS/Models/StyleTTS2/G2P/MisakiTextProcessor.swift
+@@ -15,7 +15,14 @@
+         self.cache = cache
+     }
+ 
++    /// Use an explicitly installed pronunciation bundle without any network fallback.
++    public init(directory: URL) {
++        self.cache = .default
++        self.resourceDirectory = directory
++    }
++
+     public func prepare() async throws {
++        if lock.withLock({ resourceDirectory != nil }) { return }
+         let dir = try await ModelUtils.resolveOrDownloadModel(
+             repoID: Self.g2pRepo,
+             requiredExtension: "safetensors",

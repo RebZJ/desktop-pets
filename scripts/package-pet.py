@@ -23,7 +23,8 @@ Open Desktop Pets, choose **Extensions → Pet packs**, import this ZIP, then
 choose **Use pet**. This pack uses `pace-starter`; the built-in `pace` ID is reserved.
 
 The pack includes the twelve original lossless sprite strips with their original
-frame counts and timing, plus six original quiet procedural critter earcons.
+frame counts and timing, three new talking/listening/dictation strips, plus six original
+quiet procedural critter earcons.
 Sounds play on direct interactions and remain muted during meetings.
 
 ## Remix
@@ -90,13 +91,13 @@ def build(files):
 def validate(data, files):
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         assert archive.testzip() is None
-        assert len(archive.namelist()) == len(set(archive.namelist())) == 22
+        assert len(archive.namelist()) == len(set(archive.namelist())) == 25
         assert set(archive.namelist()) == set(files)
         assert sum(entry.file_size for entry in archive.infolist()) < 64 * 1024 * 1024
         manifest = json.loads(archive.read('manifest.json'))
         assert manifest['version'] == 1 and manifest['id'] == 'pace-starter'
         assert manifest['license'] == 'CC-BY-4.0' and PROJECT in manifest['attribution']
-        assert len(manifest['actions']) == 12 and any(action['id'] == 'idle' for action in manifest['actions'])
+        assert len(manifest['actions']) == 15 and any(action['id'] == 'idle' for action in manifest['actions'])
         for action in manifest['actions']:
             image = archive.read(action['src'])
             assert image[:4] == b'RIFF' and image[8:16] == b'WEBPVP8L'
@@ -129,5 +130,5 @@ if __name__ == '__main__':
         temporary.write_bytes(expected)
         temporary.replace(OUTPUT)
     validate(OUTPUT.read_bytes(), files)
-    print(f'Validated {OUTPUT.relative_to(ROOT)}: {len(expected):,} bytes, 22 files, 12 actions, 6 earcons.')
+    print(f'Validated {OUTPUT.relative_to(ROOT)}: {len(expected):,} bytes, 25 files, 15 actions, 6 earcons.')
     print(f'SHA-256: {hashlib.sha256(expected).hexdigest()}')

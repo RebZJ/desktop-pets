@@ -1,0 +1,32 @@
+KittenTTS Micro 0.8 offline voice bundle
+
+Original KittenTTS 0.8: KittenML, Apache License 2.0.
+https://github.com/KittenML/KittenTTS/tree/0c61f684b54fe962e4b7c2fa0285ed75f64ad402
+Full upstream license: KittenTTS-Apache-2.0.txt.
+
+MLX converted weights and voice embeddings:
+mlx-community/kitten-tts-micro-0.8 at fd4e8e8677eafd21c5e92433f68532fcf156bd9c.
+Its model card declares Apache-2.0. The explicit installer retains its card
+and the original voice NPZ; native installation converts those embeddings
+losslessly to safetensors for the pinned Swift runtime.
+
+English pronunciation resources:
+beshkenadze/kitten-tts-g2p at 9c692b92682d959d9013a9cfe6a49541997add18.
+The resource card declares MIT metadata and says it was ported from Misaki.
+The card's description of upstream Misaki as MIT conflicts with Misaki's
+actual Apache-2.0 license, which already existed before this port.
+Upstream Misaki: https://github.com/hexgrad/misaki/tree/fba1236595f2d2bf21d414ba6e57d25256afada3
+Full upstream license: Misaki-Apache-2.0.txt.
+The installer retains the pinned resource card alongside all US English
+lexicons, BART weights and configuration. These resources are not described
+as MIT-only in the app's distribution notices.
+
+Swift runtime: mlx-audio-swift at df2a2546705f50ca267037702a34cd63aa6e35a6.
+Its full license is retained separately in swift-packages/mlx-audio-swift.
+Local change: native/patches/mlx-audio-kitten-istft.patch materializes the
+inverse-STFT frames once, preserving the existing overlap-add calculation.
+The second local patch, native/patches/mlx-audio-misaki-offline.patch, adds
+an explicit local pronunciation directory that never falls back to network
+preparation. This app validates the complete bundle before creating it.
+The local context guard in native/patches/mlx-audio-kitten-context.patch
+rejects overlong phoneme sequences before the fixed embedding lookup.

@@ -14,34 +14,11 @@ final class JSONOutput: @unchecked Sendable {
     func send(_ object: [String: Any]) {
         guard JSONSerialization.isValidJSONObject(object), let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]) else { return }
         lock.lock(); defer { lock.unlock() }
-        handle.write(data); handle.write(Data([10]))
+        try? handle.write(contentsOf: data)
+        try? handle.write(contentsOf: Data([10]))
     }
 }
 
-final class RequestTasks: @unchecked Sendable {
-    static let shared = RequestTasks()
-    private let lock = NSLock()
-    private var tasks: [String: (String, Task<Void, Never>)] = [:]
-    func start(id: String, method: String, operation: @escaping () async -> Void) -> Bool {
-        lock.lock(); defer { lock.unlock() }
-        guard tasks[id] == nil else { return false }
-        let task = Task.detached { await operation(); self.remove(id) }
-        tasks[id] = (method, task)
-        return true
-    }
-    func remove(_ id: String) { lock.lock(); defer { lock.unlock() }; tasks.removeValue(forKey: id) }
-    func cancel(id: String? = nil, method: String? = nil) -> Int {
-        lock.lock(); defer { lock.unlock() }
-        let selected = tasks.filter { key, value in
-            if let id { return key == id }
-            if let method { return value.0 == method }
-            return ["chat.generate", "voice.speak", "audio.transcribe", "audio.diarize", "models.install"].contains(value.0)
-        }
-        for entry in selected.values { entry.1.cancel() }
-        return selected.count
-    }
-    var count: Int { lock.lock(); defer { lock.unlock() }; return tasks.count }
-}
 
 enum NativeWorker {
     static func handle(method: String, params: [String: Any], emit: @escaping Emit) async throws -> Any {
@@ -51,8 +28,13 @@ enum NativeWorker {
             guard let id = params["id"] as? String ?? params["model"] as? String else { throw WorkerError("invalid_params", "Provide the model id.") }
             return try await ModelStore.shared.install(id: id, emit: emit)
         case "chat.generate": return try await InferenceService.shared.chat(params: params, emit: emit)
-        case "voice.speak": return try await InferenceService.shared.speak(params: params, emit: emit)
+        case "voice.speak":
+            if let epoch = params["_automaticSpeechEpoch"] as? UInt64, !RequestTasks.shared.acceptAutomaticSpeech(epoch) {
+                return ["skipped": true]
+            }
+            return try await InferenceService.shared.speak(params: params, emit: emit)
         case "voice.stop":
+            if let epoch = params["_speechEpoch"] as? UInt64 { RequestTasks.shared.advanceSpeechEpoch(epoch) }
             _ = RequestTasks.shared.cancel(method: "voice.speak")
             await VoicePlayback.shared.stop()
             await InferenceService.shared.releaseVoice()
@@ -68,7 +50,11 @@ enum NativeWorker {
             status["dataDirectory"] = NativePaths.root.path
             status["whisperAvailable"] = (try? TranscriptionService.executable()) != nil
             return status
-        case "runtime.cancel": return ["cancelled": RequestTasks.shared.cancel(id: params["id"] as? String ?? params["requestId"] as? String)]
+        case "runtime.cancel":
+            let id = params["id"] as? String ?? params["requestId"] as? String
+            let cancelled = RequestTasks.shared.cancel(id: id)
+            if let id { await MeetingService.cancelCapture(requestId: id) }
+            return ["cancelled": cancelled]
         default:
             if let result = try await BridgeService.handle(method: method, params: params, emit: emit) { return result }
             throw WorkerError("unknown_method", "Unknown native method: \(method)")
@@ -85,7 +71,7 @@ enum NativeWorker {
                               let request = try JSONSerialization.jsonObject(with: raw) as? [String: Any],
                               let id = request["id"] as? String, !id.isEmpty, id.count <= 128,
                               let method = request["method"] as? String else { throw WorkerError("invalid_request", "Expected {id, method, params} JSON.") }
-                        let params = request["params"] as? [String: Any] ?? [:]
+                        let params = (request["params"] as? [String: Any] ?? [:]).merging(["_requestId": id]) { _, value in value }
                         let started = RequestTasks.shared.start(id: id, method: method) {
                             let emit: Emit = { event in
                                 var value = event
@@ -102,13 +88,17 @@ enum NativeWorker {
                         if !started { output.send(["id": id, "error": ["code": "duplicate_id", "message": "This request id is already active."]]) }
                     } catch { output.send(["event": "runtime.error", "data": ["message": error.localizedDescription]]) }
                 }
+                RequestTasks.shared.shutdown()
                 finished.resume()
             }
         }
-        while RequestTasks.shared.count > 0 { try? await Task.sleep(nanoseconds: 50_000_000) }
+        await MeetingService.shutdown()
+        await VoicePlayback.shared.stop()
     }
 }
 
+// Parent disconnection must not interrupt capture finalization with SIGPIPE.
+signal(SIGPIPE, SIG_IGN)
 _ = JSONOutput.shared
 let application = NSApplication.shared
 application.setActivationPolicy(.prohibited)

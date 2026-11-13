@@ -3,7 +3,7 @@
   "id": "pace",
   "name": "Pace",
   "license": "CC-BY-4.0",
-  "attribution": "Pace / Desktop Pets. Original mascot artwork from Outpaced (source name: Velo).",
+  "attribution": "Outpaced / Desktop Pets. Twelve original Velo mascot actions; talking/listening states generated and calibrated for Desktop Pets, 2026-11-13.",
   "actions": [
     {
       "id": "idle",
@@ -100,6 +100,30 @@
       "frameHeight": 256,
       "frameCount": 24,
       "fps": 16
+    },
+    {
+      "id": "talk",
+      "src": "talk.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 8
+    },
+    {
+      "id": "listen",
+      "src": "listen.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 8
+    },
+    {
+      "id": "dictate",
+      "src": "dictate.webp",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 8
     }
   ],
   "sounds": {

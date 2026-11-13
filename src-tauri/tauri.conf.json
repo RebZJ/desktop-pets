@@ -20,15 +20,16 @@
         "minWidth": 800,
         "minHeight": 560,
         "center": true,
-        "visible": true,
-        "backgroundColor": "#faf8f3"
+        "visible": false,
+        "backgroundColor": "#faf8f3",
+        "contentProtected": true
       },
       {
         "label": "pet",
         "title": "Pace",
         "url": "index.html?window=pet",
-        "width": 180,
-        "height": 200,
+        "width": 224,
+        "height": 224,
         "x": 1040,
         "y": 650,
         "transparent": true,
@@ -38,55 +39,76 @@
         "skipTaskbar": true,
         "resizable": false,
         "focus": false,
-        "visibleOnAllWorkspaces": true
+        "visibleOnAllWorkspaces": true,
+        "contentProtected": true,
+        "focusable": false,
+        "acceptFirstMouse": true
       },
       {
         "label": "command",
-        "title": "Ask Pace",
+        "title": "Write for me",
         "url": "index.html?window=command",
-        "width": 620,
-        "height": 440,
-        "minWidth": 420,
-        "minHeight": 300,
+        "width": 420,
+        "height": 240,
+        "minWidth": 360,
+        "minHeight": 200,
         "center": true,
         "decorations": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "visible": false,
-        "backgroundColor": "#faf8f3"
+        "backgroundColor": "#00000000",
+        "shadow": false,
+        "transparent": true,
+        "contentProtected": true,
+        "acceptFirstMouse": true,
+        "focus": false
       },
       {
         "label": "bubble",
         "title": "Pace says",
         "url": "index.html?window=bubble",
-        "width": 320,
-        "height": 180,
+        "width": 420,
+        "height": 330,
         "decorations": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "focus": false,
         "visible": false,
-        "backgroundColor": "#faf8f3"
+        "backgroundColor": "#00000000",
+        "shadow": false,
+        "transparent": true,
+        "contentProtected": true,
+        "acceptFirstMouse": true
       }
     ],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data:; media-src 'self' asset: http://asset.localhost blob:; connect-src ipc: http://ipc.localhost; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'",
-      "assetProtocol": {"enable": true, "scope": []}
+      "assetProtocol": {
+        "enable": true,
+        "scope": []
+      }
     }
   },
   "bundle": {
     "active": true,
-    "icon": ["icons/icon.icns", "icons/icon.png"],
+    "icon": [
+      "icons/icon.icns",
+      "icons/icon.png"
+    ],
     "resources": {
       "../native/bin/": "native/",
       "../native/lib/": "lib/",
       "../native/share/": "share/",
       "../native/licenses/": "licenses/"
     },
-    "targets": ["app", "dmg"],
+    "targets": [
+      "app",
+      "dmg"
+    ],
     "category": "Productivity",
     "shortDescription": "A little desktop friend that helps you get things done.",
-    "longDescription": "An open-source desktop pet with local chat, writing help, opt-in work memory, voice and meeting notes.",
+    "longDescription": "An open-source desktop pet with local chat, cursor autocomplete, dictation, opt-in work memory, voice and meeting notes.",
     "macOS": {
       "minimumSystemVersion": "15.0",
       "infoPlist": "Info.plist"

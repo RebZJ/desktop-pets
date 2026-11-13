@@ -4,6 +4,7 @@ export interface Settings {
   onboardingCompleted: boolean;
   language: string;
   voice: string;
+  voiceEngine: 'auto' | 'kitten' | 'qwen';
   pitch: number;
   speechEnabled: boolean;
   soundEnabled: boolean;
@@ -18,6 +19,11 @@ export interface Settings {
   clickThrough: boolean;
   hideShortcut: string;
   commandShortcut: string;
+  dictationShortcut: string;
+  completionShortcut: string;
+  dictationLanguage: string;
+  dictationVocabulary: string;
+  writingExamples: string;
   activePack: string;
   [key: string]: unknown;
 }
@@ -58,11 +64,16 @@ export interface AppState {
   pet: { visible: boolean; action: string };
 }
 
-export const defaultSettings: Settings = { onboardingCompleted: false, language: 'auto', voice: 'Ono_Anna', pitch: 1.05, rate: 1, volume: .65, speechEnabled: false, soundEnabled: true, petSize: 160, memoryEnabled: false, allowedApps: [], allowedDomains: [], retentionDays: 30, meetingTips: true, clickThrough: false, hideShortcut: 'Alt+Shift+Space', commandShortcut: 'Alt+Space', activePack: 'pace' };
+export const defaultSettings: Settings = { onboardingCompleted: false, language: 'auto', voice: 'Kiki', voiceEngine: 'auto', pitch: 1.05, rate: 1, volume: .65, speechEnabled: false, soundEnabled: true, petSize: 160, memoryEnabled: false, allowedApps: [], allowedDomains: [], retentionDays: 30, meetingTips: true, clickThrough: false, hideShortcut: 'Alt+Shift+Space', commandShortcut: 'Alt+Space', dictationShortcut: 'Alt+Shift+D', completionShortcut: 'Alt+Shift+Enter', dictationLanguage: 'en', dictationVocabulary: '', writingExamples: '', activePack: 'pace' };
 export const initialState: AppState = {
   settings: defaultSettings,
   models: [
+    { id: 'moonshine-tiny-en', name: 'Moonshine Tiny · English', role: 'Fast dictation', sizeBytes: 45_400_000, installed: false, status: 'not-installed' },
+    { id: 'moonshine-tiny-zh', name: 'Moonshine Tiny · Chinese', role: 'Chinese dictation', sizeBytes: 32_300_000, installed: false, status: 'not-installed' },
+    { id: 'moonshine-tiny-ja', name: 'Moonshine Tiny · Japanese', role: 'Japanese dictation', sizeBytes: 32_300_000, installed: false, status: 'not-installed' },
+    { id: 'moonshine-tiny-es', name: 'Moonshine Tiny · Spanish', role: 'Spanish dictation', sizeBytes: 32_300_000, installed: false, status: 'not-installed' },
     { id: 'qwen3.5-4b', name: 'Qwen 3.5 · 4B', role: 'Chat & writing', sizeBytes: 3_060_000_000, installed: false, status: 'not-installed' },
+    { id: 'kitten-tts-micro-0.8', name: 'Kitten TTS Micro · 40M', role: 'Quick English voice', sizeBytes: 149_000_000, installed: false, status: 'not-installed' },
     { id: 'qwen3-tts-0.6b', name: 'Qwen 3 TTS · 0.6B', role: 'Pace’s voice', sizeBytes: 1_970_000_000, installed: false, status: 'not-installed' },
     { id: 'whisper-turbo', name: 'Whisper large v3 turbo', role: 'Transcription', sizeBytes: 574_000_000, installed: false, status: 'not-installed' },
     { id: 'nemotron-diarization', name: 'Nemotron 3 Diarization', role: 'Speaker labels', sizeBytes: 107_012_128, installed: false, status: 'not-installed' },
