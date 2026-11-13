@@ -85,7 +85,15 @@ pub async fn suggest(app: AppHandle) -> Result<Value, String> {
         128,
         true,
     )
-    .await;
+    .await
+    .and_then(|text| {
+        normalize_continuation(
+            &text,
+            context["before"].as_str().unwrap_or(""),
+            context["selected"].as_str().unwrap_or(""),
+        )
+        .map(str::to_owned)
+    });
     match result {
         Ok(text) => {
             preview["phase"] = json!("ready");
@@ -104,6 +112,24 @@ pub async fn suggest(app: AppHandle) -> Result<Value, String> {
         "completion.suggested",
     )?;
     Ok(preview)
+}
+
+fn normalize_continuation<'a>(
+    text: &'a str,
+    before: &str,
+    selected: &str,
+) -> Result<&'a str, String> {
+    let continuation = if selected.is_empty() && !before.trim().is_empty() {
+        text.strip_prefix(before).unwrap_or(text)
+    } else {
+        text
+    };
+    if continuation.trim().is_empty() {
+        return Err(
+            "Pace did not suggest any new text. Try again or type a few more words.".into(),
+        );
+    }
+    Ok(continuation)
 }
 
 fn prompt(settings: &Value, context: &Value) -> (String, String) {
@@ -201,12 +227,86 @@ pub fn invalidate_for_hide(app: &AppHandle, state: &AppState) -> Result<(), Stri
 
 #[cfg(test)]
 mod tests {
-    use super::{cache_preview, invalidate_preview, prompt};
+    use super::{cache_preview, invalidate_preview, normalize_continuation, prompt};
     use serde_json::json;
     use std::sync::{
         atomic::{AtomicU64, Ordering},
         Arc, Mutex,
     };
+
+    #[test]
+    fn repeated_captured_prefix_is_removed_without_losing_its_separator() {
+        assert_eq!(
+            normalize_continuation(
+                "One small step is a giant leap for humanity.",
+                "One small step is",
+                ""
+            )
+            .unwrap(),
+            " a giant leap for humanity."
+        );
+    }
+
+    #[test]
+    fn unique_continuations_and_leading_whitespace_are_unchanged() {
+        for text in [
+            " a giant leap.",
+            "\n\tAnother thought.",
+            "One small step felt worthwhile.",
+        ] {
+            assert_eq!(
+                normalize_continuation(text, "One small step is", "").unwrap(),
+                text
+            );
+        }
+        assert_eq!(
+            normalize_continuation("   indented text", "   ", "").unwrap(),
+            "   indented text"
+        );
+    }
+
+    #[test]
+    fn unicode_prefixes_and_partial_words_keep_exact_remainders() {
+        assert_eq!(
+            normalize_continuation("今天🐾继续前进", "今天🐾", "").unwrap(),
+            "继续前进"
+        );
+        assert_eq!(
+            normalize_continuation("configuration", "config", "").unwrap(),
+            "uration"
+        );
+        assert_eq!(
+            normalize_continuation("café continues", "cafe\u{301}", "").unwrap(),
+            "café continues"
+        );
+    }
+
+    #[test]
+    fn selected_replacements_are_never_prefix_normalized() {
+        assert_eq!(
+            normalize_continuation(
+                "One small step is a giant leap.",
+                "One small step is",
+                "selected words"
+            )
+            .unwrap(),
+            "One small step is a giant leap."
+        );
+    }
+
+    #[test]
+    fn repetition_without_new_text_is_an_error() {
+        assert!(
+            normalize_continuation("One small step is", "One small step is", "")
+                .unwrap_err()
+                .contains("Try again")
+        );
+        assert!(normalize_continuation("One small step is \n", "One small step is", "").is_err());
+        assert_eq!(
+            normalize_continuation("New text", "", "").unwrap(),
+            "New text"
+        );
+    }
 
     #[tokio::test]
     async fn hide_discards_delayed_capture_but_a_new_shortcut_can_publish() {

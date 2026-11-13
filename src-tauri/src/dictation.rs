@@ -224,6 +224,9 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
                         Ok(result) => data["inserted"] = result["inserted"].clone(),
                         Err(error) => data["insertionError"] = json!(error),
                     }
+                } else {
+                    data["insertionError"] =
+                        json!("No speech was caught. Try the dictation shortcut again.");
                 }
             } else {
                 data["insertionError"] = target["captureError"].clone();

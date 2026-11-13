@@ -277,6 +277,9 @@ test('cursor autocomplete is a preview with explicit accept and copy fallback', 
   expect(await page.evaluate(() => (window as any).__companionFixture.calls.some((call: any) => call.method === 'completion.apply'))).toBe(false);
   await expectInsideWindow(preview, 420, 240); await expectInsideWindow(page.getByRole('button', { name: 'Accept', exact: true }), 420, 240);
   await saveCompanionScreenshot(page, 'autocomplete-ready-420x240.png');
+  await preview.fill('');
+  await expect(preview).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Accept', exact: true })).toBeDisabled();
   await preview.fill(' with one tiny step.'); await page.getByRole('button', { name: 'Copy suggestion' }).click();
   expect(await page.evaluate(() => (window as any).__companionFixture.copied)).toEqual([' with one tiny step.']);
   await page.getByRole('button', { name: 'Accept', exact: true }).click();
