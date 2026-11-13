@@ -168,7 +168,9 @@ def main():
     metadata["arch"] = platform.machine()
     metadata["binaries"] = {p.name: sha(p) for p in (NATIVE / "bin").iterdir() if p.name in ("whisper-cli", "whisper-cli.exe", "whisper-vad-speech-segments", "whisper-vad-speech-segments.exe", "nemo-speech", "nemo-speech.exe")}
     (NATIVE / "bin/portable-speech.build.json").write_text(json.dumps(metadata, indent=2) + "\n")
-    run(NATIVE / "bin" / ("nemo-speech.exe" if system == "Windows" else "nemo-speech"), "--version")
+    for name, option in [("nemo-speech", "--version"), ("whisper-cli", "--help"), ("whisper-vad-speech-segments", "--help")]:
+        binary = NATIVE / "bin" / (name + (".exe" if system == "Windows" else ""))
+        subprocess.run([str(binary), option], check=True, timeout=20)
     print("Built portable Whisper, VAD and NeMo diarization.")
 
 
