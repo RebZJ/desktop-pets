@@ -147,17 +147,17 @@ Paper, surface and sidebar distinguish work areas. Ink, muted and line establish
 
 The default interface setting is **Pixel**: self-hosted Pixelify Sans for headings and short controls, Inter for explanations, editable text and transcripts. **Inter** and **Fira Sans** are selectable alternatives that use one face for both roles. The three active families ship locally with their OFL files and pinned source hashes in `public/fonts/SOURCES.md`; no font CDN is required. Retained Silkscreen assets are historical, not the active default.
 
-The workspace headline is 32px/1.2, section titles 18px/1.35, ordinary prose 14px/1.65, and common controls 13px. Compact cloud controls use 9–11px labels; Talk replies use readable 13px/1.5 prose. Responsive campsite headings retain their own scale.
+The workspace headline is 32px/1.2, section titles 18px/1.35, ordinary prose 14px/1.65, and common controls 13px. Compact cloud controls use 9–11px labels; Dictation drafts use readable 13px/1.5 prose. Responsive campsite headings retain their own scale.
 
 **The Readable Prose Rule.** Use the selected interface face for short headings and controls; keep editable text, explanations and transcripts in the selected body face.
 
 ## Layout
 
-Pace rests alone in a transparent native Tauri window. Hover or keyboard focus reveals five icon tools in a semicircle **above** him: Talk, Dictate, Meeting, Write and Settings. There are no labels beneath the pet. A focused/hovered icon supplies its own hint and accessible name. Write is contextual to a supported focused editable target. Sprite sizes are 128, 160 or 208px, with a square native window 64px larger.
+Pace rests alone in a transparent native Tauri window. Hover or keyboard focus reveals three icon tools in a semicircle **above** him: Dictate, Meeting and Settings. There are no labels beneath the pet. A focused/hovered icon supplies its own hint and accessible name. Dictate hints “Type into your app.” Sprite sizes are 128, 160 or 208px, with a square native window 64px larger.
 
-Talk is a small 300×200 speech bubble. Explicit autocomplete is 360×200, with a 300×180 minimum, positioned near the captured caret and clamped to the monitor. Meeting live words, tips and notes share one 420×380 cloud with a 360×300 minimum. Persistent controls surround scrolling content. These are native utility windows, not a web dashboard that opens on startup.
+Dictation uses a small 300×200 speech bubble. Meeting live words, tips and notes share one 420×380 cloud with a 360×300 minimum. Persistent controls surround scrolling content. These are native utility windows, not a web dashboard that opens on startup.
 
-The supporting workspace uses 1180×780 with an 800×560 minimum, a 228px rail and a 64px header. At 820px the rail becomes icons; at 600px work columns stack. The 390×844 browser layout is a development/test viewport, not a mobile release. The old Writing route preserves saved work and compatibility.
+The supporting workspace uses 1180×780 with an 800×560 minimum, a 228px rail and a 64px header. At 820px the rail becomes icons; at 600px work columns stack. The 390×844 browser layout is a development/test viewport, not a mobile release. Writing surfaces are deferred; old Chat and Writing pages open meeting records, and legacy command windows show only a paused notice and Close. Stored preferences remain intact.
 
 Onboarding has five stops: **Pack, Meet, Keys, Access, Home**. Its split frame places art left and dialogue right, capped at 1440px; at 760px the scene stacks above the dialogue. Stops and forward/back controls remain outside the scrolling dialogue body. Downloads and access are explicit and optional.
 
@@ -181,7 +181,7 @@ Paper fields retain labels, nearby validation and visible focus. Longer text use
 
 ### Navigation
 
-The supporting rail uses the selected interface face, sidebar hover and pale-accent selection with an ink border and inset accent edge. Icon-only destinations retain accessible names. Five onboarding stop buttons identify the current step.
+The primary rail exposes Meeting notes, Local models and Settings. Saved memory and extension access remain manageable through Settings → Data & extensions. General chat and persona voice are outside the current product flow. The supporting rail uses the selected interface face, sidebar hover and pale-accent selection with an ink border and inset accent edge. Icon-only destinations retain accessible names. Five onboarding stop buttons identify the current step.
 
 ### Cards / Containers
 
@@ -191,9 +191,9 @@ Principal work surfaces use square boundaries and pixel offset depth. Transcript
 
 The icon arc above Pace follows the ring-command interaction reference in Nintendo’s *Secret of Mana* manual, **Ring Commands** section. It is an original tool selector, with explicit activation, keyboard navigation and no Nintendo artwork. Icons fade in over 120ms; hover/focus scales the active icon to 1.12 and adjacent hovered neighbors to 1.04 over 140ms. Reduced motion removes transitions and transforms. The [official manual](https://www.nintendo.com/es-es/games/oms/snes-classic/manuals/secret-of-mana/manual.pdf) is the primary reference.
 
-Talk has a compact portrait/status header, mute, copy when content exists, Close, a scrollable real reply and a persistent microphone/Send composer. Actual microphone recording, generation and playback drive listening, thinking and speaking. The microphone fills a reviewable draft; Send remains explicit. Global dictation normally uses the big-ear pose without opening Talk; failed insertion preserves copyable text.
+The dictation bubble has a compact portrait/status header, Copy, Close, an editable recognized draft and one persistent Start/Stop control. Actual recording/transcription state drives listening/thinking emotes. A real RMS meter appears only during recording. Opening the window never records. Recognition remains reviewable/copyable without Accessibility. Saved-audio retry appears only when actual backend state permits it. Existing chat draft keys remain untouched.
 
-Autocomplete captures nearby field context only on invocation. Its editable preview offers Accept, Copy and Dismiss; Accept validates the captured target before inserting. Meeting assistance keeps actual live words, one quiet session-scoped tip, final notes and note editing in the same cloud. **Cover requested** is the default best-effort state, not a guarantee. Settings displays Requested · Quick hide ready without an off toggle. Quick Hide covers all five windows without stopping an active meeting.
+Cursor autocomplete has no active control, shortcut, onboarding practice or style-example field. Meeting assistance keeps actual live words, one quiet session-scoped tip, a transcript-scoped question/reply, final notes and note editing in the same cloud. The question composer and Stop remain reachable; reading content scrolls inside the cloud. Answers never speak or cross meeting boundaries. **Cover requested** is the default best-effort state, not a guarantee. Settings displays Requested · Quick hide ready without an off toggle. Quick Hide covers all five windows without stopping an active meeting.
 
 The twelve original sprite strips retain their artwork and timing. Talk, listen, dictate and hush use refined v2 eight-frame strips at 8fps with the canonical palette, exact pixel grid and binary alpha. Dictate’s headband remains 4–9% narrower over its loop; do not describe anatomical identity as pixel-exact. Provenance, measurements and the reusable skill are in `docs/sprite-refinement-2026-11-13.md` and `docs/skills/desktop-pet-sprites/SKILL.md`. Reduced motion freezes animation.
 
@@ -214,5 +214,5 @@ The twelve original sprite strips retain their artwork and timing. Talk, listen,
 - Don’t put pixel lettering in long editable prose or transcripts.
 - Don’t fabricate replies, transcripts, download completion or capture success.
 - Don’t place persistent labels or a tool strip beneath Pace.
-- Don’t replace the companion’s explicit cursor continuation with a primary rewrite workbench.
+- Keep deferred writing controls and shortcut bindings out of current product flows.
 - Don’t promise universal screen-capture exclusion or continuous background autocomplete.

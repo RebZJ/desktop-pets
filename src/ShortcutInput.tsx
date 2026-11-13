@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Check, LoaderCircle } from 'lucide-react';
 import { api, errorText, isNative, type Settings } from './api';
 
-const shortcutFields = ['hideShortcut', 'commandShortcut', 'dictationShortcut', 'completionShortcut'] as const;
+const shortcutFields = ['hideShortcut', 'commandShortcut', 'dictationShortcut'] as const;
 type ShortcutField = typeof shortcutFields[number];
 const reserved = new Set(['Super+Q', 'Super+W', 'Super+H', 'Super+M', 'Super+Tab', 'Super+Space', 'Shift+Super+Tab', 'Alt+Super+Escape', 'Alt+Tab', 'Alt+Shift+Tab', 'Alt+F4', 'Control+Alt+Delete']);
 let recordingRequest: Promise<unknown> = Promise.resolve();

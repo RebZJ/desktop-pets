@@ -3,8 +3,8 @@ import { mkdir, readFile } from 'node:fs/promises';
 
 test.beforeAll(async () => { await mkdir('.impeccable/review', { recursive: true }); });
 
-async function interactionFixture(page: Page, withMeeting = false) {
-  await page.addInitScript((includeMeeting: boolean) => {
+async function interactionFixture(page: Page, withMeeting = false, holdChat = false) {
+  await page.addInitScript(({ includeMeeting, pendingChat }: { includeMeeting: boolean; pendingChat: boolean }) => {
     const calls = { chat: 0, pet: [] as string[], tools: 0, lastChat: null as any };
     const meetings = includeMeeting ? [{ id: 'fixture-meeting', title: 'Synthetic fixture meeting', startedAt: '2026-11-13T00:00:00Z', status: 'recording', segments: [{ speaker: 'You', start: 1, end: 4, text: 'Synthetic discussion of the release schedule.' }] }] : [];
     const state = { settings: { onboardingCompleted: true, soundEnabled: false, speechEnabled: true }, models: [], meetings, memory: { enabled: false, applications: [] }, pet: { visible: true, action: 'idle' }, packs: [{ id: 'pace', name: 'Pace' }], extensions: [{ id: 'fixture-tool', name: 'Fixture tools', command: '/fixture/no-process-started', enabled: true, enabledTools: ['echo'] }] };
@@ -12,7 +12,7 @@ async function interactionFixture(page: Page, withMeeting = false) {
     (window as any).__DESKTOP_PETS_BRIDGE__ = async (method: string, params: any) => {
       if (method === 'app.state') return structuredClone(state);
       if (method === 'chat.history') return [];
-      if (method === 'chat.send') { calls.chat++; calls.lastChat = params; return { conversationId: params.conversationId, text: 'Synthetic fixture answer.' }; }
+      if (method === 'chat.send') { calls.chat++; calls.lastChat = params; if (pendingChat) await new Promise<void>(resolve => { (window as any).__resolveMeetingQuestion = resolve; }); return { conversationId: params.conversationId, text: 'Synthetic fixture answer.' }; }
       if (method === 'apps.list') return { apps: [] };
       if (method === 'meeting.export') return { filename: 'fixture-notes.md', content: '# Synthetic fixture notes\n\n- [x] Reviewed fixture action.\n\n## Transcript\nYou: 你好、Pace.\n' };
       if (method === 'pet.action') { calls.pet.push(params.action); state.pet.action = params.action; return state.pet; }
@@ -20,25 +20,8 @@ async function interactionFixture(page: Page, withMeeting = false) {
       if (method === 'extensions.call') { calls.tools++; if (calls.tools === 2) throw new Error('Synthetic fixture failure.'); return { content: [{ type: 'text', text: 'Synthetic fixture result.' }] }; }
       throw new Error(`Unimplemented interaction fixture: ${method}`);
     };
-  }, withMeeting);
+  }, { includeMeeting: withMeeting, pendingChat: holdChat });
 }
-
-test('IME composition Enter and WebKit 229 do not send Chinese or Japanese candidates', async ({ page }) => {
-  await interactionFixture(page); await page.goto('/');
-  const input = page.getByLabel('Message Pace', { exact: true });
-  for (const text of ['你好，Pace', 'こんにちは、Pace']) {
-    await input.fill(text);
-    await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true, isComposing: true });
-    await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true, isComposing: false, keyCode: 229 });
-    await expect(input).toHaveValue(text);
-    expect(await page.evaluate(() => (window as any).__interactionCalls.chat)).toBe(0);
-  }
-  await input.press('Shift+Enter');
-  expect(await page.evaluate(() => (window as any).__interactionCalls.chat)).toBe(0);
-  await input.press('Enter');
-  await expect(page.locator('.message.assistant')).toContainText('Synthetic fixture answer.');
-  expect(await page.evaluate(() => (window as any).__interactionCalls.chat)).toBe(1);
-});
 
 test('overlay pet activates by keyboard while a pointer drag does not pet it', async ({ page }) => {
   await interactionFixture(page); await page.goto('/?window=pet');
@@ -124,22 +107,36 @@ test('pet artwork and menu fit every configured native pet size', async ({ brows
   }
 });
 
-test('long speech bubble replies scroll while keeping Ask Pace inside the native window', async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 180 });
+test('dictation speech bubble keeps a long recognized draft copyable inside the native window', async ({ page }) => {
+  await page.setViewportSize({ width: 300, height: 200 });
   await page.addInitScript(() => {
     (window as any).__DESKTOP_PETS_BRIDGE__ = async (method: string) => {
       if (method === 'app.state') return { settings: { onboardingCompleted: true, soundEnabled: false }, models: [], meetings: [] };
-      if (method === 'chat.send') return { text: 'Synthetic long reply for a populated boundary test. '.repeat(24) };
-      throw new Error(`Unimplemented bubble fixture: ${method}`);
+      if (method === 'dictation.current') return { phase: 'draft', text: 'A long recognized dictation phrase. '.repeat(80) };
+      throw new Error(`Unexpected dictation fixture: ${method}`);
     };
   });
   await page.goto('/?window=bubble');
-  const input = page.getByRole('textbox', { name: 'Ask Pace', exact: true });
-  await input.fill('Synthetic question'); await page.getByRole('button', { name: 'Send question', exact: true }).click();
-  await expect(page.locator('.bubble-reply')).toContainText('Synthetic long reply');
-  const box = await input.boundingBox(); expect(box).not.toBeNull();
-  expect(box!.y + box!.height).toBeLessThanOrEqual(180);
-  const scroll = await page.locator('.bubble-reply').evaluate(element => ({ visible: element.clientHeight, total: element.scrollHeight }));
-  expect(scroll.visible).toBeGreaterThan(0); expect(scroll.total).toBeGreaterThan(scroll.visible);
-  await page.screenshot({ path: '.impeccable/review/bubble-long.png', omitBackground: true });
+  const input = page.getByRole('textbox', { name: 'Dictation text', exact: true });
+  await expect(input).toHaveValue(/A long recognized dictation phrase/);
+  const box = await input.boundingBox(); expect(box).not.toBeNull(); expect(box!.y + box!.height).toBeLessThanOrEqual(200);
+  await expect(page.getByRole('button', { name: 'Copy dictation', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Start dictation', exact: true })).toBeEnabled();
+});
+
+
+test('workspace meeting copilot keeps Stop available and preserves a next question', async ({ page }) => {
+  await interactionFixture(page, true, true); await page.goto('/#meetings');
+  const input = page.getByRole('textbox', { name: 'Ask Pace about this meeting', exact: true });
+  await input.fill('What should I clarify next?');
+  await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true, isComposing: true });
+  expect(await page.evaluate(() => (window as any).__interactionCalls.chat)).toBe(0);
+  await page.getByRole('button', { name: 'Ask Pace', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Stop recording', exact: true })).toBeEnabled();
+  await input.fill('Keep my next question.');
+  await page.evaluate(() => (window as any).__resolveMeetingQuestion());
+  await expect(page.locator('.meeting-answer')).toContainText('Synthetic fixture answer.');
+  await expect(input).toHaveValue('Keep my next question.');
+  const params = await page.evaluate(() => (window as any).__interactionCalls.lastChat);
+  expect(params).toMatchObject({ meetingId: 'fixture-meeting', quiet: true }); expect(params.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
 });

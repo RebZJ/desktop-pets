@@ -2,14 +2,14 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-type Options = { installed?: boolean; status?: string; cover?: boolean; failStart?: boolean; failStop?: boolean; failSave?: boolean; holdStop?: boolean; savedTip?: string; holdTip?: boolean };
+type Options = { installed?: boolean; status?: string; cover?: boolean; failStart?: boolean; failStop?: boolean; failSave?: boolean; holdStop?: boolean; savedTip?: string; holdTip?: boolean; holdAsk?: boolean; askError?: boolean };
 async function fixture(page: Page, options: Options = {}) {
   await page.addInitScript((config: Options) => {
     const models = ['qwen3.5-4b', 'whisper-turbo', 'nemotron-diarization'].map(id => ({ id, name: id, role: id, sizeBytes: 100, installed: config.installed !== false, status: config.installed === false ? 'not-installed' : 'installed' }));
     const meeting = { id: 'meeting-current', title: 'Friday planning', startedAt: '2026-11-13T00:00:00Z', status: config.status || 'recording', segments: [] as any[], notes: '', actionItems: [] };
     if (config.status) meeting.segments = [{ speaker: 'Speaker 1', start: 0, end: 3, text: 'Please send the reviewed draft on Friday.' }];
     const state = { settings: { onboardingCompleted: true, language: 'en', meetingTips: true, captureProtectionEnabled: config.cover !== false, hideShortcut: 'Ctrl+Shift+H', activePack: 'pace', speechEnabled: false, soundEnabled: false }, models, meetings: config.status ? [meeting] : [], packs: [{ id: 'pace', name: 'Pace' }], extensions: [], memory: { enabled: false, applications: [] }, pet: { visible: true, action: 'idle' } };
-    const f: any = { calls: [], state, failStart: Boolean(config.failStart), failStop: Boolean(config.failStop), failSave: Boolean(config.failSave) };
+    const f: any = { calls: [], state, failStart: Boolean(config.failStart), failStop: Boolean(config.failStop), failSave: Boolean(config.failSave), askError: Boolean(config.askError) };
     (window as any).__meetingFixture = f;
     let nextCallback = 0, nextEvent = 0;
     const callbacks: Record<string, (event: any) => void> = {};
@@ -37,6 +37,11 @@ async function fixture(page: Page, options: Options = {}) {
         if (f.failStop) throw new Error('Capture could not stop. Recording is still active; retry Stop.');
         if (config.holdStop) await new Promise<void>(resolve => { f.resolveStop = resolve; });
         f.update({ status: 'finalizing' }); return { stopped: true };
+      }
+      if (method === 'chat.send') {
+        if (config.holdAsk) await new Promise<void>(resolve => { f.resolveAsk = resolve; });
+        if (f.askError) throw new Error('Meeting answer is unavailable. Try again.');
+        return { text: 'Clarify who will review the draft before Friday.' };
       }
       if (method === 'meeting.update') { if (f.failSave) throw new Error('The notes could not save. Your draft is preserved.'); f.update({ notes: params.notes }); return structuredClone(meeting); }
       if (method === 'meeting.summarize' || method === 'meeting.retry') { f.update({ notes: 'Synthetic summary from the fixture transcript.' }); return structuredClone(meeting); }
@@ -179,7 +184,8 @@ test('small meeting windows retain a visible primary action and scroll reading c
     await inside(page.locator('.meeting-cloud'), width, height); await inside(page.getByRole('button', { name: 'Stop meeting', exact: true }), width, height);
     await expect.poll(() => page.getByLabel('Live transcript').evaluate(el => el.scrollTop + el.clientHeight >= el.scrollHeight - 1)).toBe(true);
     await inside(page.locator('.meeting-tip p'), width, height);
-    expect(await page.locator('.meeting-cloud-body').evaluate(el => el.scrollHeight)).toBeLessThanOrEqual(await page.locator('.meeting-cloud-body').evaluate(el => el.clientHeight));
+    await expect(page.locator('.meeting-cloud-body')).toHaveCSS('overflow-y', 'auto');
+    await inside(page.getByRole('textbox', { name: 'Ask Pace about this meeting', exact: true }), width, height);
     expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(height);
     await screenshot(page, `meeting-live-${width}x${height}.png`);
   }
@@ -229,4 +235,44 @@ test('permission recovery is explicit and microphone-only retry keeps the source
   await page.getByRole('button', { name: 'Start meeting', exact: true }).click();
   const starts=await page.evaluate(() => (window as any).__meetingFixture.calls.filter((call: any) => call.method === 'meeting.start'));
   expect(starts.at(-1).params.captureSystem).toBe(false); expect(starts.at(-1).params.captureMicrophone).toBe(true);
+});
+
+
+test('meeting copilot asks only about this transcript and Stop stays reachable while thinking', async ({ page }) => {
+  await page.setViewportSize({ width: 420, height: 380 }); await fixture(page, { status: 'recording', holdAsk: true });
+  const input = page.getByRole('textbox', { name: 'Ask Pace about this meeting', exact: true });
+  expect(await page.evaluate(() => (window as any).__meetingFixture.calls.some((call: any) => call.method === 'chat.send'))).toBe(false);
+  await input.fill('What should I clarify next?');
+  await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true, isComposing: true });
+  await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true, keyCode: 229 });
+  expect(await page.evaluate(() => (window as any).__meetingFixture.calls.some((call: any) => call.method === 'chat.send'))).toBe(false);
+  await page.getByRole('button', { name: 'Ask Pace', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Ask Pace', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Stop meeting', exact: true })).toBeEnabled();
+  await input.fill('Keep my next question.');
+  await page.evaluate(() => (window as any).__meetingFixture.resolveAsk());
+  await expect(page.getByLabel('Pace’s meeting answer')).toHaveText('Clarify who will review the draft before Friday.');
+  await expect(input).toHaveValue('Keep my next question.');
+  const calls = await page.evaluate(() => (window as any).__meetingFixture.calls);
+  const question = calls.filter((call: any) => call.method === 'chat.send'); expect(question).toHaveLength(1);
+  expect(question[0].params).toMatchObject({ meetingId: 'meeting-current', conversationId: 'meeting-meeting-current', text: 'What should I clarify next?', quiet: true });
+  expect(question[0].params.clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(calls.some((call: any) => call.method.startsWith('voice.'))).toBe(false);
+  await inside(input, 420, 380); await inside(page.getByRole('button', { name: 'Stop meeting', exact: true }), 420, 380);
+  await page.getByLabel('Pace’s meeting answer').scrollIntoViewIfNeeded(); await screenshot(page, 'meeting-copilot-420x380.png');
+});
+
+test('saved meeting question failure keeps the draft and a late answer cannot leak into a new meeting', async ({ page }) => {
+  await page.setViewportSize({ width: 420, height: 380 }); await fixture(page, { status: 'completed', holdAsk: true, askError: true });
+  const input = page.getByRole('textbox', { name: 'Ask Pace about this meeting', exact: true });
+  await input.fill('Who reviews the draft?'); await page.getByRole('button', { name: 'Ask Pace', exact: true }).click();
+  await page.evaluate(() => (window as any).__meetingFixture.resolveAsk());
+  await expect(page.getByRole('alert')).toContainText('Meeting answer is unavailable'); await expect(input).toHaveValue('Who reviews the draft?');
+  await page.evaluate(() => { (window as any).__meetingFixture.askError = false; });
+  await page.getByRole('button', { name: 'Ask Pace', exact: true }).click();
+  await page.getByRole('button', { name: 'New meeting', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Start meeting', exact: true })).toBeVisible();
+  await page.evaluate(() => (window as any).__meetingFixture.resolveAsk());
+  await expect(page.getByLabel('Pace’s meeting answer')).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Ask Pace about this meeting' })).toHaveCount(0);
 });

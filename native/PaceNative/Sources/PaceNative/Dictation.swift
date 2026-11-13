@@ -27,7 +27,8 @@ enum DictationService {
         return ["targetId": id, "app": app.localizedName ?? "App", "canInsert": true]
     }
 
-    static func discard() -> [String: Any] {
+    static func discard(_ params: [String: Any] = [:]) -> [String: Any] {
+        if let id = params["targetId"] as? String, target?.id != id { return ["discarded": false] }
         target = nil
         return ["discarded": true]
     }

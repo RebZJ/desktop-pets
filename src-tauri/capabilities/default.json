@@ -1,7 +1,20 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Local Desktop Pets windows; no shell, network or filesystem access in the WebView.",
-  "windows": ["main", "pet", "command", "bubble"],
-  "permissions": ["core:default", "core:window:allow-start-dragging", "core:window:allow-hide", "core:window:allow-show", "core:window:allow-set-focus"]
+  "description": "Local Desktop Pets windows with user-triggered clipboard writes; no shell, network or filesystem access in the WebView.",
+  "windows": [
+    "main",
+    "pet",
+    "command",
+    "bubble",
+    "meeting"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-set-focus",
+    "clipboard-manager:allow-write-text"
+  ]
 }

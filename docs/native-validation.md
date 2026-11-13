@@ -1,5 +1,6 @@
 # Native inference validation — 13 November 2026
 
+Historical implementation/research record. For the current three-feature portable architecture and its verified limits, see [portable validation](portable-native-validation-2026-11-14.md).
 Test machine: Apple M1 Pro, **16 GB unified memory**, macOS 26.6.2. Native target: Apple Silicon, macOS 15+. No cloud inference or simulated model responses were used.
 
 ## Build and model pack

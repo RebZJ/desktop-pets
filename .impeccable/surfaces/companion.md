@@ -1,31 +1,21 @@
-# Pace lives on the desktop
+# Pace listens on the desktop
 
-Mode: Experience for the pet; Operate for its tool clouds. Shipping surface: native Tauri transparent windows. Browser rendering supports layout and bridge-contract tests.
+Mode: Operate for dictation, diarized meeting notes and the meeting copilot. Shipping surface: native Tauri utility windows; browser rendering verifies layout and bridge contracts.
 
-## Direction contract
+## Current contract
 
-**THESIS:** A little companion makes work tangible: choose an icon above Pace, talk in a small speech bubble, dictate into the current app, request a continuation at the cursor, or keep quiet meeting help nearby.
+Pace rests alone. Hover or keyboard focus reveals three icons in an upper semicircle: Dictate, Meet and Settings. There are no labels below the pet. Original pixel artwork, semantic Camp/Night/Handheld palettes and bundled lettering remain unchanged. Talk and Write are not product entries.
 
-**OWN-WORLD:** The user’s GBA/8-bit direction spans the app. Square frames, selected palette roles, Pixelify Sans controls with Inter prose by default, original pixel sprites and stepped speech tails form one world. Camp, Night and Handheld are the palette choices; Inter and Fira Sans are alternate shared-face settings.
+The shared bubble is DictationCloud at 300×200. Opening is passive. Actual current/state events determine recording/transcribing/draft/error; real microphone RMS drives the meter while recording. Start/Stop uses actual global dictation. Copy uses the official native clipboard capability with a browser fallback. Separate dictation draft/source keys retain edited recognized words across reopen without modifying previous chat draft keys. Accessibility insertion is optional; recognition stays copyable. Saved-audio retry is explicit and appears only when the backend reports recoverable audio.
 
-**STORY:** Install only the needed models; choose and practice four shortcuts; meet Pace on the desktop. Open Talk explicitly, dictate into the unchanged captured field, or review a contextual continuation before accepting it. Meeting live words, a quiet tip and later notes stay in one cloud. Settings and longer records open in the workspace only when requested.
+MeetingCloud is 420×380, minimum 360×300. Explicit source choices and Start precede capture. Live turns, a quiet session tip, notes/editing and one transcript-scoped question/reply share the cloud. Ask sends meetingId, a meeting-specific conversationId, quiet=true and a request id. Stop remains reachable during inference. Reading content can scroll; late replies never leak into another meeting.
 
-**FIRST VIEWPORT:** Pace floats alone in a transparent native window at rest. Hover/focus reveals five icon actions in a semicircle above him: Talk, Dictate, Meeting, contextual Write and Settings. There are no labels beneath the pet. Active hints, accessible names and arrow-key navigation make the tools discoverable. The selector draws on the Ring Commands section of the [official Nintendo Secret of Mana manual](https://www.nintendo.com/es-es/games/oms/snes-classic/manuals/secret-of-mana/manual.pdf), PDF page 8; it uses original art and explicit tool activation. Talk is 300×200. Autocomplete is 360×200, minimum 300×180, above the captured caret and clamped to the monitor. Meeting is 420×380, minimum 360×300. Content scrolls within persistent controls.
+The original icon-reference provenance remains the Ring Commands section of the official Nintendo Secret of Mana manual, PDF page 8; all artwork is original. No new media or visual-world iteration is part of this scope.
 
-**FORM:** Code-led execution of the user-prescribed pixel world. No concept tournament, seed or approved comp. The user’s latest request supersedes the earlier three-slot selector below Pace, Silkscreen default and 420px Talk records.
+## Boundaries
 
-**FINISH:** unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+General chat, persona voice and writing controls are outside the current flow. Their existing data/preferences stay intact. The legacy command window is a paused notice with Close. Settings retains data inspection/delete and extension review/revoke. Quick Hide still covers all five native windows. Capture exclusion is best effort and platform-specific; no universal invisibility claim is made.
 
-## Interaction and truth
+Verify native-sized pet windows 192/224/272 square, dictation 300×200 and meeting 420×380/360×300. Browser tests cover passive opening, actual level/state feedback, explicit retry, copy/error recovery, scope isolation, IME and preserved drafts. Earlier reports and captures remain historical evidence; this frontend work does not establish native audio or installer readiness.
 
-Talk, microphone recording, downloads, voice and autocomplete Accept need explicit actions. Actual microphone, generation and playback state drive listening, thinking and talking. Talk’s microphone produces a reviewable draft. Global dictation checks Accessibility before capture; native audio begins after permission and an installed-pack file check, buffering WAV while Moonshine prepares. ASR weights must not block capture startup. Failed insertion retains copyable words.
-
-Write is available for a supported focused editable target; invocation captures nearby context and optional local writing examples. Accept validates the original field. There is no background autocomplete. Imported packs preserve aspect ratio and fall back to idle for missing actions. Original twelve strips remain unchanged; refined talk/listen/dictate/hush v2 strips use canonical palette, grid and binary alpha. Dictate’s remaining 4–9% headband variation is documented, not an exact-anatomy claim. Reduced motion removes selector movement and freezes sprite playback.
-
-Quick Hide covers all five windows: pet, Talk, autocomplete, meeting and workspace. Close and Hide do not stop an active meeting. Cover requested remains the default best-effort request; Settings displays status without an off toggle. An older pending request must not reopen a hidden cloud. An explicit shortcut can summon Pace again. Browser previews explain unavailable native capabilities.
-
-## Evidence boundaries
-
-Current target captures include pet windows 192/224/272 square, Talk 300×200, autocomplete 360×200 and 300×180, meeting 420×380 and 360×300, and the workspace/onboarding at 1180×780 and 800×560. Browser 390×844 is a development viewport. Validate populated text, errors, permission recovery, IME, keyboard focus, copy acknowledgement, current themes/fonts and native placement.
-
-Dated reports and older filenames remain historical evidence, not current geometry or final approval. The earlier manual detector pass covered onboarding. The current manual finish disposition is ship for the two scored fixes. Rebuilt-worker host integration passed 56 operations; 79 browser scenarios are covered across full and focused runs, not one final 79-scenario run. The final native controls run passed 35 operations; the packaged installer/permission probe remains separately tracked. See `docs/snappy-companion-2026-11-13.md` for current contracts and measured latency limits.
+2026-11-14 frontend verification: all 67 browser scenarios passed in a full Chromium run and a full WebKit run; the TypeScript/Vite build passed. Captures include the three-icon pet arc, listening/reviewable dictation at 300×200 and scoped meeting copilot at 420×380. These tests use explicit bridge fixtures and do not verify physical audio capture, recognition quality, OS grants or installed-app behavior.

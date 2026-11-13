@@ -1,3 +1,7 @@
+#[cfg(any(not(target_os = "macos"), test))]
+#[path = "insertion.rs"]
+mod insertion;
+
 use serde_json::{json, Value};
 use std::{
     collections::HashMap, future::Future, path::PathBuf, pin::Pin, process::Stdio, sync::Arc,
@@ -22,6 +26,9 @@ struct Worker {
 #[derive(Default)]
 pub struct NativeManager {
     worker: Mutex<Option<Arc<Worker>>>,
+    portable: crate::portable::PortableManager,
+    #[cfg(not(target_os = "macos"))]
+    insertion: Arc<insertion::Insertion>,
 }
 
 impl NativeManager {
@@ -137,6 +144,32 @@ impl NativeManager {
         method: &str,
         params: Value,
     ) -> Result<Value, String> {
+        #[cfg(not(target_os = "macos"))]
+        if matches!(
+            method,
+            "dictation.capture" | "dictation.insert" | "dictation.discard"
+        ) {
+            let insertion = self.insertion.clone();
+            let method = method.to_owned();
+            return tauri::async_runtime::spawn_blocking(move || {
+                insertion.request(&method, params)
+            })
+            .await
+            .map_err(|error| error.to_string())?;
+        }
+        if crate::portable::enabled()
+            && (!cfg!(target_os = "macos")
+                || matches!(
+                    method,
+                    "models.status"
+                        | "models.install"
+                        | "chat.generate"
+                        | "runtime.status"
+                        | "runtime.cancel"
+                ))
+        {
+            return self.portable.request(app, method, params).await;
+        }
         let worker = self.connect(app).await?;
         let id = Uuid::new_v4().to_string();
         let (tx, rx) = oneshot::channel();
@@ -190,6 +223,7 @@ impl NativeManager {
     }
 
     pub async fn stop(&self) {
+        self.portable.stop().await;
         if let Some(worker) = self.worker.lock().await.take() {
             let _ = worker.child.lock().await.kill().await;
         }
@@ -231,7 +265,7 @@ fn worker_path(app: &AppHandle) -> Result<PathBuf, String> {
 
 pub fn model_catalog() -> Value {
     json!([
-        {"id":"qwen3.5-4b","name":"Qwen 3.5 · 4B","role":"Chat & writing","sizeBytes":3060000000_u64,"installed":false,"status":"not-installed"},
+        {"id":"qwen3.5-4b","name":"Qwen 3.5 · 4B","role":"Meeting notes & questions","sizeBytes":3060000000_u64,"installed":false,"status":"not-installed"},
         {"id":"kitten-tts-micro-0.8","name":"KittenTTS · Micro 0.8","role":"Quick English voice","sizeBytes":149000000_u64,"installed":false,"status":"not-installed"},
         {"id":"qwen3-tts-0.6b","name":"Qwen 3 · Voice","role":"Multilingual voice","sizeBytes":1970000000_u64,"installed":false,"status":"not-installed"},
         {"id":"moonshine-tiny-en","name":"Moonshine Tiny · English","role":"Quick dictation","sizeBytes":45398523,"installed":false,"status":"not-installed"},

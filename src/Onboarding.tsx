@@ -15,22 +15,20 @@ const languages = [
   { id: 'auto', label: 'Automatic · Whisper Turbo', model: 'whisper-turbo' },
 ];
 const modelDescriptions: Record<string, string> = {
-  'qwen3.5-4b': 'Local brain for chat, autocomplete & meeting notes',
-  'kitten-tts-micro-0.8': 'Small English voice · Pace stays quiet until you ask',
+  'qwen3.5-4b': 'Local brain for meeting notes & questions',
   'moonshine-tiny-en': 'Fast English dictation',
   'moonshine-tiny-zh': 'Fast Chinese dictation',
   'moonshine-tiny-ja': 'Fast Japanese dictation',
   'moonshine-tiny-es': 'Fast Spanish dictation',
-  'whisper-turbo': 'Multilingual dictation · 574 MB',
+  'whisper-turbo': 'Multilingual dictation & meeting transcripts',
 };
 const shortcutActions = [
-  { label: 'Talk', field: 'commandShortcut' },
+  { label: 'Dictation window', field: 'commandShortcut' },
   { label: 'Dictate', field: 'dictationShortcut' },
-  { label: 'Autocomplete', field: 'completionShortcut' },
   { label: 'Quick Hide', field: 'hideShortcut' },
 ] as const;
 const access = [
-  { kind: 'accessibility', title: 'Accessibility', description: 'Read nearby text for autocomplete, then show a continuation to review.' },
+  { kind: 'accessibility', title: 'Accessibility', description: 'Type dictated words into the app you choose.' },
   { kind: 'microphone', title: 'Microphone', description: 'Only used when you start dictation or a meeting recording.' },
   { kind: 'screenRecording', title: 'Meeting audio', description: 'Hear other apps when you choose to record.' },
 ];
@@ -64,17 +62,15 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
   const [dictationText, setDictationText] = useState('');
   const [dictationRecording, setDictationRecording] = useState(false);
   const [dictationBusy, setDictationBusy] = useState(false);
-  const [voiceBusy, setVoiceBusy] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const dictationField = useRef<HTMLTextAreaElement>(null);
   const mood = usePetMood('wave');
   const desktop = isNative() || Boolean(window.__DESKTOP_PETS_BRIDGE__);
   const native = isNative();
-  const chatReady = state.models.some(model => model.id === 'qwen3.5-4b' && model.installed);
-  const voiceReady = state.models.some(model => model.id === 'kitten-tts-micro-0.8' && model.installed);
+  const notesReady = state.models.some(model => model.id === 'qwen3.5-4b' && model.installed);
   const selectedLanguage = state.settings.dictationLanguage || 'en';
   const dictationModel = state.models.find(model => model.id === languages.find(language => language.id === selectedLanguage)?.model);
-  const packModels = [dictationModel, state.models.find(model => model.id === 'kitten-tts-micro-0.8'), state.models.find(model => model.id === 'qwen3.5-4b')].filter((model): model is LocalModel => Boolean(model));
+  const packModels = [dictationModel, state.models.find(model => model.id === 'qwen3.5-4b')].filter((model): model is LocalModel => Boolean(model));
   const recording = state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status));
 
   useEffect(() => { heading.current?.focus(); }, [step]);
@@ -171,11 +167,11 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
     } catch (cause) { setError(errorText(cause)); return false; }
     finally { setSettingBusy(''); }
   };
-  const saveSettingText = async (key: 'dictationVocabulary' | 'writingExamples', value: string) => {
+  const saveSettingText = async (key: 'dictationVocabulary', value: string) => {
     setError(''); setSettingStatus(''); setSettingBusy(key);
     try {
       const settings = await api<Settings>('settings.update', { patch: { [key]: value } });
-      onSettings(settings); setSettingStatus(key === 'dictationVocabulary' ? 'Vocabulary saved.' : 'Writing examples saved.');
+      onSettings(settings); setSettingStatus('Vocabulary saved.');
     } catch (cause) { setError(errorText(cause)); }
     finally { setSettingBusy(''); }
   };
@@ -189,17 +185,6 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
       if (result.text) setDictationText(result.text);
     } catch (cause) { setError(errorText(cause)); setDictationRecording(false); }
     finally { setDictationBusy(false); }
-  };
-  const tryVoice = async () => {
-    setError(''); setVoiceBusy(true);
-    try {
-      await api('voice.speak', {
-        text: 'Hi, I’m Pace. What would you like to do?',
-        language: 'English', voice: state.settings.voice || 'Kiki', voiceEngine: 'kitten',
-        pitch: state.settings.pitch, rate: state.settings.rate, volume: state.settings.volume,
-      });
-    } catch (cause) { setError(errorText(cause)); }
-    finally { setVoiceBusy(false); }
   };
   const allow = async (kind: string) => {
     setError(''); setPermissionBusy(kind);
@@ -234,7 +219,7 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
         <div className="onboarding-dialogue-body" key={step}>
           <h1 id="onboarding-title" ref={heading} tabIndex={-1}>{titles[step]}</h1>
           {step === 0 && <>
-            <p className="onboarding-lead">Choose one small dictation pack first. Pace’s voice and local brain are optional extras.</p>
+            <p className="onboarding-lead">Choose one small dictation pack first. Add the meeting brain when you need notes and a copilot.</p>
             {!desktop && <p className="onboarding-preview-note">Browser preview can’t download models. The desktop app shows real model sizes and progress.</p>}
             <label className="onboarding-field-label" htmlFor="dictation-language">Dictation language</label>
             <select id="dictation-language" className="onboarding-select" value={selectedLanguage} disabled={Boolean(settingBusy) || saving} onChange={event => void updateSetting('dictationLanguage', event.target.value)}>
@@ -244,36 +229,32 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
               const downloading = installing.includes(model.id) || ['downloading', 'installing'].includes(model.status);
               const progress = typeof model.progress === 'number' ? Math.min(100, Math.max(0, model.progress <= 1 ? model.progress * 100 : model.progress)) : undefined;
               return <div className="onboarding-model" key={model.id}>
-                <div><strong>{model.id === dictationModel?.id ? 'Quick dictation' : model.id === 'kitten-tts-micro-0.8' ? 'Kiki voice' : 'Local brain'}</strong><p>{modelDescriptions[model.id] || model.name}</p><span>{model.name} · {modelSize(model.sizeBytes)}</span>{model.error && <p className="onboarding-model-error">{model.error}</p>}</div>
+                <div><strong>{model.id === dictationModel?.id ? 'Quick dictation' : 'Meeting brain'}</strong><p>{modelDescriptions[model.id] || model.name}</p><span>{model.name} · {modelSize(model.sizeBytes)}</span>{model.error && <p className="onboarding-model-error">{model.error}</p>}</div>
                 {model.installed ? <span className="onboarding-ready"><Check size={15} />Ready</span> : downloading ? <div className="onboarding-download"><span role="status">{progress === undefined ? 'Downloading…' : `${Math.round(progress)}%`}</span><progress max={100} value={progress} aria-label={`${model.name} download progress`} /></div> : <button className="onboarding-item-button" aria-label={`Download ${model.name}`} disabled={!desktop || saving} onClick={() => void install(model)}><Download size={14} />Download</button>}
               </div>;
             })}</div>
-            {selectedLanguage === 'auto' && <p className="onboarding-small">Automatic language detection uses Whisper Turbo (574 MB). The smaller Moonshine packs are language-specific.</p>}
+            {selectedLanguage === 'auto' && <p className="onboarding-small">Automatic language detection uses Whisper Turbo. The smaller Moonshine packs are language-specific.</p>}
             <p className="onboarding-small">Downloads start only when you choose them and can continue while you explore. The other languages, large transcription model and speaker labels are in Local Models.</p>
           </>}
           {step === 1 && <>
             <p className="onboarding-lead">Meet Pace. Your tiny, curious companion for the big things on your desktop.</p>
             <div className="onboarding-hello"><span className="onboarding-speaker">PACE</span><p>“I brought the enthusiasm.<br />You bring the snacks.”</p><span className="onboarding-dialogue-arrow" aria-hidden="true" /></div>
             <p className="onboarding-pat-hint" role="status">{petted ? 'Pace likes you already.' : 'Go on, give Pace a little pat.'}</p>
-            {voiceReady ? <button className="onboarding-item-button onboarding-hear" disabled={voiceBusy || saving} onClick={() => void tryVoice()}>{voiceBusy ? <LoaderCircle size={14} className="spin" /> : <Volume2 size={14} />}Hear Pace say hello</button> : <p className="onboarding-small">Want to hear Pace? Install the small English voice in Pack first. Spoken replies stay off until you enable them.</p>}
-            <p className="onboarding-small">{chatReady ? 'Your local brain is ready for a first conversation.' : 'Pace can say hello before you install a chat model.'}</p>
+            <p className="onboarding-small">{notesReady ? 'Your local brain is ready for meeting notes and questions.' : 'Dictation works without the optional meeting brain.'}</p>
           </>}
           {step === 2 && <>
             <p className="onboarding-lead">Pick key combinations that fit your hands. Changes save only after the desktop accepts them.</p>
             {!native && <p className="onboarding-preview-note">Browser preview can show your choices, but global shortcut keys only work in the desktop app.</p>}
             <div className="onboarding-shortcut-list">
               {shortcutActions.map(action => {
-                const detected = shortcutTest === ({ Talk: 'talk', Dictate: 'dictate', Autocomplete: 'complete', 'Quick Hide': 'hide' } as const)[action.label];
+                const detected = shortcutTest === ({ 'Dictation window': 'talk', Dictate: 'dictate', 'Quick Hide': 'hide' } as const)[action.label];
                 return <div className="onboarding-shortcut-row" key={action.field}>
                   <span>{action.label}<small>{detected ? 'Shortcut detected' : 'Press the keys to try it'}</small></span>
                   <ShortcutInput label={`${action.label} shortcut`} field={action.field} settings={state.settings} disabled={saving} onSave={value => updateSetting(action.field, value)} />
                 </div>;
               })}
             </div>
-            <div className="onboarding-key-try"><button className="onboarding-item-button" disabled={!native} onClick={() => void api('window.talk').catch(cause => setError(errorText(cause)))}><Keyboard size={14} />Try Talk</button><span>Opens Pace’s Talk cloud. It doesn’t verify a global key.</span></div>
-            <label className="onboarding-field-label" htmlFor="autocomplete-test">Autocomplete practice</label>
-            <textarea id="autocomplete-test" className="onboarding-practice" placeholder="Type a sentence, then press your Autocomplete shortcut…" />
-            <p className="onboarding-small">In the desktop app, place the cursor in this text and press your Autocomplete key. Pace offers a continuation to review; it never inserts one silently.</p>
+            <div className="onboarding-key-try"><button className="onboarding-item-button" disabled={!native} onClick={() => void api('window.talk').catch(cause => setError(errorText(cause)))}><Keyboard size={14} />Open dictation</button><span>Opens the dictation draft. It doesn’t verify a global key.</span></div>
           </>}
           {step === 3 && <>
             <p className="onboarding-lead">Try your microphone here, then choose only the access you want Pace to have.</p>
@@ -281,21 +262,18 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
             <label className="onboarding-field-label" htmlFor="dictation-practice">Dictation practice</label>
             <textarea ref={dictationField} id="dictation-practice" className="onboarding-practice" value={dictationText} onChange={event => setDictationText(event.target.value)} placeholder="Type here, or start Dictate and review the words before using them…" />
             <button className="onboarding-item-button onboarding-dictate" disabled={!native || dictationBusy || saving} onClick={() => void toggleDictation()}>{dictationBusy ? <LoaderCircle size={14} className="spin" /> : <Mic size={14} />}{dictationRecording ? 'Stop dictation' : 'Try dictation'}</button>
-            <div className="onboarding-access">{access.map(item => <div className="onboarding-access-row" key={item.kind}><div><strong>{item.title}</strong><p>{item.description}</p></div>{permissions[item.kind] === 'granted' ? <span className="onboarding-ready"><Check size={15} />Allowed</span> : <button className="onboarding-item-button" aria-label={`Allow ${item.title}`} disabled={!desktop || Boolean(permissionBusy) || saving} onClick={() => void allow(item.kind)}>{permissionBusy === item.kind ? <LoaderCircle className="spin" size={14} /> : null}{permissions[item.kind] === 'denied' ? 'Review access' : 'Allow'}</button>}</div>)}</div>
+            <div className="onboarding-access">{access.map(item => <div className="onboarding-access-row" key={item.kind}><div><strong>{item.title}</strong><p>{item.description}</p></div>{permissions[item.kind] === 'granted' ? <span className="onboarding-ready"><Check size={15} />Allowed</span> : permissions[item.kind] === 'on-recording' || permissions[item.kind] === 'unsupported' ? <span className="onboarding-small">{permissions[item.kind] === 'on-recording' ? 'Asked when recording' : 'Unavailable on this platform'}</span> : <button className="onboarding-item-button" aria-label={`Allow ${item.title}`} disabled={!desktop || Boolean(permissionBusy) || saving} onClick={() => void allow(item.kind)}>{permissionBusy === item.kind ? <LoaderCircle className="spin" size={14} /> : null}{permissions[item.kind] === 'denied' ? 'Review access' : 'Allow'}</button>}</div>)}</div>
             <label className="onboarding-field-label" htmlFor="dictation-vocabulary">Names and words Pace should recognize</label>
             <textarea id="dictation-vocabulary" className="onboarding-practice onboarding-vocabulary" maxLength={4000} defaultValue={state.settings.dictationVocabulary || ''} placeholder="Names, places, acronyms… separated by commas" />
             <button className="onboarding-item-button onboarding-save-vocabulary" disabled={Boolean(settingBusy) || saving} onClick={event => { const value = event.currentTarget.previousElementSibling as HTMLTextAreaElement; void saveSettingText('dictationVocabulary', value.value); }}>Save vocabulary</button>
-            <label className="onboarding-field-label" htmlFor="writing-examples">Autocomplete style examples <span>(optional)</span></label>
-            <textarea id="writing-examples" className="onboarding-practice onboarding-vocabulary" maxLength={8000} defaultValue={state.settings.writingExamples || ''} placeholder="A few sentences that sound like you" />
-            <button className="onboarding-item-button onboarding-save-vocabulary" disabled={Boolean(settingBusy) || saving} onClick={event => { const value = event.currentTarget.previousElementSibling as HTMLTextAreaElement; void saveSettingText('writingExamples', value.value); }}>Save examples</button>
             <div className="onboarding-rules"><span className="onboarding-rule-mark" aria-hidden="true"><PixelPaw /></span><p>Recording starts only when you choose Dictate. Quick Hide also hides this setup; use Pace’s menu or the menu bar to bring it back. macOS may still show Pace in full-display capture.</p></div>
             <p className="onboarding-small">Accessibility, microphone and screen access are separate and optional. You can change them later in Settings.</p>
           </>}
           {step === 4 && <>
-            <p className="onboarding-lead">A writing sidekick, a meeting helper, or just a small cheetah cheering you on.</p>
+            <p className="onboarding-lead">A dictation companion, a meeting helper, or just a small cheetah cheering you on.</p>
             <div className="onboarding-home-note"><span className="onboarding-speaker">A NOTE FROM PACE</span><p>“Big day? Tiny steps.<br />We’ve got this.”</p></div>
-            <dl className="onboarding-shortcuts"><div><dt>Talk</dt><dd><kbd>{state.settings.commandShortcut}</kbd></dd></div><div><dt>Dictate</dt><dd><kbd>{state.settings.dictationShortcut}</kbd></dd></div><div><dt>Autocomplete</dt><dd><kbd>{state.settings.completionShortcut}</kbd></dd></div><div><dt>Quick Hide</dt><dd><kbd>{state.settings.hideShortcut}</kbd></dd></div></dl>
-            <p className="onboarding-small">{chatReady ? 'Your local brain is ready. Say hello when you get in.' : 'Start with Pace. Add the local brain whenever you want.'} Replay this adventure anytime in Settings.</p>
+            <dl className="onboarding-shortcuts"><div><dt>Dictation window</dt><dd><kbd>{state.settings.commandShortcut}</kbd></dd></div><div><dt>Dictate</dt><dd><kbd>{state.settings.dictationShortcut}</kbd></dd></div><div><dt>Quick Hide</dt><dd><kbd>{state.settings.hideShortcut}</kbd></dd></div></dl>
+            <p className="onboarding-small">{notesReady ? 'Your local brain is ready for meeting notes.' : 'Start with Pace. Add the local brain whenever you want.'} Replay this adventure anytime in Settings.</p>
           </>}
           {settingStatus && <p className="onboarding-setting-status" role="status">{settingStatus}</p>}
           {error && <div className="onboarding-error" role="alert">{error}</div>}

@@ -23,3 +23,5 @@ artifacts/release/
 artifacts/*.log
 *.dmg
 *.app/
+artifacts/deferred-writing-*/
+artifacts/permission-ui-*/

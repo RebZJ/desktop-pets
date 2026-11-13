@@ -43,14 +43,13 @@ try {
   await rpc('shortcut.recording', { active: true });
   let keys = await rpc('_test.shortcuts');
   assert.equal(keys.recording, true); assert(keys.registered.every(value => !value));
-  await rpc('settings.update', { patch: { completionShortcut: 'Control+Alt+F8' } });
+  await rpc('settings.update', { patch: { dictationShortcut: 'Control+Alt+F8' } });
   assert((await rpc('_test.shortcuts')).registered.every(value => !value));
   await rpc('shortcut.recording', { active: false });
   keys = await rpc('_test.shortcuts');
   assert.equal(keys.recording, false); assert(keys.registered.every(Boolean));
-  await rpc('settings.update', { patch: { completionShortcut: state.settings.completionShortcut } });
-  const availability = await rpc('completion.available');
-  assert.equal(typeof availability.available, 'boolean'); assert.equal(availability.shortcut, state.settings.completionShortcut);
+  await rpc('settings.update', { patch: { dictationShortcut: state.settings.dictationShortcut } });
+  await rpc('completion.suggest', {}, /paused/i);
   for (const enabled of (process.env.PACE_TEST_COVER_TOGGLE === '1' ? [false, true] : [true])) {
     const settings = await rpc('settings.update', { patch: { captureProtectionEnabled: enabled } });
     assert.equal(settings.captureProtectionEnabled, enabled);

@@ -5,7 +5,7 @@
 .pet-controls button{position:absolute;left:calc((100% - 32px)*var(--slot));top:var(--arc);display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:2px solid var(--cloud-ink);border-radius:0;background:var(--cloud-paper);color:var(--cloud-ink);box-shadow:0 2px 4px #152b2122;transform-origin:center;transition:transform 140ms cubic-bezier(.16,1,.3,1);pointer-events:none}
 .controls-open .pet-controls button{pointer-events:auto}
 .pet-controls button[hidden]{display:none}
-.pet-talk{--slot:0;--arc:56px}.pet-dictate{--slot:.24;--arc:18px}.pet-meeting{--slot:.5;--arc:0px}.pet-write{--slot:.76;--arc:18px}.pet-settings{--slot:1;--arc:56px}
+.pet-dictate{--slot:0;--arc:48px}.pet-meeting{--slot:.5;--arc:0px}.pet-settings{--slot:1;--arc:48px}
 .pet-controls button:hover,.pet-controls button:focus-visible{background:var(--cloud-red);color:var(--on-accent);transform:scale(1.12);z-index:1}
 .pet-controls button:hover+button,.pet-controls button:has(+button:hover){transform:scale(1.04)}
 .pet-controls button:active{transform:scale(.96)}

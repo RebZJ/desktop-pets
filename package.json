@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A playful, local-first desktop pet with dictation, cursor autocomplete and meeting help.",
+  "description": "A local desktop companion for dictation, speaker-labeled meeting notes and meeting questions.",
   "license": "MIT",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -11,8 +11,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "tauri": "tauri",
     "desktop": "tauri dev",
-    "native:build": "bash native/build.sh && bash native/scripts/bootstrap-diarization.sh",
-    "native:diarization": "bash native/scripts/bootstrap-diarization.sh",
+    "native:build": "node native/scripts/build-native.mjs",
+    "native:diarization": "node native/scripts/build-native.mjs --diarization",
     "native:test": "bash native/scripts/bootstrap-moonshine.sh && bash native/scripts/patch-mlx-audio.sh && swift test --package-path native/PaceNative -c release -j 6 && bash native/scripts/test-bridge.sh",
     "native:test:inference": "python3 native/scripts/test-inference.py",
     "test": "playwright test",
@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4",
+    "@tauri-apps/plugin-clipboard-manager": "2.5.0",
     "lucide-react": "^0.468.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"

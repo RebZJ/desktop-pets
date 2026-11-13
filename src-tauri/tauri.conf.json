@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev -- --port 1420 --strictPort",
     "devUrl": "http://127.0.0.1:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run native:build && npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -121,13 +121,10 @@
       "../native/share/": "share/",
       "../native/licenses/": "licenses/"
     },
-    "targets": [
-      "app",
-      "dmg"
-    ],
+    "targets": "all",
     "category": "Productivity",
-    "shortDescription": "A little desktop friend that helps you get things done.",
-    "longDescription": "An open-source desktop pet with local chat, cursor autocomplete, dictation, opt-in work memory, voice and meeting notes.",
+    "shortDescription": "Local dictation, meeting notes and meeting questions.",
+    "longDescription": "An open-source desktop companion with local dictation, speaker-labeled meeting notes and questions grounded in the current meeting.",
     "macOS": {
       "minimumSystemVersion": "15.0",
       "infoPlist": "Info.plist"

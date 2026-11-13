@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
 async function fixtureBridge(page: Page) {
   await page.addInitScript(() => {
     const settings = { onboardingCompleted: true, language: 'auto', voice: 'Ono_Anna', pitch: 1.05, rate: 1, volume: .65, petSize: 160, activePack: 'pace', speechEnabled: false, soundEnabled: true, memoryEnabled: false, allowedApps: [], allowedDomains: [], retentionDays: 30, meetingTips: true, clickThrough: false, hideShortcut: 'Alt+Shift+Space', commandShortcut: 'Alt+Space' };
-    const models = ['qwen3.5-4b','qwen3-tts-0.6b','whisper-turbo','nemotron-diarization'].map((id, i) => ({ id, name: ['Qwen 3.5 · 4B','Qwen 3 · Voice','Whisper · Turbo','Nemotron 3 · Speakers'][i], role: ['Chat & writing','Voice','Transcription','Speakers'][i], sizeBytes: 100_000_000, installed: true, status: 'installed' }));
+    const models = ['qwen3.5-4b','qwen3-tts-0.6b','whisper-turbo','nemotron-diarization'].map((id, i) => ({ id, name: ['Qwen 3.5 · 4B','Qwen 3 · Voice','Whisper · Turbo','Nemotron 3 · Speakers'][i], role: ['Chat & notes','Voice','Transcription','Speakers'][i], sizeBytes: 100_000_000, installed: true, status: 'installed' }));
     const state = { settings, models, meetings: [] as any[], extensions: [] as any[], packs: [{id:'pace',name:'Pace',author:'Desktop Pets'}], memory: { enabled:false,applications:[] as string[] }, pet:{visible:true,action:'idle'} };
     let memories = [{ id:'fixture-memory',app:'TextEdit',title:'Synthetic release plan',text:'The synthetic launch review is Friday.',createdAt:'2026-11-13T00:00:00Z' }];
     const messages: any[] = [];
@@ -49,11 +49,12 @@ async function fixtureBridge(page: Page) {
   });
 }
 
-test('browser preview reports native requirement without inventing a reply',async({page})=>{
-  await page.goto('/');await expect(page.getByRole('heading',{name:/A little company/})).toBeVisible();
-  await page.getByLabel('Message Pace').fill('Hello');await page.getByRole('button',{name:'Send message',exact:true}).click();
-  await expect(page.getByRole('alert')).toContainText('needs the desktop app');
-  await expect(page.locator('.message.assistant')).toHaveCount(0);
+test('browser preview opens meeting notes without inventing a transcript',async({page})=>{
+  await page.goto('/');
+  await expect(page.locator('.meetings-page')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Chat with Pace',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('textbox',{name:'Message Pace',exact:true})).toHaveCount(0);
+  await expect(page.locator('.transcript-turn')).toHaveCount(0);
 });
 
 test('all twelve real sprite strips load and pet visibility toggles',async({page})=>{
@@ -71,18 +72,13 @@ test('all twelve real sprite strips load and pet visibility toggles',async({page
   await expect(page.getByRole('button',{name:'Show desktop pet',exact:true}).last()).toBeVisible();
 });
 
-test('chat, writing preview and stale edit protection use the bridge contract',async({page})=>{
-  await fixtureBridge(page);await page.goto('/');
-  await page.getByLabel('Message Pace').fill('Help me plan');await page.getByRole('button',{name:'Send message',exact:true}).click();
-  await expect(page.locator('.message.assistant')).toContainText('Synthetic test reply');
-  await page.goto('/#writing');
-  await page.getByRole('button',{name:'Use selected text'}).click();
-  await expect(page.getByLabel('Your words',{exact:true})).toHaveValue('This sentence is very very unclear.');
-  await page.getByRole('button',{name:'Rewrite',exact:true}).click();
-  await expect(page.getByLabel('Edit Pace’s suggestion')).toHaveValue('This sentence is clear.');
-  await page.getByRole('button',{name:'Apply revision'}).click();
-  await expect(page.getByRole('alert')).toContainText('selection changed');
-  await expect(page.getByLabel('Edit Pace’s suggestion')).toHaveValue('This sentence is clear.');
+test('old chat and writing routes open meeting records without general chat',async({page})=>{
+  await fixtureBridge(page);
+  for(const route of ['chat','writing']) {
+    await page.goto('/#'+route);
+    await expect(page.locator('.meetings-page')).toBeVisible();
+    await expect(page.getByRole('textbox',{name:'Message Pace'})).toHaveCount(0);
+  }
 });
 
 test('meeting lifecycle and notes display keep the saved transcript',async({page})=>{
@@ -118,11 +114,22 @@ test('local tools require both a per-tool grant and reviewed arguments',async({p
 });
 
 test('settings persist and the narrow workspace has no horizontal overflow',async({page})=>{
-  await page.goto('/#settings');await page.getByLabel('Response language').selectOption('ja');
-  await page.reload();await expect(page.getByLabel('Response language')).toHaveValue('ja');
+  await page.goto('/#settings');await page.getByLabel('Dictation language').selectOption('ja');
+  await page.reload();await expect(page.getByLabel('Dictation language')).toHaveValue('ja');
   await page.setViewportSize({width:390,height:844});
   for(const route of ['chat','writing','meetings','memory','extensions','models','settings','pace']){
     await page.goto(`/#${route}`);await page.waitForTimeout(100);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),route).toBe(true);
   }
+});
+
+
+test('existing memory and extensions remain manageable through Settings', async ({ page }) => {
+  await fixtureBridge(page); await page.goto('/#settings');
+  await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: /Memory|Extensions/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Saved memory', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'A little context. Your choice.', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Manage extensions', exact: true }).click();
+  await expect(page.getByRole('heading', { name: /Local tools/ })).toBeVisible();
 });

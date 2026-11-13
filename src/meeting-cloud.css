@@ -6,7 +6,7 @@
 .meeting-cover{display:inline-flex;align-items:center;gap:5px;color:var(--green);font:8px/1.5 var(--ui-font,Silkscreen,monospace);cursor:help}
 .meeting-cover.off{color:var(--cloud-muted)}
 .meeting-cover-row>button{font-size:8px;color:var(--cloud-muted);min-height:26px}
-.meeting-cloud-body:has(.meeting-live){overflow:hidden}
+.meeting-cloud-body:has(.meeting-live){overflow:auto}
 .meeting-cloud-body{flex:1;min-height:0;display:flex;flex-direction:column;overflow:auto;overscroll-behavior:contain;gap:8px;padding:2px 1px 8px}
 .meeting-greeting{display:flex;align-items:center;gap:9px;flex:none}
 .meeting-greeting h1{font:12px/1.6 var(--ui-font,Silkscreen,monospace);letter-spacing:0}
@@ -27,7 +27,7 @@
 .meeting-now>div{min-width:0}
 .meeting-now h1{font:11px/1.5 var(--ui-font,Silkscreen,monospace);letter-spacing:0;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;max-width:100%}
 .meeting-now [role=status]{display:block;font-size:10px;line-height:1.7;color:var(--green)}
-.meeting-live{flex:1;min-height:0;display:flex;flex-direction:column}
+.meeting-live{flex:1;min-height:78px;display:flex;flex-direction:column}
 .meeting-section-label{display:flex;align-items:center;gap:5px;flex:none;margin-bottom:5px;color:var(--cloud-muted)}
 .meeting-section-label h2{font:9px/1.5 var(--ui-font,Silkscreen,monospace);letter-spacing:0;color:var(--cloud-ink)}
 .meeting-section-label>span{margin-left:auto;font-size:9px}
@@ -60,3 +60,9 @@
 .meeting-permission-actions{display:flex;flex-wrap:wrap;gap:4px}.meeting-cloud .cloud-error button{text-decoration:underline;text-underline-offset:3px;min-height:26px;font-family:var(--body-font);font-size:10px}
 
 .meeting-error-message{margin:0}.meeting-cloud .cloud-error:has(button){max-height:none;overflow:visible}.meeting-cloud .cloud-error:has(button)>.meeting-error-message{max-height:45px;overflow:auto}.meeting-permission-actions{margin-top:4px}
+
+.meeting-copilot{display:flex;align-items:center;gap:5px;flex:none;border-top:1px solid var(--cloud-line);padding:5px 0}
+.meeting-copilot>input{flex:1;min-width:0;min-height:28px;padding:3px 6px;border:1px solid var(--cloud-line);font:12px/1.5 var(--body-font)}
+.meeting-copilot>button{flex:none;width:30px;min-height:28px;background:var(--cloud-red);color:var(--on-accent)}
+.meeting-copilot-answer{flex:none;max-height:90px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.55 var(--body-font);padding:5px 0}
+.meeting-cloud .meeting-copilot>button:hover:not(:disabled){background:var(--accent-hover)}

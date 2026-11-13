@@ -75,7 +75,7 @@ export const initialState: AppState = {
     { id: 'moonshine-tiny-zh', name: 'Moonshine Tiny · Chinese', role: 'Chinese dictation', sizeBytes: 32_300_000, installed: false, status: 'not-installed' },
     { id: 'moonshine-tiny-ja', name: 'Moonshine Tiny · Japanese', role: 'Japanese dictation', sizeBytes: 32_300_000, installed: false, status: 'not-installed' },
     { id: 'moonshine-tiny-es', name: 'Moonshine Tiny · Spanish', role: 'Spanish dictation', sizeBytes: 32_300_000, installed: false, status: 'not-installed' },
-    { id: 'qwen3.5-4b', name: 'Qwen 3.5 · 4B', role: 'Chat & writing', sizeBytes: 3_060_000_000, installed: false, status: 'not-installed' },
+    { id: 'qwen3.5-4b', name: 'Qwen 3.5 · 4B', role: 'Meeting notes & questions', sizeBytes: 3_060_000_000, installed: false, status: 'not-installed' },
     { id: 'kitten-tts-micro-0.8', name: 'Kitten TTS Micro · 40M', role: 'Quick English voice', sizeBytes: 149_000_000, installed: false, status: 'not-installed' },
     { id: 'qwen3-tts-0.6b', name: 'Qwen 3 TTS · 0.6B', role: 'Pace’s voice', sizeBytes: 1_970_000_000, installed: false, status: 'not-installed' },
     { id: 'whisper-turbo', name: 'Whisper large v3 turbo', role: 'Transcription', sizeBytes: 574_000_000, installed: false, status: 'not-installed' },
@@ -162,4 +162,12 @@ export function normalizeSettings(value?: Partial<Settings>): Settings {
 
 export function normalizeState(value: Partial<AppState>): AppState {
   return { ...initialState, ...value, settings: normalizeSettings(value.settings), memory: { ...initialState.memory, ...value.memory }, pet: { ...initialState.pet, ...value.pet }, models: Array.isArray(value.models) ? value.models : initialState.models, meetings: Array.isArray(value.meetings) ? value.meetings : [], extensions: Array.isArray(value.extensions) ? value.extensions : [], packs: Array.isArray(value.packs) ? value.packs : initialState.packs };
+}
+
+
+export async function copyText(text: string): Promise<void> {
+  if (isNative()) {
+    const { writeText } = await import('@tauri-apps/plugin-clipboard-manager');
+    await writeText(text);
+  } else await navigator.clipboard.writeText(text);
 }

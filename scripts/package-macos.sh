@@ -26,11 +26,11 @@ may prevent opening a copy downloaded from the internet. Source and build
 instructions: https://github.com/RebZJ/desktop-pets
 
 Drag Desktop Pets to Applications. Onboarding begins with model downloads:
-about 45 MB for English dictation, 149 MB for Kiki voice, 3.06 GB for local chat.
-Meeting and multilingual voice packs are optional. Core inference runs offline
-after installation. Ambient memory starts off.
+about 45 MB for English dictation. Meeting notes and questions use the local
+Qwen GGUF model; meeting transcription and diarization are separate downloads.
+Inference runs offline after installation. Writing and ambient capture are paused.
 
-Microphone, system-audio and cross-app editing permissions need your review.
+Microphone, system-audio and cross-app insertion permissions need your review.
 Read the validation report before relying on live meetings or screen sharing.
 TXT
 dmg="$output/Desktop-Pets_0.1.0_arm64.dmg"

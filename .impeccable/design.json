@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-13T11:29:07.749720+00:00",
+  "generatedAt": "2026-11-13T13:02:42.023287+00:00",
   "title": "Design System: Desktop Pets",
   "extensions": {
     "colorMeta": {
@@ -454,7 +454,7 @@
       "kind": "custom",
       "refersTo": "cloud",
       "description": "Layered dialogue with the pet’s stepped speech tail.",
-      "html": "<section class=\"ds-cloud\"><p>What would you like to do?</p><button>Talk</button><i aria-hidden=\"true\"></i></section>",
+      "html": "<section class=\"ds-cloud\"><p>Your words appear here.</p><button>Start dictation</button><i aria-hidden=\"true\"></i></section>",
       "css": ".ds-cloud{position:relative;margin:8px 10px 20px;padding:12px;border:3px solid var(--ink,#1c3422);border-radius:0;background:var(--surface,#fff8e6);color:var(--ink,#1c3422);box-shadow:inset 0 0 0 3px var(--surface,#fff8e6),inset 0 0 0 4px var(--line,#a7b395),0 4px 12px #152b2122}.ds-cloud p{font:14px/1.65 var(--body-font,Inter,sans-serif)}.ds-cloud button{font:10px/1.5 var(--ui-font,\"Pixelify Sans\",sans-serif);border:0;border-radius:0;background:var(--accent,#9e2e21);color:var(--on-accent,#fff8e6);padding:6px 7px;min-height:30px}.ds-cloud button:hover{background:var(--accent-hover,#7c1e14)}.ds-cloud button:focus-visible{outline:2px solid var(--accent,#9e2e21);outline-offset:3px}.ds-cloud i{position:absolute;bottom:-12px;left:calc(50% - 9px);width:18px;height:12px;background:var(--surface,#fff8e6);border:3px solid var(--ink,#1c3422);border-top:0}.ds-cloud i:after{content:\"\";position:absolute;bottom:-6px;left:3px;width:6px;height:6px;background:var(--ink,#1c3422)}"
     },
     {
@@ -467,8 +467,8 @@
     {
       "name": "Pet selector",
       "kind": "custom",
-      "description": "Hover or keyboard focus reveals a five-icon semicircle above Pace; no labels beneath the pet.",
-      "html": "<div class=\"ds-pet-actions\"><button class=\"ds-pet-focus\" aria-label=\"Pet Pace\">Pace</button><nav class=\"ds-selector\" aria-label=\"Pace actions\"><button aria-label=\"Talk\" title=\"Talk\" style=\"--slot:0;--arc:56px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M21 11a8 8 0 0 1-8 8H7l-4 3 1-6a8 8 0 1 1 17-5Z\"/></svg></button><button aria-label=\"Dictate\" title=\"Dictate\" style=\"--slot:0.24;--arc:18px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M9 3h6v12H9z M5 11v2a7 7 0 0 0 14 0v-2 M12 20v3\"/></svg></button><button aria-label=\"Meeting\" title=\"Meeting\" style=\"--slot:0.5;--arc:0px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M6 3h12v18H6z M9 8h6 M9 12h6 M9 16h4\"/></svg></button><button aria-label=\"Write\" title=\"Write\" style=\"--slot:0.76;--arc:18px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z\"/></svg></button><button aria-label=\"Settings\" title=\"Settings\" style=\"--slot:1;--arc:56px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M5 7h14 M5 17h14 M9 4v6 M15 14v6\"/></svg></button></nav></div>",
+      "description": "Hover or keyboard focus reveals a three-icon semicircle above Pace; no labels beneath the pet.",
+      "html": "<div class=\"ds-pet-actions\"><button class=\"ds-pet-focus\" aria-label=\"Pet Pace\">Pace</button><nav class=\"ds-selector\" aria-label=\"Pace actions\"><button aria-label=\"Dictate\" title=\"Dictate\" style=\"--slot:0;--arc:48px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M9 3h6v12H9z M5 11v2a7 7 0 0 0 14 0v-2 M12 20v3\"/></svg></button><button aria-label=\"Meeting\" title=\"Meeting\" style=\"--slot:0.5;--arc:0px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M6 3h12v18H6z M9 8h6 M9 12h6 M9 16h4\"/></svg></button><button aria-label=\"Settings\" title=\"Settings\" style=\"--slot:1;--arc:48px\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M5 7h14 M5 17h14 M9 4v6 M15 14v6\"/></svg></button></nav></div>",
       "css": ".ds-pet-actions{position:relative;width:224px;height:224px;display:flex;align-items:flex-end;justify-content:center}.ds-pet-focus{border:0;background:none;color:var(--ink,#1c3422);font:16px/1.4 var(--ui-font,\"Pixelify Sans\",sans-serif);padding:35px}.ds-selector{position:absolute;top:4px;left:4px;right:4px;height:94px;opacity:0;visibility:hidden;transition:opacity 120ms cubic-bezier(.16,1,.3,1),visibility 120ms}.ds-pet-actions:hover .ds-selector,.ds-pet-actions:focus-within .ds-selector{opacity:1;visibility:visible}.ds-selector button{position:absolute;left:calc((100% - 32px)*var(--slot));top:var(--arc);display:grid;place-items:center;width:32px;height:32px;padding:0;border:2px solid var(--ink,#1c3422);border-radius:0;background:var(--surface,#fff8e6);color:var(--ink,#1c3422);box-shadow:0 2px 4px #152b2122;transition:transform 140ms cubic-bezier(.16,1,.3,1)}.ds-selector button:hover,.ds-selector button:focus-visible{background:var(--accent,#9e2e21);color:var(--on-accent,#fff8e6);transform:scale(1.12)}.ds-selector button:hover+button,.ds-selector button:has(+button:hover){transform:scale(1.04)}.ds-pet-actions button:focus-visible{outline:2px solid var(--accent,#9e2e21);outline-offset:2px}@media(prefers-reduced-motion:reduce){.ds-selector,.ds-selector button{transition:none;transform:none!important}}"
     }
   ],
@@ -510,7 +510,7 @@
       "Don’t put pixel lettering in long editable prose or transcripts.",
       "Don’t fabricate replies, transcripts, download completion or capture success.",
       "Don’t place persistent labels or a tool strip beneath Pace.",
-      "Don’t replace the companion’s explicit cursor continuation with a primary rewrite workbench.",
+      "Keep deferred writing controls and shortcut bindings out of current product flows.",
       "Don’t promise universal screen-capture exclusion or continuous background autocomplete."
     ]
   }

@@ -81,11 +81,12 @@ test('appearance rejects unsupported writes and repairs corrupt browser values',
 
 test('every shortcut records a chosen combination and persists after reload', async ({ page }) => {
   await browserSettings(page); await page.goto('/#settings');
+  await expect(page.getByLabel('Autocomplete shortcut', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Writing style examples', { exact: true })).toHaveCount(0);
   const choices = [
     ['Quick hide shortcut', 'Shift+F8'],
-    ['Talk shortcut', 'Control+Alt+K'],
+    ['Dictation window shortcut', 'Control+Alt+K'],
     ['Dictation shortcut', 'Alt+Shift+J'],
-    ['Autocomplete shortcut', 'Control+Alt+ArrowRight'],
   ];
   for (const [label, shortcut] of choices) {
     const input = page.getByRole('textbox', { name: label, exact: true });
@@ -127,11 +128,11 @@ test('native settings events reach all window kinds and gear navigation focuses 
   await page.evaluate(() => (window as any).__themeEvents.emit('navigation.open', { page: 'settings', section: 'shortcuts' }));
   await expect(page.getByRole('heading', { name: 'Keyboard shortcuts' })).toBeVisible();
   await expect(page.locator('#shortcuts')).toBeFocused();
-  for (const label of ['Quick hide shortcut', 'Talk shortcut', 'Dictation shortcut', 'Autocomplete shortcut']) await expect(page.getByLabel(label, { exact: true })).toBeVisible();
-  await page.getByLabel('Talk shortcut', { exact: true }).click();
-  await expect(page.getByLabel('Talk shortcut', { exact: true }).locator('..')).toHaveClass(/is-recording/);
-  await page.getByLabel('Talk shortcut', { exact: true }).press('Alt+Q');
-  await page.getByRole('button', { name: 'Save talk shortcut', exact: true }).click();
+  for (const label of ['Quick hide shortcut', 'Dictation window shortcut', 'Dictation shortcut']) await expect(page.getByLabel(label, { exact: true })).toBeVisible();
+  await page.getByLabel('Dictation window shortcut', { exact: true }).click();
+  await expect(page.getByLabel('Dictation window shortcut', { exact: true }).locator('..')).toHaveClass(/is-recording/);
+  await page.getByLabel('Dictation window shortcut', { exact: true }).press('Alt+Q');
+  await page.getByRole('button', { name: 'Save dictation window shortcut', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('already in use');
   expect(await page.evaluate(() => location.hash)).toBe('#settings');
   for (const section of ['appearance', 'privacy']) {
@@ -140,4 +141,20 @@ test('native settings events reach all window kinds and gear navigation focuses 
   }
   await page.evaluate(() => (window as any).__themeEvents.emit('navigation.open', { page: 'settings', section: '__invalid__' }));
   await expect(page.locator('#privacy')).toBeFocused();
+});
+
+
+test('active shortcut saves preserve deferred writing preferences', async ({ page }) => {
+  const deferred = { completionShortcut: 'Control+Alt+L', writingExamples: 'Keep these saved examples.' };
+  await page.addInitScript(({ key, settings }) => {
+    localStorage.setItem(key, JSON.stringify({ settings: { onboardingCompleted: true, soundEnabled: false, ...settings } }));
+  }, { key: storageKey, settings: deferred });
+  await page.goto('/#settings');
+  const input = page.getByRole('textbox', { name: 'Dictation window shortcut', exact: true });
+  await input.click(); await input.press(deferred.completionShortcut); await input.press('Enter');
+  await expect(page.getByRole('button', { name: 'Save dictation window shortcut', exact: true })).toBeDisabled();
+  const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).settings, storageKey);
+  expect(saved).toMatchObject({ ...deferred, commandShortcut: deferred.completionShortcut });
+  await expect(page.getByLabel('Autocomplete shortcut', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Writing style examples', { exact: true })).toHaveCount(0);
 });

@@ -43,7 +43,7 @@ enum BridgeService {
         case "writing.apply": return try applyWriting(params)
         case "dictation.capture": return try DictationService.capture()
         case "dictation.insert": return try DictationService.insert(params)
-        case "dictation.discard": return DictationService.discard()
+        case "dictation.discard": return DictationService.discard(params)
         case "completion.available": return CompletionService.availability()
         case "completion.capture": return try CompletionService.capture()
         case "completion.apply": return try await CompletionService.apply(params)
@@ -51,7 +51,11 @@ enum BridgeService {
         case "memory.capture": return try captureMemory(params)
         default:
             if let result = try await MeetingService.handle(method: method, params: params, emit: emit) { return result }
+            #if PACE_PLATFORM_ONLY
+            return nil
+            #else
             return try await DiarizationService.handle(method: method, params: params, emit: emit)
+            #endif
         }
     }
 

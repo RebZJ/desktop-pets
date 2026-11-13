@@ -10,6 +10,7 @@ async fn start(app: &AppHandle, state: &AppState, ui_epoch: u64) -> Result<Value
         .as_str()
         .or_else(|| settings["language"].as_str())
         .unwrap_or("en");
+    state.engine.require_dictation_model(language)?;
     if state.dictating.swap(true, Ordering::SeqCst) {
         return Err("Dictation is already recording".into());
     }
@@ -18,8 +19,8 @@ async fn start(app: &AppHandle, state: &AppState, ui_epoch: u64) -> Result<Value
         return Err("Dictation cancelled".into());
     }
     let result = state
-        .native
-        .request(
+        .engine
+        .capture_request(
             app,
             "audio.start",
             json!({"outputDir":state.data_dir.join("recordings"),"language":language,"_speechEpoch":state.speech_epoch.load(Ordering::SeqCst)}),
@@ -28,6 +29,7 @@ async fn start(app: &AppHandle, state: &AppState, ui_epoch: u64) -> Result<Value
     if result.is_err() {
         state.dictating.store(false, Ordering::SeqCst);
     } else {
+        state.engine.warm(language.to_owned());
         action(app, "dictate");
         emit(app, "dictation.state", json!({"phase":"recording"}));
     }
@@ -60,34 +62,22 @@ pub async fn toggle(app: AppHandle) -> Result<Value, String> {
     }
     let ui_epoch = state.ui_epoch.load(Ordering::SeqCst);
     let _ = set_pet_visible(&app, true);
-    let permission = state
-        .native
-        .request(&app, "permissions.status", json!({}))
-        .await
-        .and_then(|status| require_accessibility(&status));
-    if !request_is_current(&state.ui_epoch, ui_epoch) {
-        return Err("Dictation cancelled".into());
-    }
-    if let Err(error) = permission {
-        open_companion_for_request(&app, "bubble", ui_epoch);
-        emit(
-            &app,
-            "dictation.state",
-            json!({"phase":"error","error":error}),
-        );
-        return Err(error);
-    }
-    let target = match state
-        .native
-        .request(&app, "dictation.capture", json!({}))
-        .await
-    {
-        Ok(target) => target,
-        Err(error) => json!({"captureError":error}),
-    };
-    *state.dictation_target.lock().map_err(|e| e.to_string())? = Some(target.clone());
     match start(&app, &state, ui_epoch).await {
         Ok(mut result) => {
+            // Recording already runs; slow accessibility must not delay the microphone.
+            let target = match tokio::time::timeout(
+                std::time::Duration::from_millis(400),
+                state.native.request(&app, "dictation.capture", json!({})),
+            )
+            .await
+            {
+                Ok(Ok(target)) => target,
+                Ok(Err(error)) => json!({"captureError":error}),
+                Err(_) => {
+                    json!({"captureError":"The text field took too long to respond. Your words will be ready to copy."})
+                }
+            };
+            *state.dictation_target.lock().map_err(|e| e.to_string())? = Some(target.clone());
             if !request_is_current(&state.ui_epoch, ui_epoch) {
                 return finish_locked(&app, &state, false).await;
             }
@@ -100,10 +90,6 @@ pub async fn toggle(app: AppHandle) -> Result<Value, String> {
                 .lock()
                 .map_err(|e| e.to_string())?
                 .take();
-            let _ = state
-                .native
-                .request(&app, "dictation.discard", json!({}))
-                .await;
             if error != "Dictation cancelled" {
                 open_companion_for_request(&app, "bubble", ui_epoch);
             }
@@ -137,14 +123,17 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
     let mut data = match transcript {
         Ok(data) => data,
         Err(error) => {
-            let _ = state
-                .native
-                .request(app, "dictation.discard", json!({}))
-                .await;
+            let saved_audio = state
+                .engine
+                .saved_dictation
+                .lock()
+                .map(|saved| saved.is_some())
+                .unwrap_or(false);
+            discard_target(app, state, target.as_ref()).await;
             emit(
                 app,
                 "dictation.state",
-                json!({"phase":"error","error":error}),
+                json!({"phase":"error","error":error,"savedAudio":saved_audio}),
             );
             if target.is_some() {
                 if insert {
@@ -153,7 +142,7 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
                 emit(
                     app,
                     "dictation.finished",
-                    json!({"error":error,"inserted":false}),
+                    json!({"error":error,"inserted":false,"savedAudio":saved_audio}),
                 );
             }
             return Err(error);
@@ -185,10 +174,7 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
             }
         }
     }
-    let _ = state
-        .native
-        .request(app, "dictation.discard", json!({}))
-        .await;
+    discard_target(app, state, target.as_ref()).await;
     let inserted = data["inserted"] == true;
     emit(
         app,
@@ -204,40 +190,31 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
     Ok(data)
 }
 
+async fn discard_target(app: &AppHandle, state: &AppState, target: Option<&Value>) {
+    let Some(id) = target.and_then(|target| target["targetId"].as_str()) else {
+        return;
+    };
+    // A delayed cleanup may only discard this target; it cannot clear a newer capture.
+    let _ = tokio::time::timeout(
+        std::time::Duration::from_millis(100),
+        state
+            .native
+            .request(app, "dictation.discard", json!({"targetId":id})),
+    )
+    .await;
+}
+
 fn request_is_current(epoch: &AtomicU64, requested_epoch: u64) -> bool {
     epoch.load(Ordering::SeqCst) == requested_epoch
 }
 
-fn require_accessibility(status: &Value) -> Result<(), String> {
-    if status["accessibility"] == "granted" {
-        return Ok(());
-    }
-    Err("Enable Accessibility in System Settings to dictate into another app. Then return to your document and try again.".into())
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{request_is_current, require_accessibility};
-    use serde_json::json;
+    use super::request_is_current;
     use std::sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
     };
-
-    #[test]
-    fn global_dictation_requires_explicit_accessibility_grant() {
-        assert!(require_accessibility(&json!({"accessibility":"granted"})).is_ok());
-        for status in [
-            json!({"accessibility":"denied"}),
-            json!({"accessibility":"unknown"}),
-            json!({}),
-            json!({"accessibility":true}),
-        ] {
-            assert!(require_accessibility(&status)
-                .unwrap_err()
-                .contains("Enable Accessibility in System Settings"));
-        }
-    }
 
     #[tokio::test]
     async fn hide_invalidates_delayed_dictation_start_even_after_show() {

@@ -40,6 +40,19 @@ pub fn settings_section(page: &str, section: &str) -> Option<&'static str> {
     }
 }
 
+pub fn pet_position(
+    work: [i32; 4],
+    window: [i32; 2],
+    margin: i32,
+    current: Option<[i32; 2]>,
+) -> (i32, i32) {
+    let [x, y, width, height] = work;
+    let max_x = (x + width - window[0] - margin).max(x + margin);
+    let max_y = (y + height - window[1] - margin).max(y + margin);
+    let [px, py] = current.unwrap_or([max_x, max_y]);
+    (px.clamp(x + margin, max_x), py.clamp(y + margin, max_y))
+}
+
 pub fn panel_position(pet: [i32; 4], monitor: [i32; 4], panel: [i32; 2], gap: i32) -> (i32, i32) {
     let [px, py, pw, ph] = pet;
     let [mx, my, mw, mh] = monitor;
@@ -73,6 +86,27 @@ pub fn panel_position(pet: [i32; 4], monitor: [i32; 4], panel: [i32; 2], gap: i3
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn initial_pet_keeps_every_arc_button_inside_the_usable_monitor() {
+        for work in [[0, 48, 3024, 1840], [-1920, 20, 1920, 1040]] {
+            for sprite in [128, 160, 208] {
+                let window = [(sprite + 64) * 2; 2];
+                let (x, y) = pet_position(work, window, 24, None);
+                assert!(x >= work[0] + 24 && y >= work[1] + 24);
+                assert!(x + window[0] <= work[0] + work[2] - 24);
+                assert!(y + window[1] <= work[1] + work[3] - 24);
+                let (grown_x, grown_y) = pet_position(
+                    work,
+                    window,
+                    24,
+                    Some([work[0] + work[2] - 200, work[1] + work[3] - 200]),
+                );
+                assert!(grown_x + window[0] <= work[0] + work[2] - 24);
+                assert!(grown_y + window[1] <= work[1] + work[3] - 24);
+            }
+        }
+    }
+
     #[test]
     fn cover_request_visits_all_five_windows_even_after_failure() {
         let mut requested = Vec::new();

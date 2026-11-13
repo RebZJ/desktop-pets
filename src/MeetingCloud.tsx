@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AudioLines, EyeOff, FileText, LoaderCircle, Shield, Square, X } from 'lucide-react';
+import { ArrowUp, AudioLines, EyeOff, FileText, LoaderCircle, Shield, Square, X } from 'lucide-react';
 import { api, clockTime, errorText, subscribe, type AppState, type Meeting } from './api';
 import { Pace } from './Pace';
 import './meeting-cloud.css';
@@ -22,6 +22,10 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
   const [tip, setTip] = useState<{ sessionId: string; text: string }>();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState<{ meetingId: string; text: string }>();
+  const [asking, setAsking] = useState(false);
+  const request = useRef<string | undefined>(undefined);
   const transcript = useRef<HTMLDivElement>(null);
   const recordingId = meeting?.status === 'recording' ? meeting.id : undefined;
   const locked = Boolean(active);
@@ -39,6 +43,8 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
     return () => { cancelled = true; };
   }, []);
   useEffect(() => { if (active) { setSelectedId(active.id); setStartingNew(false); } }, [active?.id]);
+  useEffect(() => { request.current = undefined; setAsking(false); setQuestion(''); setAnswer(undefined); }, [meeting?.id]);
+  useEffect(() => () => { request.current = undefined; }, []);
   useEffect(() => { setEditing(false); setDraft(meeting ? sessionStorage.getItem(`pace.notes-draft.${meeting.id}`) ?? meeting.notes ?? '' : ''); }, [meeting?.id]);
   useEffect(() => { if (editing && meeting) sessionStorage.setItem(`pace.notes-draft.${meeting.id}`, draft); }, [draft, editing, meeting?.id]);
   useEffect(() => {
@@ -87,6 +93,18 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
     if (!meeting) return;
     await api(retry ? 'meeting.retry' : 'meeting.summarize', { id: meeting.id, language: state.settings.language }); await refresh();
   });
+  const ask = async () => {
+    if (!meeting || !meeting.segments.length || !question.trim() || request.current) return;
+    const text = question.trim(); const id = crypto.randomUUID(); const meetingId = meeting.id;
+    request.current = id; setAsking(true); setError('');
+    try {
+      const result = await api<{ text: string }>('chat.send', { meetingId, conversationId: `meeting-${meetingId}`, text, quiet: true, clientRequestId: id });
+      if (request.current !== id) return;
+      if (!result.text?.trim()) throw new Error('Pace returned an empty answer. Try your question again.');
+      setAnswer({ meetingId, text: result.text }); setQuestion(current => current.trim() === text ? '' : current);
+    } catch (cause) { if (request.current === id) setError(errorText(cause)); }
+    finally { if (request.current === id) { request.current = undefined; setAsking(false); } }
+  };
   const currentTip = meeting?.status === 'recording' && tip && tip.sessionId === meeting.id && state.settings.meetingTips ? tip.text : '';
 
   return <main className="pace-cloud meeting-cloud" aria-label="Meeting with Pace" aria-busy={Boolean(busy)}>
@@ -107,8 +125,10 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
         <div className="meeting-now"><Pace action={meeting.status === 'recording' ? 'listen' : 'type'} size={36} pack={state.packs.find(pack => pack.id === state.settings.activePack)} /><div><h1 title={meeting.title}>{meeting.title}</h1><span role="status">{meeting.status === 'recording' ? '● Live · voice off' : meeting.status === 'finalizing' ? 'Finishing speaker labels & notes…' : meeting.status === 'interrupted' ? 'Saved · needs recovery' : 'Saved on your device'}</span></div></div>
         {meeting.error && <p className="meeting-record-error" role="status">{meeting.error}</p>}
         {locked ? <><section className="meeting-live"><div className="meeting-section-label"><AudioLines size={12} /><h2>Latest words</h2><span>Provisional labels</span></div><div className="meeting-live-words" ref={transcript} tabIndex={0} aria-label="Live transcript">{meeting.segments.length ? meeting.segments.slice(-4).map((segment, index) => <div className="meeting-live-turn" key={segment.id || `${segment.start}-${index}`}><span>{segment.speaker} · {clockTime(segment.start)}</span><p>{segment.text}</p></div>) : <p className="meeting-waiting">Listening for the first words. Nothing transcribed yet.</p>}</div></section><aside className="meeting-tip" aria-label="Quiet meeting help"><strong>PACE’S QUIET NUDGE</strong><p aria-live="polite">{currentTip || (meeting.status === 'finalizing' ? 'Your provisional transcript is safe while processing finishes.' : state.settings.meetingTips ? 'A useful question will appear here when Pace has one.' : 'Live tips are off in Settings. Your transcript still appears above.')}</p></aside></> : <section className="meeting-cloud-notes"><div className="meeting-section-label"><FileText size={12} /><h2>Your notes</h2><button disabled={Boolean(busy)} onClick={() => { setDraft(sessionStorage.getItem(`pace.notes-draft.${meeting.id}`) ?? meeting.notes ?? ''); setEditing(!editing); }}>{editing ? 'Back' : meeting.notes ? 'Edit' : 'Add your own'}</button></div>{editing ? <textarea aria-label="Edit meeting notes" value={draft} maxLength={100000} disabled={Boolean(busy)} onChange={event => setDraft(event.target.value)} /> : <div className="meeting-notes-text" tabIndex={0}>{meeting.notes || 'No notes yet. Make notes from the saved transcript, or add your own.'}{Boolean(meeting.actionItems?.length) && <ul>{meeting.actionItems!.map((item, index) => <li key={index}>{typeof item === 'string' ? item : `${item.done ? '✓ ' : ''}${item.text}`}</li>)}</ul>}</div>}</section>}
+        {answer?.meetingId === meeting.id && <p className="meeting-copilot-answer" aria-label="Pace’s meeting answer" tabIndex={0}>{answer.text}</p>}
       </>}
     </div>
+    {meeting && !editing && <form className="meeting-copilot" onSubmit={event => { event.preventDefault(); void ask(); }}><input aria-label="Ask Pace about this meeting" placeholder={meeting.segments.length ? 'Ask about this meeting…' : 'Questions unlock with the transcript'} value={question} maxLength={8000} onChange={event => setQuestion(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)) event.preventDefault(); }} /><button aria-label="Ask Pace" title="Ask Pace · this meeting only, voice off" disabled={asking || !question.trim() || !meeting.segments.length}>{asking ? <LoaderCircle size={14} className="spin" /> : <ArrowUp size={14} />}</button></form>}
     <footer className="meeting-cloud-actions">
       {!meeting ? <><span>{state.settings.hideShortcut} hides Pace</span><button className="meeting-primary" type="submit" form="meeting-start-form" disabled={Boolean(busy) || !ready || (!microphone && !system)}>{busy === 'start' ? <LoaderCircle size={13} className="spin" /> : <AudioLines size={13} />}{busy === 'start' ? 'Starting…' : 'Start meeting'}</button></> : meeting.status === 'recording' ? <><span>Tips + notes, together.</span><button className="meeting-primary" disabled={Boolean(busy)} onClick={() => void run('stop', async () => { await api('meeting.stop', { id: meeting.id }); await refresh(); })}>{busy === 'stop' ? <LoaderCircle size={12} className="spin" /> : <Square size={12} />}{busy === 'stop' ? 'Stopping…' : 'Stop meeting'}</button></> : meeting.status === 'finalizing' ? <><span>Recording has stopped.</span><button disabled><LoaderCircle size={12} className="spin" />Finishing…</button></> : editing ? <><span>Draft kept until saved.</span><button className="meeting-primary" disabled={Boolean(busy)} onClick={save}>{busy === 'save' ? 'Saving…' : 'Save notes'}</button></> : <><button className="meeting-records" disabled={Boolean(busy)} onClick={() => open('meetings')}>Full record ↗</button>{!meeting.notes && <button disabled={Boolean(busy) || (meeting.status !== 'interrupted' && !meeting.segments.length)} onClick={() => process(meeting.status === 'interrupted')}>{busy === 'notes' ? 'Making…' : meeting.status === 'interrupted' ? 'Retry' : 'Make notes'}</button>}<button className="meeting-primary" disabled={Boolean(busy)} onClick={() => { setStartingNew(true); setTitle(''); setError(''); }}>New meeting</button></>}
     </footer><span className="cloud-tail" aria-hidden="true" />
