@@ -251,7 +251,16 @@ Project names…" onBlur={event => { if (event.target.value !== state.settings.d
 
 function Permissions({ run, busy }: Pick<Shared, 'run' | 'busy'>) {
   const [permissions, setPermissions] = useState<Record<string, string>>({});
-  useEffect(() => { void api<Record<string, string>>('permissions.status').then(setPermissions).catch(() => {}); }, []);
+  useEffect(() => {
+    let active = true; let version = 0;
+    const refresh = () => {
+      const requested = ++version;
+      void api<Record<string, string>>('permissions.status').then(value => { if (active && version === requested) setPermissions(value); }).catch(() => {});
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { active = false; window.removeEventListener('focus', refresh); };
+  }, []);
   const request = async (kind: string) => { const value = await run(`permissions.${kind}`, () => api<Record<string, string>>('permissions.request', { kind })); if (value) setPermissions(value); };
   return <section className="settings-section"><h2>Desktop access</h2><div className="settings-group">{[
     { kind: 'accessibility', title: 'Dictation & application context', description: 'Type dictated words into your chosen app and read context from applications you explicitly allow.' },

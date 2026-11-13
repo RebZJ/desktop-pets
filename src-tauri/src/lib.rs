@@ -1919,6 +1919,7 @@ async fn finalize_meeting_inner(
             .unwrap_or(0.0)
             .total_cmp(&b["start"].as_f64().unwrap_or(0.0))
     });
+    require_meeting_speech(&all)?;
     meeting["segments"] = json!(all);
     meeting["error"] = Value::Null;
     state.db.put("meeting", id, &meeting)?;
@@ -1928,6 +1929,17 @@ async fn finalize_meeting_inner(
         delete_recordings(state, &result);
     }
     Ok(result)
+}
+
+fn require_meeting_speech(segments: &[Value]) -> Result<(), String> {
+    if !segments.iter().any(|segment| {
+        segment["text"]
+            .as_str()
+            .is_some_and(|text| !text.trim().is_empty())
+    }) {
+        return Err("No speech was detected. Check your meeting audio source; the recording is preserved for retry.".into());
+    }
+    Ok(())
 }
 
 fn speaker_label(labels: &[Value], start: f64, end: f64, word: bool) -> Option<&Value> {
@@ -2203,6 +2215,12 @@ mod tests {
         assert_eq!(merged.len(), 2);
         assert_eq!(merged[0]["text"], "Hello world");
         assert_eq!(merged[1]["text"], "你好世界");
+    }
+    #[test]
+    fn silent_meetings_require_recovery_instead_of_successful_audio_deletion() {
+        assert!(require_meeting_speech(&[]).is_err());
+        assert!(require_meeting_speech(&[json!({"text":"  "})]).is_err());
+        assert!(require_meeting_speech(&[json!({"text":"Meeting starts on Monday"})]).is_ok());
     }
     #[test]
     fn word_onsets_keep_the_last_word_with_its_speaker_across_a_pause() {

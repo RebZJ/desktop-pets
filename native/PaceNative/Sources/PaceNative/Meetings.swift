@@ -199,10 +199,12 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unc
         guard let display = content.displays.first else { throw BridgeError("display_unavailable", "No display is available for system audio capture.") }
         let filter: SCContentFilter
         if let applicationBundleId {
-            guard let application = content.applications.first(where: { $0.bundleIdentifier == applicationBundleId }) else {
+            let applications = content.applications.filter { $0.bundleIdentifier == applicationBundleId }
+            guard !applications.isEmpty else {
                 throw BridgeError("meeting_app_unavailable", "The selected meeting application is not running or cannot be captured.")
             }
-            filter = SCContentFilter(display: display, including: [application], exceptingWindows: [])
+            // Browsers can have multiple independently launched processes with the same app identity.
+            filter = SCContentFilter(display: display, including: applications, exceptingWindows: [])
         } else {
             filter = SCContentFilter(display: display, excludingWindows: [])
         }

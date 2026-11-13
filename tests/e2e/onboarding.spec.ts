@@ -16,7 +16,7 @@ async function onboardingFixture(page: Page, options: FixtureOptions = {}) {
     let failures = options.saveFailures || 0;
     let dictating = false;
     let busyStopOnce = Boolean(options.busyStopOnce);
-    const fixture: any = { state, calls };
+    const fixture: any = { state, calls, permissions };
     (window as any).__onboardingFixture = fixture;
     window.__DESKTOP_PETS_BRIDGE__ = async (method, params) => {
       calls.push({ method, params: structuredClone(params) });
@@ -517,4 +517,19 @@ test('settings preserves native granted, denied and requestable access controls'
   await access.getByRole('button', { name: 'Review access', exact: true }).click();
   await expect(access.getByText('Allowed', { exact: true })).toHaveCount(2);
   expect((await bridgeCalls(page)).filter(call => call.method === 'permissions.request').map(call => call.params.kind)).toEqual(['microphone']);
+});
+
+
+test('settings refreshes an externally granted permission when Pace regains focus', async ({ page }) => {
+  await onboardingFixture(page, { completed: true });
+  await page.goto('/#settings');
+  const access = page.locator('.settings-section').filter({ has: page.getByRole('heading', { name: 'Desktop access', exact: true }) });
+  await expect(access.getByRole('button', { name: 'Review access', exact: true })).toHaveCount(3);
+  await page.evaluate(() => {
+    (window as any).__onboardingFixture.permissions.screenRecording = 'granted';
+    window.dispatchEvent(new Event('focus'));
+  });
+  await expect(access.getByText('Allowed', { exact: true })).toHaveCount(1);
+  await expect(access.getByRole('button', { name: 'Review access', exact: true })).toHaveCount(2);
+  expect((await bridgeCalls(page)).filter(call => call.method === 'permissions.request')).toEqual([]);
 });
