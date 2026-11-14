@@ -25,6 +25,7 @@ async function onboardingFixture(page: Page, options: FixtureOptions = {}) {
         return structuredClone(state);
       }
       if (method === 'shortcut.recording') return { active: params.active };
+      if (method === 'shortcut.status') return fixture.shortcutStatus || { suspended: false, bindings: Object.fromEntries(['hideShortcut', 'commandShortcut', 'dictationShortcut'].map(field => [field, { shortcut: state.settings[field as keyof Settings], registered: true }])) };
       if (method === 'settings.update') {
         if (failures-- > 0) throw new Error('Synthetic setting write failed.');
         if (options.delaySave) await new Promise<void>(resolve => { (window as any).__finishOnboardingSave = resolve; });
@@ -210,6 +211,42 @@ test('shortcut recorder cancels safely, rejects invalid keys and waits for persi
   await page.clock.fastForward(45_000);
   await expect(row.locator('.shortcut-input')).not.toHaveClass(/is-recording/);
   await expect(input).toHaveValue('Control+Alt+K');
+});
+
+test('shortcut registration failures warn truthfully and suspension is not a failure', async ({ page }) => {
+  await onboardingFixture(page, { nativeEvents: true });
+  await page.goto('/'); await stops(page).getByRole('button', { name: 'Keys', exact: true }).click();
+  const row = page.locator('.onboarding-shortcut-row').filter({ hasText: 'Dictation window' });
+  const input = row.getByRole('textbox', { name: 'Dictation window shortcut', exact: true });
+  await page.evaluate(() => { const f = (window as any).__onboardingFixture; f.shortcutStatus = { suspended: false, bindings: { commandShortcut: { shortcut: f.state.settings.commandShortcut, registered: false } } }; f.emit('shortcut.status', f.shortcutStatus); });
+  await expect(row.getByRole('alert')).toHaveText('Unavailable—choose another combination');
+  await expect(row.locator('small')).not.toHaveText('Shortcut detected');
+  expect((await bridgeCalls(page)).some(call => call.method === 'permissions.request')).toBe(false);
+  await page.evaluate(() => { const f = (window as any).__onboardingFixture; f.shortcutStatus.suspended = true; f.emit('shortcut.recording', { active: true, reason: 'requested' }); });
+  await expect(row.getByRole('alert')).toHaveCount(0);
+  await page.evaluate(() => { const f = (window as any).__onboardingFixture; f.shortcutStatus.suspended = false; f.emit('shortcut.recording', { active: false, reason: 'requested' }); });
+  await expect(row.getByRole('alert')).toHaveText('Unavailable—choose another combination');
+  await input.click(); await expect(input.locator('..')).toHaveClass(/is-recording/); await expect(row.getByRole('alert')).toHaveCount(0);
+  await input.press('Control+Alt+K'); await input.press('Enter');
+  await expect(input).toHaveValue('Control+Alt+K'); await expect(row.getByRole('alert')).toHaveCount(0);
+  await page.evaluate(() => { const f = (window as any).__onboardingFixture; f.shortcutStatus.bindings.commandShortcut = { shortcut: f.state.settings.commandShortcut, registered: true }; f.emit('settings.updated', f.state.settings); });
+  await expect(row.getByRole('alert')).toHaveCount(0); await expect(row.locator('small')).not.toHaveText('Shortcut detected');
+});
+
+test('native focus loss and timeout reset shortcut capture and allow recording again', async ({ page }) => {
+  await onboardingFixture(page, { nativeEvents: true }); await page.goto('/');
+  await stops(page).getByRole('button', { name: 'Keys', exact: true }).click();
+  const input = page.getByRole('textbox', { name: 'Dictation window shortcut', exact: true });
+  for (const reason of ['focus-lost', 'timeout']) {
+    await input.click(); await expect(input.locator('..')).toHaveClass(/is-recording/); await input.press('Control+Alt+K');
+    await page.evaluate(reason => (window as any).__onboardingFixture.emit('shortcut.recording', { active: false, reason }), reason);
+    await expect(input.locator('..')).not.toHaveClass(/is-recording/); await expect(input).toHaveValue(initialState.settings.commandShortcut);
+    await expect.poll(async () => (await bridgeCalls(page)).filter(call => call.method === 'shortcut.recording').at(-1)?.params.active).toBe(false);
+  }
+  await input.click(); await expect(input.locator('..')).toHaveClass(/is-recording/); await input.press('Control+Alt+K'); await input.press('Enter');
+  await expect(page.getByRole('status')).toContainText('Shortcut saved.'); await expect(input).toHaveValue('Control+Alt+K');
+  await page.evaluate(() => (window as any).__onboardingFixture.emit('shortcut.triggered', { action: 'talk' }));
+  await expect(page.locator('.onboarding-shortcut-row').filter({ hasText: 'Dictation window' }).locator('small')).toHaveText('Shortcut detected');
 });
 
 test('recording waits for native suspension and serializes focus changes', async ({ page }) => {

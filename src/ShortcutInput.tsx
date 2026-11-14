@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Check, LoaderCircle } from 'lucide-react';
-import { api, errorText, isNative, type Settings } from './api';
+import { api, errorText, isNative, subscribe, type Settings } from './api';
 
 const shortcutFields = ['hideShortcut', 'commandShortcut', 'dictationShortcut'] as const;
 type ShortcutField = typeof shortcutFields[number];
+type ShortcutStatus = { suspended: boolean; bindings: Partial<Record<ShortcutField, { shortcut: string; registered: boolean }>> };
 const reserved = new Set(['Super+Q', 'Super+W', 'Super+H', 'Super+M', 'Super+Tab', 'Super+Space', 'Shift+Super+Tab', 'Alt+Super+Escape', 'Alt+Tab', 'Alt+Shift+Tab', 'Alt+F4', 'Control+Alt+Delete']);
 let recordingRequest: Promise<unknown> = Promise.resolve();
 function setNativeRecording(active: boolean) {
@@ -23,11 +24,17 @@ export function ShortcutInput({ label, field, settings, disabled = false, onSave
   const [recording, setRecording] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [status, setStatus] = useState<ShortcutStatus>();
+  const statusVersion = useRef(0);
   const input = useRef<HTMLInputElement>(null);
   const active = useRef(false);
   const capture = useRef<Promise<unknown>>(Promise.resolve());
   const hint = useId();
-  useEffect(() => setDraft(value), [value]);
+  const loadStatus = async () => {
+    const version = ++statusVersion.current;
+    try { const result = await api<ShortcutStatus>('shortcut.status'); if (statusVersion.current === version) setStatus(result); } catch { /* Older hosts and browser previews have no registration status. */ }
+  };
+  useEffect(() => { setDraft(value); if (isNative()) void loadStatus(); }, [value]);
   const stop = () => {
     if (!active.current) return capture.current;
     active.current = false; setRecording(false);
@@ -36,8 +43,16 @@ export function ShortcutInput({ label, field, settings, disabled = false, onSave
   };
   useEffect(() => {
     const blur = () => { input.current?.blur(); };
+    let dispose: (() => void) | undefined; let cancelled = false;
+    if (isNative()) void subscribe((event, data) => {
+      const value = data as { active?: boolean; reason?: string } | null;
+      if (event === 'shortcut.recording') {
+        if (value?.active) { statusVersion.current++; setStatus(current => current ? { ...current, suspended: true } : current); }
+        else if (value?.active === false) { if (['focus-lost', 'timeout'].includes(value.reason || '') && active.current) blur(); void loadStatus(); }
+      } else if (['settings.updated', 'shortcut.status', 'shortcut.updated'].includes(event)) void loadStatus();
+    }).then(value => { if (cancelled) value(); else dispose = value; }).catch(cause => { if (!cancelled) setError(errorText(cause)); });
     window.addEventListener('blur', blur);
-    return () => { window.removeEventListener('blur', blur); if (active.current && isNative()) void setNativeRecording(false).catch(() => {}); active.current = false; };
+    return () => { cancelled = true; statusVersion.current++; dispose?.(); window.removeEventListener('blur', blur); if (active.current && isNative()) void setNativeRecording(false).catch(() => {}); active.current = false; };
   }, []);
   useEffect(() => { if (!recording) return; const timer = setTimeout(() => input.current?.blur(), 45_000); return () => clearTimeout(timer); }, [recording]);
   const start = async () => {
@@ -65,6 +80,8 @@ export function ShortcutInput({ label, field, settings, disabled = false, onSave
     if (shortcutFields.some(other => other !== field && normalized(settings[other]) === normalized(next))) { setError('That shortcut conflicts with another Pace shortcut. Choose a unique key combination.'); return; }
     setError(''); setDraft(next);
   };
+  const binding = status?.bindings?.[field];
+  const unavailable = !recording && !status?.suspended && binding?.shortcut === value && binding.registered === false;
   return <div className="shortcut-selector"><form className={`shortcut-input${recording ? ' is-recording' : ''}`} onSubmit={event => {
     event.preventDefault(); if (draft === value || saving || error) return;
     setSaving(true);
@@ -72,5 +89,5 @@ export function ShortcutInput({ label, field, settings, disabled = false, onSave
   }}>
     <input ref={input} aria-label={label} aria-describedby={hint} readOnly value={draft} disabled={disabled} onFocus={() => void start()} onClick={() => void start()} onBlur={() => { if (!saving) { setDraft(value); setError(''); } void stop().catch(cause => setError(errorText(cause))); }} onKeyDown={record} spellCheck={false} />
     <button className="button quiet" type="submit" title={`Save ${label.toLowerCase()}`} onMouseDown={event => event.preventDefault()} disabled={disabled || saving || draft === value || Boolean(error)}>{saving ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}</button>
-  </form><span id={hint} className={`shortcut-hint${error ? ' shortcut-error' : ''}`} role={error ? 'alert' : undefined}>{error || (recording ? 'Press keys · Save or Enter · Esc cancels' : draft !== value ? 'Not saved · Save to apply' : 'Click, then press your key combination')}</span></div>;
+  </form><span id={hint} className={`shortcut-hint${error || unavailable ? ' shortcut-error' : ''}`} role={error || unavailable ? 'alert' : undefined}>{error || (unavailable ? 'Unavailable—choose another combination' : recording ? 'Press keys · Save or Enter · Esc cancels' : draft !== value ? 'Not saved · Save to apply' : 'Click, then press your key combination')}</span></div>;
 }

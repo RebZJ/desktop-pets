@@ -163,7 +163,7 @@ async fn start_global(app: &AppHandle, state: &AppState) -> Result<Value, String
         Ok(mut result) => {
             // Recording already runs; slow accessibility must not delay the microphone.
             let target = match tokio::time::timeout(
-                std::time::Duration::from_millis(400),
+                std::time::Duration::from_secs(1),
                 state.native.request(&app, "dictation.capture", json!({})),
             )
             .await

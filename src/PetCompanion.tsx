@@ -20,6 +20,8 @@ export function DesktopPet({ state }: { state: AppState }) {
   const [hint, setHint] = useState('');
   const overlay = useRef<HTMLDivElement>(null);
   const revealed = useRef(false);
+  const keyboardMode = useRef(false);
+  const hovered = useRef(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [dictationPhase, setDictationPhase] = useState('idle');
   const [hiding, setHiding] = useState(false);
@@ -61,7 +63,7 @@ export function DesktopPet({ state }: { state: AppState }) {
     let dispose: (() => void) | undefined; let cancelled = false; let version = 0;
     void subscribe((event, data) => {
       if (event === 'dictation.state') { version++; acceptDictation(data as DictationState); }
-      if (event === 'pet.visibility' && data) { const visible = (data as { visible: boolean }).visible; setHiding(!visible); if (!visible) dismissRecovery(); }
+      if (event === 'pet.visibility' && data) { const visible = (data as { visible: boolean }).visible; setHiding(!visible); if (!visible) { dismissRecovery(); resetControls(); } }
     }).then(value => {
       if (cancelled) { value(); return; }
       dispose = value; const snapshot = version;
@@ -69,7 +71,17 @@ export function DesktopPet({ state }: { state: AppState }) {
     });
     return () => { cancelled = true; recoveryEpoch.current++; clearTimeout(recoveryTimer.current); dispose?.(); };
   }, []);
-  useEffect(() => () => { clearTimeout(hideTimer.current); revealed.current = false; }, []);
+  const closeControls = () => { clearTimeout(hideTimer.current); revealed.current = false; setControlsOpen(false); setHint(''); };
+  const resetControls = () => { hovered.current = false; keyboardMode.current = false; closeControls(); setMenu(false); };
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => { if (!event.isTrusted) return; if (event.key === 'Escape') { keyboardMode.current = false; closeControls(); return; } keyboardMode.current = true; if (overlay.current?.contains(document.activeElement)) revealControls(); };
+    const pointer = () => { keyboardMode.current = false; if (!hovered.current) leaveControls(); };
+    const hidden = () => { if (document.visibilityState === 'hidden') resetControls(); };
+    window.addEventListener('keydown', key, true); window.addEventListener('pointerdown', pointer, true); window.addEventListener('pointermove', pointer, true);
+    window.addEventListener('blur', resetControls); document.addEventListener('visibilitychange', hidden);
+    return () => { clearTimeout(hideTimer.current); revealed.current = false; window.removeEventListener('keydown', key, true); window.removeEventListener('pointerdown', pointer, true); window.removeEventListener('pointermove', pointer, true); window.removeEventListener('blur', resetControls); document.removeEventListener('visibilitychange', hidden); };
+  }, []);
+  useEffect(() => { if (!state.pet.visible) resetControls(); }, [state.pet.visible]);
   const revealControls = () => {
     clearTimeout(hideTimer.current);
     if (revealed.current) return;
@@ -78,15 +90,15 @@ export function DesktopPet({ state }: { state: AppState }) {
   const leaveControls = () => {
     clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => {
-      if (overlay.current?.querySelector(':focus-visible')) return;
-      revealed.current = false; setControlsOpen(false); setHint('');
+      if (hovered.current || keyboardMode.current && document.hasFocus() && overlay.current?.contains(document.activeElement)) return;
+      closeControls();
     }, 420);
   };
-  const open = (method: string, params = {}) => { dismissRecovery(); const epoch = recoveryEpoch.current; setMenu(false); void api(method, params).catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }); };
+  const open = (method: string, params = {}) => { dismissRecovery(); const epoch = recoveryEpoch.current; if (method.startsWith('window.') || method === 'pet.toggle') resetControls(); else setMenu(false); void api(method, params).catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }); };
   const dictate = async () => {
     if (micPending) return;
     if (dictationPhase !== 'recording' && dictationModelMissing(state)) { open('window.main', { page: 'models' }); return; }
-    setMicPending(true); dismissRecovery(); const epoch = recoveryEpoch.current;
+    setMicPending(true); dismissRecovery(); resetControls(); const epoch = recoveryEpoch.current;
     try { await api('dictation.toggle'); } catch (cause) { if (recoveryEpoch.current === epoch) showError(cause); }
     finally { setMicPending(false); }
   };
@@ -98,16 +110,17 @@ export function DesktopPet({ state }: { state: AppState }) {
   const dictateHint = dictationPhase === 'recording' ? 'Stop dictation' : dictationPhase === 'transcribing' ? 'Transcribing…' : 'Type into your app';
   const toolsVisible = controlsOpen && !recovery && !hiding && !['summon', 'burrow'].includes(state.pet.action);
   const shortcutHint = (label: string, shortcut?: string) => shortcut ? `${label} · ${shortcut}` : label;
-  return <div ref={overlay} className={`pet-window companion-pet ${toolsVisible ? 'controls-open' : ''} ${hiding || ['summon', 'burrow'].includes(state.pet.action) ? 'pet-transitioning' : ''} ${hiding && state.pet.action !== 'burrow' ? 'pet-hiding' : ''}`} onPointerLeave={leaveControls} onFocus={event => { if (event.target.matches(':focus-visible')) revealControls(); }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) leaveControls(); }} onContextMenu={event => { event.preventDefault(); setMenu(!menu); }}>
+  return <div ref={overlay} className={`pet-window companion-pet ${toolsVisible ? 'controls-open' : ''} ${hiding || ['summon', 'burrow'].includes(state.pet.action) ? 'pet-transitioning' : ''} ${hiding && state.pet.action !== 'burrow' ? 'pet-hiding' : ''}`} onPointerLeave={() => { hovered.current = false; leaveControls(); }} onFocus={() => { if (keyboardMode.current) revealControls(); }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) leaveControls(); }} onContextMenu={event => { event.preventDefault(); setMenu(!menu); }}>
     {(dictationPhase === 'recording' || dictationPhase === 'transcribing') && <span className="sr-only" role="status">{dictationPhase === 'recording' ? 'Listening…' : 'Catching words…'}</span>}
     {recovery && !hiding && !['summon', 'burrow'].includes(state.pet.action) && <div className="pet-recovery" role="status" aria-label="Dictation recovery" onKeyDown={event => {
       if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
       const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
       const current = buttons.indexOf(document.activeElement as HTMLButtonElement); event.preventDefault(); buttons[(current + (event.key === 'ArrowLeft' ? -1 : 1) + buttons.length) % buttons.length]?.focus();
-    }}><span>{copied ? 'Copied.' : recovery.message}</span><button className="pet-recovery-dismiss" aria-label="Dismiss dictation notice" onClick={() => { dismissRecovery(); overlay.current?.querySelector<HTMLButtonElement>('.overlay-pet-button')?.focus(); }}><X size={11} /></button><div>{recovery.text && <button onClick={() => { const epoch = recoveryEpoch.current; void copyText(recovery.text!).then(() => { if (recoveryEpoch.current === epoch) setCopied(true); }).catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }); }}><Copy size={10} />Copy words</button>}{recovery.retry && <button disabled={micPending} onClick={() => { setMicPending(true); const epoch = recoveryEpoch.current; void api('dictation.retry').catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }).finally(() => setMicPending(false)); }}><RotateCcw size={10} />Retry audio</button>}{recovery.models && !recovery.text && <button onClick={() => open('window.main', { page: 'models' })}>Open models</button>}</div></div>}
+    }}><span>{copied ? 'Copied.' : recovery.message}</span><button className="pet-recovery-dismiss" aria-label="Dismiss dictation notice" onClick={() => { dismissRecovery(); if (!keyboardMode.current) { hovered.current = false; closeControls(); } overlay.current?.querySelector<HTMLButtonElement>('.overlay-pet-button')?.focus(); }}><X size={11} /></button><div>{recovery.text && <button onClick={() => { const epoch = recoveryEpoch.current; void copyText(recovery.text!).then(() => { if (recoveryEpoch.current === epoch) setCopied(true); }).catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }); }}><Copy size={10} />Copy words</button>}{recovery.retry && <button disabled={micPending} onClick={() => { setMicPending(true); const epoch = recoveryEpoch.current; void api('dictation.retry').catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }).finally(() => setMicPending(false)); }}><RotateCcw size={10} />Retry audio</button>}{recovery.models && !recovery.text && <button onClick={() => open('window.main', { page: 'models' })}>Open models</button>}</div></div>}
 
     {menu && <div className="pet-menu"><button onClick={() => open('window.chat')}><MessageCircle size={14} />Chat with Pace</button><button onClick={() => open('window.meeting')}><FileText size={14} />Meeting notes</button><button onClick={() => open('window.main', { page: 'settings', section: 'shortcuts' })}>Controls & look</button><button onClick={() => { mood.setAction('celebrate'); if (state.settings.soundEnabled && !state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status))) playPetSound('celebrate', state.settings.volume); open('pet.action', { action: 'celebrate' }); }}>A tiny victory!</button><button onClick={() => open('pet.toggle', { visible: false })}>Hide Pace</button></div>}
-    <button className="overlay-pet-button" aria-label="Pet Pace; drag to move; right-click for menu" aria-controls="pace-actions" aria-expanded={toolsVisible} onPointerEnter={revealControls} disabled={hiding || ['summon', 'burrow'].includes(state.pet.action)} onKeyDown={event => {
+    <button className="overlay-pet-button" aria-label="Pet Pace; drag to move; right-click for menu" aria-controls="pace-actions" aria-expanded={toolsVisible} onPointerEnter={() => { hovered.current = true; revealControls(); }} onPointerLeave={() => { hovered.current = false; leaveControls(); }} disabled={hiding || ['summon', 'burrow'].includes(state.pet.action)} onKeyDown={event => {
+      if (!event.nativeEvent.isTrusted) return;
       if (event.key !== 'ArrowUp' && event.key !== 'ArrowRight' && !(event.key === 'Tab' && !event.shiftKey)) return;
       event.preventDefault(); revealControls();
       requestAnimationFrame(() => overlay.current?.querySelector<HTMLButtonElement>(recovery ? '.pet-recovery button:not(:disabled)' : '.pet-controls button:not(:disabled):not([hidden])')?.focus());
@@ -117,7 +130,7 @@ export function DesktopPet({ state }: { state: AppState }) {
       const epoch = recoveryEpoch.current;
       if (isNative()) void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().startDragging()).catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); });
     }} onPointerUp={() => { down.current = undefined; }} onClick={event => { if (event.detail !== 0 && dragged.current) { dragged.current = false; return; } pet(); }}><Pace action={mood.action} size={state.settings.petSize} pack={state.packs.find(pack => pack.id === state.settings.activePack)} label={`Pace is ${mood.action}`} /></button>
-    <nav id="pace-actions" className="pet-controls" aria-label="Pace actions" onPointerEnter={revealControls} onKeyDown={event => {
+    <nav id="pace-actions" className="pet-controls" aria-label="Pace actions" onPointerEnter={() => { hovered.current = true; revealControls(); }} onPointerLeave={() => { hovered.current = false; leaveControls(); }} onKeyDown={event => {
       if (!['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
       const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled):not([hidden])')];
       const current = buttons.indexOf(document.activeElement as HTMLButtonElement);

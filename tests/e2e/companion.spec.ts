@@ -92,7 +92,7 @@ test('pet keyboard navigation exposes dictation, chat, meetings and settings', a
   await page.keyboard.press('ArrowRight'); await expect(page.getByRole('button', { name: 'Meeting buddy' })).toBeFocused();
   await page.keyboard.press('End'); await expect(page.getByRole('button', { name: 'Settings and shortcuts' })).toBeFocused();
   await page.keyboard.press('ArrowRight'); await expect(dictate).toBeFocused();
-  await page.getByRole('button', { name: 'Chat with Pace', exact: true }).click(); await page.getByRole('button', { name: 'Meeting buddy' }).click(); await page.getByRole('button', { name: 'Settings and shortcuts' }).click();
+  for (const name of ['Chat with Pace', 'Meeting buddy', 'Settings and shortcuts']) { await pet.hover(); await page.getByRole('button', { name, exact: true }).click(); }
   expect(await calls(page)).toContainEqual({ method: 'window.chat', params: {} });
   expect(await calls(page)).toContainEqual({ method: 'window.meeting', params: {} });
   expect(await calls(page)).toContainEqual({ method: 'window.main', params: { page: 'settings', section: 'shortcuts' } });
@@ -109,8 +109,46 @@ test('selector needs hover or keyboard focus, keeps its leave guard and pet clic
   await page.mouse.move(1, 1); await expect(chat).toBeVisible();
   await chat.hover(); await expect(chat).toBeVisible();
   await page.mouse.move(1, 1); await expect(chat).toBeHidden();
-  await page.getByRole('button', { name: petName }).focus(); await expect(chat).toBeVisible();
+  await page.getByRole('button', { name: petName }).focus(); await page.getByRole('button', { name: petName }).press('ArrowUp'); await expect(chat).toBeVisible();
   expect(await page.locator('.pet-controls').evaluate(element => getComputedStyle(element).animationName)).toBe('none');
+});
+
+test('pointer exit and window blur close a selector even when focus-visible stays latched', async ({ page }) => {
+  await page.setViewportSize({ width: 224, height: 224 }); await fixture(page); await page.goto('/?window=pet');
+  const pet = page.getByRole('button', { name: petName }); const chat = page.getByRole('button', { name: 'Chat with Pace', exact: true });
+  await pet.hover(); await page.keyboard.press('Tab'); await pet.focus(); await pet.press('ArrowUp'); await expect(chat).toBeVisible();
+  await page.mouse.move(1, 1);
+  await expect(chat).toBeHidden();
+  await pet.hover(); await expect(chat).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event('blur'))); await expect(chat).toBeHidden();
+  await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await expect(chat).toBeHidden();
+  await pet.focus(); await expect(chat).toBeHidden();
+  await pet.press('ArrowUp'); await expect(page.getByRole('button', { name: 'Dictate into your app', exact: true })).toBeFocused();
+  await page.evaluate(() => (window as any).__companionFixture.emit('pet.visibility', { visible: false })); await expect(chat).toBeHidden();
+  await page.evaluate(() => (window as any).__companionFixture.emit('pet.visibility', { visible: true })); await expect(chat).toBeHidden();
+});
+
+test('pointer dismissal of a recovery notice cannot leave the selector open', async ({ page }) => {
+  await page.setViewportSize({ width: 224, height: 224 }); await fixture(page, { phase: 'draft', text: 'Words ready for review.' }); await page.goto('/?window=pet');
+  const pet = page.getByRole('button', { name: petName }); const chat = page.getByRole('button', { name: 'Chat with Pace', exact: true });
+  await page.getByRole('button', { name: 'Dismiss dictation notice' }).click(); await page.mouse.move(1, 1); await expect(chat).toBeHidden();
+  await pet.dispatchEvent('keydown', { key: 'ArrowUp', code: 'ArrowUp', bubbles: true }); await expect(chat).toBeHidden();
+  await pet.press('ArrowUp'); await expect(page.getByRole('button', { name: 'Dictate into your app', exact: true })).toBeFocused();
+});
+
+test('opening a pet tool collapses stale hover before another window can cover it', async ({ page }) => {
+  await page.setViewportSize({ width: 224, height: 224 }); await fixture(page); await page.goto('/?window=pet');
+  const pet = page.getByRole('button', { name: petName }); const chat = page.getByRole('button', { name: 'Chat with Pace', exact: true });
+  for (const name of ['Settings and shortcuts', 'Chat with Pace']) {
+    await pet.hover(); await expect(chat).toBeVisible(); await page.getByRole('button', { name, exact: true }).click();
+    await expect(chat).toBeHidden(); await page.mouse.move(1, 1); await expect(chat).toBeHidden();
+  }
+  await pet.click({ button: 'right' }); await page.getByRole('button', { name: 'Controls & look', exact: true }).click();
+  await expect(chat).toBeHidden(); await page.mouse.move(1, 1); await expect(chat).toBeHidden();
+  await pet.hover(); await page.getByRole('button', { name: 'Dictate into your app', exact: true }).click();
+  await expect(chat).toBeHidden();
+  expect((await calls(page)).some(call => call.method === 'dictation.toggle')).toBe(true);
+  await page.mouse.move(1, 1); await pet.hover(); await expect(chat).toBeVisible();
 });
 
 test('dictation is a tiny active-only indicator and completion leaves saved drafts untouched', async ({ page }) => {
@@ -189,7 +227,7 @@ test('pending pet dictation cannot duplicate and a microphone error leaves saved
   const page = await browser.newPage({ viewport: { width: 224, height: 224 } });
   await fixture(page, { holdToggle: true }); await page.goto('/?window=pet');
   await page.getByRole('button', { name: petName }).hover();
-  const start = page.getByRole('button', { name: 'Dictate into your app', exact: true }); await start.click(); await expect(start).toBeDisabled(); await start.dispatchEvent('click');
+  const start = page.getByRole('button', { name: 'Dictate into your app', exact: true }); await start.click(); await page.getByRole('button', { name: petName }).hover(); await expect(start).toBeDisabled(); await start.dispatchEvent('click');
   expect((await calls(page)).filter(call => call.method === 'dictation.toggle')).toHaveLength(1);
   await page.evaluate(() => (window as any).__companionFixture.resolveToggle()); await expect(page.getByRole('button', { name: 'Stop dictation' })).toBeEnabled(); await page.close();
   const failed = await browser.newPage({ viewport: { width: 224, height: 224 } });
@@ -222,6 +260,7 @@ test('empty dictation gives a brief pet notice with no blank draft or automatic 
   await page.getByRole('button', { name: 'Dismiss dictation notice' }).click();
   await page.getByRole('button', { name: petName }).hover();
   await page.getByRole('button', { name: 'Dictate into your app', exact: true }).click();
+  await page.getByRole('button', { name: petName }).hover();
   await expect(page.getByRole('button', { name: 'Stop dictation', exact: true })).toBeEnabled(); await expect(notice).toHaveCount(0);
 });
 

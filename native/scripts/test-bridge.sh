@@ -14,7 +14,7 @@ suite.run()
 guard let result = suite.testRun, result.executionCount >= 8, result.hasSucceeded else { exit(1) }
 let dictation = DictationTests.defaultTestSuite
 dictation.run()
-guard let result = dictation.testRun, result.executionCount == 4, result.hasSucceeded else { exit(1) }
+guard let result = dictation.testRun, result.executionCount == 9, result.hasSucceeded else { exit(1) }
 let requests = RequestTasksTests.defaultTestSuite
 requests.run()
 guard let result = requests.testRun, result.executionCount == 3, result.hasSucceeded else { exit(1) }

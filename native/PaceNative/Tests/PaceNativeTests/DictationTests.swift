@@ -3,6 +3,67 @@ import ApplicationServices
 @testable import PaceNative
 
 final class DictationTests: XCTestCase {
+    func testWebFieldClassificationRequiresAWebAreaOrVerifiedNativeRoot() {
+        let native = ["AXTextArea", "AXScrollArea", "AXWindow", kAXApplicationRole]
+        XCTAssertEqual(dictationWebFieldClassification(0, role: { native[$0] }, parent: { $0 + 1 }), false)
+        let web = ["AXTextArea", "AXGroup", "AXWebArea"]
+        XCTAssertEqual(dictationWebFieldClassification(0, role: { web[$0] }, parent: { $0 + 1 }), true)
+        XCTAssertNil(dictationWebFieldClassification(0, role: { _ in "AXTextArea" }, parent: { _ in nil as Int? }))
+        XCTAssertNil(dictationWebFieldClassification(0, role: { _ in nil }, parent: { $0 + 1 }))
+        XCTAssertNil(dictationWebFieldClassification(0, role: { _ in "AXGroup" }, parent: { $0 + 1 }))
+    }
+
+    func testUnicodeChunksPreserveGraphemesAndRejectCommandsBeforeAnyWrite() throws {
+        let text = String(repeating: "a", count: 19) + "🐾e\u{301}👨‍👩‍👧‍👦" + String(repeating: "終", count: 27)
+        let chunks = try dictationUnicodeChunks(text)
+        XCTAssertEqual(chunks.joined(), text)
+        XCTAssertTrue(chunks.allSatisfy { !$0.isEmpty && $0.utf16.count <= 20 })
+        XCTAssertEqual(chunks.flatMap { Array($0) }, Array(text))
+        for unsafe in ["", "safe\nsubmit", "safe\rsubmit", "safe\tswitch", "safe\0", "safe\u{7F}", "safe\u{2028}", "safe\u{F700}", "a" + String(repeating: "\u{301}", count: 20)] {
+            XCTAssertThrowsError(try dictationUnicodeChunks(unsafe))
+        }
+    }
+
+    func testUnicodeEventsContainExactUTF16WithoutModifiersOrReturn() throws {
+        for chunk in try dictationUnicodeChunks("Hello 🐾 e\u{301} 👨‍👩‍👧‍👦! More than twenty units.") {
+            let events = try XCTUnwrap(dictationUnicodeEvents(chunk))
+            XCTAssertEqual(events.0.type, .keyDown)
+            XCTAssertEqual(events.1.type, .keyUp)
+            for event in [events.0, events.1] {
+                XCTAssertEqual(event.flags, [])
+                XCTAssertEqual(event.getIntegerValueField(.keyboardEventKeycode), 0x31)
+                var units = [UniChar](repeating: 0, count: 20)
+                var count = 0
+                event.keyboardGetUnicodeString(maxStringLength: units.count, actualStringLength: &count, unicodeString: &units)
+                XCTAssertEqual(Array(units.prefix(count)), Array(chunk.utf16))
+            }
+        }
+    }
+    @MainActor
+    func testDelayedBrowserCommitConfirmsWithoutRepeatingTheWrite() async throws {
+        var writes = 0, reads = 0
+        let confirmed = try await performDictationWrite(write: { writes += 1; return .success }, confirm: {
+            reads += 1
+            return reads >= 3
+        })
+        XCTAssertTrue(confirmed)
+        XCTAssertEqual(writes, 1)
+        XCTAssertEqual(reads, 3)
+    }
+
+    @MainActor
+    func testFailedOrUnconfirmedWritesAndChangedFocusAreNeverRetried() async throws {
+        var writes = 0, reads = 0
+        let refused = try await performDictationWrite(write: { writes += 1; return .cannotComplete }, confirm: { reads += 1; return true })
+        XCTAssertFalse(refused); XCTAssertEqual(writes, 1); XCTAssertEqual(reads, 0)
+        let unconfirmed = try await performDictationWrite(timeout: .milliseconds(25), write: { writes += 1; return .success }, confirm: { reads += 1; return false })
+        XCTAssertFalse(unconfirmed); XCTAssertEqual(writes, 2); XCTAssertGreaterThan(reads, 1)
+        do {
+            _ = try await performDictationWrite(write: { writes += 1; return .success }, confirm: { throw BridgeError("stale_target", "Fixture focus changed") })
+            XCTFail("Changed focus must stop confirmation")
+        } catch { XCTAssertEqual((error as? BridgeError)?.code, "stale_target") }
+        XCTAssertEqual(writes, 3)
+    }
     func testInsertionPrefersSelectedTextAndRequiresValueAndCaretForFallback() {
         func unnecessaryProbe() -> Bool { XCTFail("The existing selected-text path must not probe fallback attributes"); return false }
         XCTAssertEqual(dictationInsertionAttribute(selectedTextWritable: true, valueWritable: unnecessaryProbe(), rangeWritable: unnecessaryProbe()), kAXSelectedTextAttribute)

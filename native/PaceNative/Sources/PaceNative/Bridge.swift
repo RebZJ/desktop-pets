@@ -41,8 +41,8 @@ enum BridgeService {
             }.sorted { ($0["name"] as? String ?? "") < ($1["name"] as? String ?? "") }]
         case "writing.capture": return try captureWriting()
         case "writing.apply": return try applyWriting(params)
-        case "dictation.capture": return try DictationService.capture()
-        case "dictation.insert": return try DictationService.insert(params)
+        case "dictation.capture": return try DictationService.capture(params)
+        case "dictation.insert": return try await DictationService.insert(params)
         case "dictation.discard": return DictationService.discard(params)
         case "completion.available": return CompletionService.availability()
         case "completion.capture": return try CompletionService.capture()
@@ -83,9 +83,12 @@ enum BridgeService {
         return (value as! AXUIElement)
     }
 
-    static func focused(allowCompanion: Bool = false) throws -> (NSRunningApplication, AXUIElement, AXUIElement?) {
+    static func focused(allowCompanion: Bool = false, expectedBundleId: String? = nil) throws -> (NSRunningApplication, AXUIElement, AXUIElement?) {
         guard AXIsProcessTrusted() else { throw BridgeError("permission_required", "Enable Accessibility in System Settings to read selected text.") }
         guard let app = NSWorkspace.shared.frontmostApplication else { throw BridgeError("no_focused_app", "No application has focus.") }
+        guard expectedBundleId == nil || app.bundleIdentifier == expectedBundleId else {
+            throw BridgeError("unexpected_app", "The requested dictation app is not focused (frontmost PID: \(app.processIdentifier)). Focus it and try again.")
+        }
         guard app.processIdentifier != ProcessInfo.processInfo.processIdentifier,
               (!isBlockedApplication(app.bundleIdentifier ?? "") || (allowCompanion && app.bundleIdentifier == "app.desktoppets.pace")) else {
             throw BridgeError("excluded_app", "Pace does not read \(app.localizedName ?? "this application") (\(app.bundleIdentifier ?? "unknown application")).")

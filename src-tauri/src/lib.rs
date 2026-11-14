@@ -446,7 +446,7 @@ fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
     dictation::reset_shortcut(app);
     let shortcuts = app.global_shortcut();
     shortcuts.unregister_all().map_err(|e| e.to_string())?;
-    shortcuts
+    let hide_error = shortcuts
         .on_shortcut(hide, |app, _, event| {
             if event.state == ShortcutState::Pressed
                 && !app
@@ -462,8 +462,9 @@ fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
                 let _ = set_pet_visible(app, visible, visible);
             }
         })
-        .map_err(|e| format!("Could not register the hide shortcut: {e}"))?;
-    shortcuts
+        .err()
+        .map(|e| format!("Could not register the hide shortcut: {e}"));
+    let command_error = shortcuts
         .on_shortcut(command, |app, _, event| {
             if event.state == ShortcutState::Pressed
                 && !app
@@ -478,8 +479,9 @@ fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
                 });
             }
         })
-        .map_err(|e| format!("Could not register the command shortcut: {e}"))?;
-    shortcuts
+        .err()
+        .map(|e| format!("Could not register the command shortcut: {e}"));
+    let dictation_error = shortcuts
         .on_shortcut(dictation, |app, _, event| {
             if !app
                 .state::<AppState>()
@@ -489,9 +491,29 @@ fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
                 dictation::shortcut(app, event.state == ShortcutState::Pressed);
             }
         })
-        .map_err(|e| format!("Could not register the dictation shortcut: {e}"))?;
+        .err()
+        .map(|e| format!("Could not register the dictation shortcut: {e}"));
+    let errors: Vec<_> = [hide_error, command_error, dictation_error]
+        .into_iter()
+        .flatten()
+        .collect();
+    if let Ok(status) = shortcut_status(app) {
+        emit(app, "shortcut.status", status);
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
+}
 
-    Ok(())
+fn shortcut_status(app: &AppHandle) -> Result<Value, String> {
+    let state = app.state::<AppState>();
+    let settings = state.db.settings()?;
+    let fields = ["hideShortcut", "commandShortcut", "dictationShortcut"];
+    let bindings: serde_json::Map<String, Value> = fields.into_iter().zip(configured_shortcuts(&settings)?)
+        .map(|(field, shortcut)| (field.to_owned(), json!({"shortcut":settings[field],"registered":app.global_shortcut().is_registered(shortcut)}))).collect();
+    Ok(json!({"suspended":state.shortcut_recording.load(Ordering::SeqCst),"bindings":bindings}))
 }
 
 fn set_shortcut_recording(app: &AppHandle, active: bool, reason: &str) -> Result<Value, String> {
@@ -865,6 +887,7 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
             .lock()
             .map_err(|e| e.to_string())?
             .clone()),
+        "shortcut.status" => shortcut_status(&app),
         "dictation.retry" => retry_dictation(&app, &state).await,
         "voice.stop" => {
             let epoch = state.speech_epoch.fetch_add(1, Ordering::SeqCst) + 1;
