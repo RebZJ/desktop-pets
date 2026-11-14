@@ -135,7 +135,7 @@
     "longDescription": "An open-source desktop companion with local dictation, speaker-labeled meeting notes and questions grounded in the current meeting.",
     "macOS": {
       "minimumSystemVersion": "15.0",
-      "infoPlist": "Info.plist"
+      "infoPlist": "Info.release.plist"
     }
   }
 }
