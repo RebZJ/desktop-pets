@@ -46,3 +46,12 @@ python3 scripts/test-native-transport.py
 ```
 
 Ordinary Playwright configuration runs Chromium. The validation run used an isolated Vite server and an additional WebKit project. Browser fixtures do not establish desktop permission, clipboard or physical shortcut delivery. New pinned Windows notices are included separately; the existing broad runtime-notice index predates unrelated voice dependencies and its whole-graph audit still needs regeneration.
+
+## Repeated-use reliability follow-up
+
+The first one-shot insertion check missed two reproducible failure cases:
+
+- A poll could read the previous capture's terminal error, then clear the next recording's flag and target while its microphone was starting. Recovery now takes the same dictation lock as start/finish, reads status again and requires the same nonempty session identity. The regression fails with the old unlocked behavior and passes with the guard. A genuine current-session failure still preserves its saved audio.
+- A read-acknowledged paste whose AX result was not verified retained an original-clipboard lease that blocked every following paste. A three-turn regression failed at turn two before the fix. Consecutive acknowledged turns now reuse the original RAM snapshot and rotate the transcript/recovery ID. Inherited snapshots require explicit Restore even if a later turn verifies, so an earlier delayed paste cannot receive the old private clipboard. Unread, cancelled and failed-restore transactions still require recovery. A 300 ms read-only confirmation window handles delayed AX updates without posting input again.
+
+The updated locked Rust suite passed 127 tests with five explicit fixtures ignored. All 37 Swift bridge tests passed, including delayed verification, repeated acknowledged/unverified turns, exactly-once original-format restoration, cancellation and newer-copy ownership. The actual AppKit fixture passed 20 consecutive insertions before the change and another 20 with the rebuilt helper, with exactly 20 paste events in each run and no lost or duplicated test text. These insertion tests do not open a microphone. The new `tests/native/web-editor.swift` provides disposable plain, rich and rerendering WebKit fields for separate desktop checks; it is not an Electron/Codex validation.

@@ -100,7 +100,7 @@ final class DictationPasteboard {
     private let writeRestore: (NSPasteboard, [NSPasteboardItem]) -> Bool
     private var busy = false
     // shortcut: recovery lives only in memory until Restore, a new copy, or app quit; never persist clipboard contents.
-    private var recovery: (id: String, original: DictationClipboardSnapshot, promise: DictationTranscriptPromise)?
+    private var recovery: (id: String, original: DictationClipboardSnapshot, promise: DictationTranscriptPromise, canContinue: Bool)?
 
     init(_ board: NSPasteboard, readBudget: TimeInterval = 3, settle: TimeInterval = 0.45, modifiersReleased: @escaping () -> Bool = dictationModifiersReleased, writeRestore: @escaping (NSPasteboard, [NSPasteboardItem]) -> Bool = { $0.writeObjects($1) }) {
         self.board = board; self.readBudget = readBudget; self.settle = settle; self.modifiersReleased = modifiersReleased; self.writeRestore = writeRestore
@@ -122,22 +122,31 @@ final class DictationPasteboard {
 
     func paste(_ text: String, validate: () -> Bool, verify: () -> Bool?, post: () -> Void) async throws -> [String: Any] {
         releaseReplacedRecovery()
-        guard !busy, recovery == nil else { throw BridgeError("clipboard_busy", "Finish or restore the previous clipboard paste before dictating again.") }
+        guard !busy, recovery == nil || recovery?.canContinue == true else { throw BridgeError("clipboard_busy", "Finish or restore the previous clipboard paste before dictating again.") }
         busy = true
         defer { busy = false }
         try await waitForDictationModifiers(released: modifiersReleased)
         guard validate() else { throw BridgeError("stale_target", "The original text field or cursor changed. Copy your dictation instead.") }
-        let original = try DictationClipboardSnapshot(board)
-        guard validate(), board.changeCount == original.changeCount else { throw BridgeError("stale_target", "The original field or clipboard changed. Copy your dictation instead.") }
+        releaseReplacedRecovery()
+        let inherited = recovery
+        let original = try inherited?.original ?? DictationClipboardSnapshot(board)
+        let expectedChange = inherited?.promise.changeCount ?? original.changeCount
+        guard validate(), board.changeCount == expectedChange else { throw BridgeError("stale_target", "The original field or clipboard changed. Copy your dictation instead.") }
         try Task.checkCancellation()
         let promise = DictationTranscriptPromise(text)
         guard promise.publish(board) else {
+            if inherited != nil {
+                return retain(original, promise: promise, read: false, verified: false, error: "The next dictation clipboard could not be prepared. Restore your previous clipboard when ready.", dispatched: false)
+            }
             if promise.owns(board), !restoreOriginal(original, promise: promise) {
                 return retain(original, promise: promise, read: false, verified: false, error: "The clipboard could not be prepared or restored. Restore your previous clipboard when ready.", dispatched: false)
             }
             throw BridgeError("clipboard_unavailable", "The dictation clipboard could not be prepared.")
         }
         guard validate(), !Task.isCancelled else {
+            if inherited != nil {
+                return retain(original, promise: promise, read: false, verified: false, error: "Dictation stopped before the next paste. Restore your previous clipboard when ready.", dispatched: false)
+            }
             if promise.owns(board), !restoreOriginal(original, promise: promise) {
                 return retain(original, promise: promise, read: false, verified: false, error: "Dictation stopped before paste, but the clipboard could not be restored. Restore your previous clipboard when ready.", dispatched: false)
             }
@@ -160,14 +169,24 @@ final class DictationPasteboard {
             }
         }
         if Task.isCancelled { return cancelled(original, promise: promise) }
-        let verified = verify() == true
-        if read && verified {
+        var verified = verify() == true
+        if read && !verified {
+            let deadline = ProcessInfo.processInfo.systemUptime + 0.3
+            while !verified, promise.owns(board), ProcessInfo.processInfo.systemUptime < deadline {
+                if Task.isCancelled { return cancelled(original, promise: promise) }
+                await delay(0.02)
+                verified = verify() == true
+            }
+        }
+        if Task.isCancelled { return cancelled(original, promise: promise) }
+        // An earlier unverified paste might still read later; inherited originals require explicit Restore.
+        if read && verified && inherited == nil {
             if promise.owns(board), !restoreOriginal(original, promise: promise) {
                 return retain(original, promise: promise, read: true, verified: verified, error: "The paste was dispatched, but the clipboard could not be restored.")
             }
             return ["inserted": verified, "verified": verified, "dispatched": true, "clipboardRead": true]
         }
-        if read { return retain(original, promise: promise, read: true, verified: false, error: nil) }
+        if read { return retain(original, promise: promise, read: true, verified: verified, error: nil) }
         return retain(original, promise: promise, read: false, verified: verified, error: "The editor did not confirm reading the paste. Check the editor before copying; Pace will not paste again automatically. Restore your previous clipboard when ready.")
     }
 
@@ -187,7 +206,7 @@ final class DictationPasteboard {
         if promise.owns(board) {
             promise.materialize()
             let id = UUID().uuidString
-            recovery = (id, original, promise)
+            recovery = (id, original, promise, read && error == nil)
             result["clipboardRecoveryId"] = id
         }
         return result

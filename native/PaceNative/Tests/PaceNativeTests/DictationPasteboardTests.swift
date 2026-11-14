@@ -76,7 +76,11 @@ final class DictationPasteboardTests: XCTestCase {
             reader.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
             reader.arguments = ["--read-test-pasteboard", board.name.rawValue]
             reader.standardOutput = output
-            let result = try await lease.paste("dictated", validate: { true }, verify: { verified }, post: {
+            var verificationReads = 0
+            let result = try await lease.paste("dictated", validate: { true }, verify: {
+                verificationReads += 1
+                return verified == true ? verificationReads >= 3 : verified
+            }, post: {
                 do { try reader.run() } catch { XCTFail("Named-pasteboard reader could not launch") }
             })
             reader.waitUntilExit()
@@ -86,6 +90,7 @@ final class DictationPasteboardTests: XCTestCase {
             XCTAssertEqual(result["inserted"] as? Bool, verified == true)
             XCTAssertNil(result["insertionError"])
             if verified == true {
+                XCTAssertGreaterThanOrEqual(verificationReads, 3, "Delayed target AX state is read again without another paste")
                 XCTAssertEqual(board.string(forType: .string), "original")
                 XCTAssertNil(result["clipboardRecoveryId"])
             } else {
@@ -141,6 +146,50 @@ final class DictationPasteboardTests: XCTestCase {
         XCTAssertEqual(try lease.restore(id)["restored"] as? Bool, false)
         XCTAssertEqual(board.string(forType: .string), "new copy")
         XCTAssertEqual((lease.current()["recoveries"] as? [[String: String]])?.count, 0)
+        let next = try await lease.paste("next", validate: { true }, verify: { nil }, post: {})
+        let nextId = try XCTUnwrap(next["clipboardRecoveryId"] as? String)
+        XCTAssertEqual(try lease.restore(nextId)["restored"] as? Bool, true)
+        XCTAssertEqual(board.string(forType: .string), "new copy", "The next transaction preserves the newer user copy")
+    }
+
+    @MainActor
+    func testAcknowledgedUnverifiedTurnsContinueAndOriginalRestoresOnlyExplicitly() async throws {
+        let board = board(); defer { board.releaseGlobally() }
+        let custom = NSPasteboard.PasteboardType("app.desktoppets.test.original")
+        let original = NSPasteboardItem()
+        original.setString("original", forType: .string)
+        original.setData(Data([1, 254, 7]), forType: custom)
+        XCTAssertTrue(board.writeObjects([original]))
+        let lease = DictationPasteboard(board, readBudget: 1, settle: 0.01, modifiersReleased: { true })
+        var previousId: String?
+        var posts = 0
+        for turn in 1...3 {
+            let reader = Process(), output = Pipe()
+            reader.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
+            reader.arguments = ["--read-test-pasteboard", board.name.rawValue]
+            reader.standardOutput = output
+            let result = try await lease.paste("turn \(turn)", validate: { true }, verify: { turn == 2 }, post: {
+                posts += 1
+                do { try reader.run() } catch { XCTFail("Named-pasteboard reader could not launch") }
+            })
+            reader.waitUntilExit()
+            XCTAssertEqual(String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmingCharacters(in: .newlines), "turn \(turn)")
+            XCTAssertEqual(result["clipboardRead"] as? Bool, true)
+            XCTAssertNil(result["insertionError"])
+            XCTAssertEqual(board.string(forType: .string), "turn \(turn)", "A later verified turn must not restore the original behind an earlier uncertain paste")
+            let id = try XCTUnwrap(result["clipboardRecoveryId"] as? String)
+            if let previousId {
+                XCTAssertNotEqual(id, previousId)
+                XCTAssertEqual(try lease.restore(previousId)["restored"] as? Bool, false)
+            }
+            previousId = id
+        }
+        XCTAssertEqual(posts, 3)
+        let id = try XCTUnwrap(previousId)
+        XCTAssertEqual(try lease.restore(id)["restored"] as? Bool, true)
+        XCTAssertEqual(board.string(forType: .string), "original")
+        XCTAssertEqual(board.data(forType: custom), Data([1, 254, 7]))
+        XCTAssertEqual(try lease.restore(id)["restored"] as? Bool, false)
     }
 
     @MainActor
@@ -159,6 +208,8 @@ final class DictationPasteboardTests: XCTestCase {
         XCTAssertNotNil(result["insertionError"])
         let id = try XCTUnwrap(result["clipboardRecoveryId"] as? String)
         XCTAssertEqual(board.string(forType: .string), "dictated")
+        do { _ = try await lease.paste("second", validate: { true }, verify: { nil }, post: { posts += 1 }); XCTFail("Cancelled paste must still require explicit recovery") } catch {}
+        XCTAssertEqual(posts, 1)
         XCTAssertEqual(try lease.restore(id)["restored"] as? Bool, true)
         XCTAssertEqual(board.string(forType: .string), "original")
     }

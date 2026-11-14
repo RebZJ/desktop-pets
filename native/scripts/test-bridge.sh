@@ -24,7 +24,7 @@ dictation.run()
 guard let result = dictation.testRun, result.executionCount == 10, result.hasSucceeded else { exit(1) }
 let pasteboard = DictationPasteboardTests.defaultTestSuite
 pasteboard.run()
-guard let result = pasteboard.testRun, result.executionCount == 11, result.hasSucceeded else { exit(1) }
+guard let result = pasteboard.testRun, result.executionCount == 12, result.hasSucceeded else { exit(1) }
 let requests = RequestTasksTests.defaultTestSuite
 requests.run()
 guard let result = requests.testRun, result.executionCount == 3, result.hasSucceeded else { exit(1) }

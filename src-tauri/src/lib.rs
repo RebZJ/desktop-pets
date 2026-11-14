@@ -1629,20 +1629,29 @@ async fn poll_listener(app: &AppHandle) {
                 );
             }
             if status["error"].as_str().is_some() {
-                if status["mode"] == "dictation" && state.dictating.swap(false, Ordering::SeqCst) {
-                    let _ = state.db.put("dictation", "recovery", &status);
-                    if let Ok(mut saved) = state.engine.saved_dictation.lock() {
-                        *saved = Some(status.clone());
-                    }
-                    if let Ok(mut target) = state.dictation_target.lock() {
-                        target.take();
-                    }
-                    emit(
-                        app,
-                        "dictation.state",
-                        json!({"phase":"error","error":status["error"],"savedAudio":true}),
-                    );
-                    action(app, "idle");
+                if status["mode"] == "dictation" {
+                    dictation::recover_capture_failure(
+                        &state.dictation_lock,
+                        &state.dictating,
+                        &status,
+                        state.engine.capture_status(),
+                        |status| {
+                            let _ = state.db.put("dictation", "recovery", &status);
+                            if let Ok(mut saved) = state.engine.saved_dictation.lock() {
+                                *saved = Some(status.clone());
+                            }
+                            if let Ok(mut target) = state.dictation_target.lock() {
+                                target.take();
+                            }
+                            emit(
+                                app,
+                                "dictation.state",
+                                json!({"phase":"error","error":status["error"],"savedAudio":true}),
+                            );
+                            action(app, "idle");
+                        },
+                    )
+                    .await;
                 }
                 if status["mode"] == "meeting" {
                     if let Some(id) = status["sessionId"].as_str() {

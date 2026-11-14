@@ -2,7 +2,7 @@ use crate::{action, dictation_shortcut::Action, emit, set_pet_visible, stop_dict
 use serde_json::{json, Value};
 use std::{
     future::Future,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
 use tauri::{AppHandle, Manager};
 
@@ -436,6 +436,32 @@ async fn discard_target(app: &AppHandle, state: &AppState, target: Option<&Value
     .await;
 }
 
+pub async fn recover_capture_failure(
+    lock: &tokio::sync::Mutex<()>,
+    dictating: &AtomicBool,
+    observed: &Value,
+    current: impl Future<Output = Result<Value, String>>,
+    recover: impl FnOnce(Value),
+) {
+    let _guard = lock.lock().await;
+    if !dictating.load(Ordering::SeqCst) {
+        return;
+    }
+    // A status read before startup can still describe the previous failed capture.
+    let Ok(current) = current.await else { return };
+    if current["mode"] == "dictation"
+        && current["recording"] != true
+        && current["error"].as_str().is_some()
+        && current["sessionId"]
+            .as_str()
+            .is_some_and(|id| !id.is_empty())
+        && current["sessionId"] == observed["sessionId"]
+        && dictating.swap(false, Ordering::SeqCst)
+    {
+        recover(current);
+    }
+}
+
 fn request_is_current(epoch: &AtomicU64, requested_epoch: u64) -> bool {
     epoch.load(Ordering::SeqCst) == requested_epoch
 }
@@ -444,7 +470,7 @@ fn request_is_current(epoch: &AtomicU64, requested_epoch: u64) -> bool {
 mod tests {
     use super::{
         capture_during_start, finished_result, finished_state, merge_insertion_outcome,
-        request_is_current,
+        recover_capture_failure, request_is_current,
     };
     use crate::dictation_shortcut::{Action, Gesture};
     use serde_json::{json, Value};
@@ -602,5 +628,78 @@ mod tests {
         grant.send(()).unwrap();
         assert!(!pending.await.unwrap());
         assert!(request_is_current(&epoch, 1));
+    }
+
+    #[tokio::test]
+    async fn previous_capture_error_waits_for_startup_and_cannot_clear_the_new_attempt() {
+        let lock = tokio::sync::Mutex::new(());
+        let starting = lock.lock().await;
+        let dictating = AtomicBool::new(true);
+        let old = json!({"mode":"dictation","sessionId":"old","recording":false,"error":"Device stopped"});
+        let current = Mutex::new(old.clone());
+        let target = Mutex::new(json!("original target"));
+        let status_read = AtomicBool::new(false);
+        let recovery = recover_capture_failure(
+            &lock,
+            &dictating,
+            &old,
+            async {
+                status_read.store(true, Ordering::SeqCst);
+                Ok(current.lock().unwrap().clone())
+            },
+            |_| *target.lock().unwrap() = Value::Null,
+        );
+        let startup = async {
+            tokio::task::yield_now().await;
+            assert!(!status_read.load(Ordering::SeqCst));
+            // The old poll condition would clear this flag while startup owns the lock.
+            assert_eq!(old["mode"], "dictation");
+            assert!(dictating.load(Ordering::SeqCst));
+            *current.lock().unwrap() =
+                json!({"mode":"dictation","sessionId":"new","recording":true});
+            *target.lock().unwrap() = json!("new target");
+            drop(starting);
+        };
+        tokio::join!(recovery, startup);
+        assert!(status_read.load(Ordering::SeqCst));
+        assert!(dictating.load(Ordering::SeqCst));
+        assert_eq!(*target.lock().unwrap(), "new target");
+    }
+
+    #[tokio::test]
+    async fn only_the_current_failed_session_is_recovered_under_the_attempt_lock() {
+        let lock = tokio::sync::Mutex::new(());
+        let dictating = AtomicBool::new(true);
+        let target = Mutex::new(json!("new target"));
+        let old = json!({"mode":"dictation","sessionId":"old","recording":false,"error":"Old device error"});
+        let failed = json!({"mode":"dictation","sessionId":"new","recording":false,"error":"New device error","wavPath":"preserved.wav"});
+        for current in [
+            failed.clone(),
+            json!({"mode":"dictation","recording":false,"error":"Missing identity"}),
+            json!({"mode":"dictation","sessionId":"old","recording":true,"error":"Still active"}),
+        ] {
+            recover_capture_failure(&lock, &dictating, &old, async { Ok(current) }, |_| {
+                panic!("A stale or incomplete status cannot recover a new attempt")
+            })
+            .await;
+            assert!(dictating.load(Ordering::SeqCst));
+        }
+        let saved = Mutex::new(Value::Null);
+        recover_capture_failure(
+            &lock,
+            &dictating,
+            &failed,
+            async { Ok(failed.clone()) },
+            |status| {
+                assert!(lock.try_lock().is_err());
+                assert!(!dictating.load(Ordering::SeqCst));
+                *saved.lock().unwrap() = status;
+                *target.lock().unwrap() = Value::Null;
+            },
+        )
+        .await;
+        assert_eq!(saved.lock().unwrap()["wavPath"], "preserved.wav");
+        assert_eq!(saved.lock().unwrap()["error"], "New device error");
+        assert!(target.lock().unwrap().is_null());
     }
 }
