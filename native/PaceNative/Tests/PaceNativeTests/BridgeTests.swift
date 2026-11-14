@@ -70,6 +70,18 @@ final class BridgeTests: XCTestCase {
         XCTAssertEqual(frames, 1600)
         let wav = try Data(contentsOf: folder.appendingPathComponent("converted.wav"))
         XCTAssertTrue(wav.dropFirst(44).contains(where: { $0 != 0 }))
+        XCTAssertNotNil(sink.status()["offsetMs"])
+    }
+
+    func testSharedMeetingIdentityPreservesMillisecondsAndRejectsInvalidOrigins() throws {
+        let id = UUID().uuidString.lowercased()
+        let milliseconds = Date().timeIntervalSince1970 * 1000 - 250.125
+        let (actualID, origin) = try meetingIdentity(["_sessionId": id, "_originUnixMs": milliseconds])
+        XCTAssertEqual(actualID, id)
+        XCTAssertEqual(origin.timeIntervalSince1970 * 1000, milliseconds, accuracy: 0.001)
+        for params: [String: Any] in [["_sessionId":"../other", "_originUnixMs":milliseconds], ["_sessionId":id], ["_sessionId":id,"_originUnixMs":Double.nan], ["_sessionId":id,"_originUnixMs":0.0]] {
+            XCTAssertThrowsError(try meetingIdentity(params))
+        }
     }
 
     func testInputLevelsDistinguishDigitalSilenceAndExpireWhenInputStops() throws {

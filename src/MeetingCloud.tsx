@@ -20,7 +20,7 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
   const [heardAudio, setHeardAudio] = useState(false);
   const ready = kit.every(id => state.models.some(model => model.id === id && model.installed));
   const recording = meeting?.status === 'recording';
-  const noAudio = recording && elapsed >= 8 && levels?.sessionId === meeting.id && !heardAudio;
+  const noAudio = recording && elapsed >= 8 && levels?.sessionId === meeting.id && !heardAudio && !meeting.segments.some(segment => segment.text.trim());
   const message = error || meeting?.error || (noAudio ? 'No audio coming in. Check your microphone and call output.' : '');
   const layout = !meeting ? 'setup' : message ? 'message' : 'compact';
   useEffect(() => { document.documentElement.classList.add('overlay-document'); return () => document.documentElement.classList.remove('overlay-document'); }, []);
@@ -32,7 +32,7 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
     void subscribe((event, data) => {
       const value = data as Levels | null;
       if (cancelled || event !== 'meeting.level' || value?.sessionId !== meeting?.id || !value?.level) return;
-      setLevels(value); if (value.level.peak > 0.0001) setHeardAudio(true);
+      setLevels(value); if ([value.level, ...(value.tracks || []).map(track => track.level)].some(level => Number.isFinite(level?.peak) && level.peak > 0.0001)) setHeardAudio(true);
     }).then(value => { if (cancelled) value(); else dispose = value; }).catch(cause => { if (!cancelled) setError(errorText(cause)); });
     return () => { cancelled = true; dispose?.(); };
   }, [meeting?.id]);
@@ -52,7 +52,8 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
     const result = await api<Meeting>('meeting.start', { title: title.trim() || 'Untitled meeting', language: state.settings.language, captureMicrophone: microphone, captureSystem: system });
     setSelectedId(result.id); await refresh();
   });
-  const meter = Math.min(1, Math.sqrt(Math.max(0, levels?.level.rms || 0)) * 3);
+  const inputLevels = levels ? [levels.level, ...(levels.tracks || []).map(track => track.level)] : [];
+  const meter = Math.min(1, Math.sqrt(Math.max(0, ...inputLevels.map(level => Number.isFinite(level?.rms) ? level.rms : 0))) * 3);
   return <main className={`meeting-widget ${meeting ? 'meeting-widget-live' : 'meeting-widget-setup'}`} aria-label="Meeting with Pace">
     {!meeting ? <>
       <header><h1>Take meeting notes</h1><button aria-label="Close meeting cloud" onClick={close}><X size={14} /></button></header>

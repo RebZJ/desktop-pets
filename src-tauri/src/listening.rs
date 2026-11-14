@@ -88,15 +88,42 @@ impl Listening {
     }
 
     pub fn start_dictation(&self, output_root: PathBuf) -> Result<Value, String> {
-        self.start(output_root, Mode::Dictation, &[0])
+        self.start(
+            output_root,
+            Mode::Dictation,
+            &[0],
+            uuid::Uuid::new_v4().to_string(),
+            Instant::now(),
+        )
     }
     pub fn start_voice(&self, output_root: PathBuf) -> Result<Value, String> {
-        self.start(output_root, Mode::Voice, &[0])
+        self.start(
+            output_root,
+            Mode::Voice,
+            &[0],
+            uuid::Uuid::new_v4().to_string(),
+            Instant::now(),
+        )
     }
     pub fn stop_voice(&self) -> Result<Value, String> {
         self.stop(Mode::Voice)
     }
     pub fn start_meeting(&self, output_root: PathBuf, params: Value) -> Result<Value, String> {
+        self.start_meeting_at(
+            output_root,
+            params,
+            uuid::Uuid::new_v4().to_string(),
+            Instant::now(),
+        )
+    }
+    pub fn start_meeting_at(
+        &self,
+        output_root: PathBuf,
+        params: Value,
+        id: String,
+        origin: Instant,
+    ) -> Result<Value, String> {
+        uuid::Uuid::parse_str(&id).map_err(|_| "Invalid meeting session id")?;
         if !params.is_object() {
             return Err("Meeting capture parameters must be an object".into());
         }
@@ -117,9 +144,16 @@ impl Listening {
         if sources.is_empty() {
             return Err("Choose microphone or system audio to record".into());
         }
-        self.start(output_root, Mode::Meeting, &sources)
+        self.start(output_root, Mode::Meeting, &sources, id, origin)
     }
-    fn start(&self, output_root: PathBuf, mode: Mode, sources: &[usize]) -> Result<Value, String> {
+    fn start(
+        &self,
+        output_root: PathBuf,
+        mode: Mode,
+        sources: &[usize],
+        id: String,
+        origin: Instant,
+    ) -> Result<Value, String> {
         let mut state = self.state.lock().map_err(|error| error.to_string())?;
         self.refresh(&mut state)?;
         if let Some(session) = &state.active {
@@ -130,14 +164,12 @@ impl Listening {
                 "Retrieve the previous meeting chunks before starting another recording".into(),
             );
         }
-        let id = uuid::Uuid::new_v4().to_string();
         let mut session = Session {
             mode,
             directory: output_root.join(&id),
             id,
             tracks: Vec::new(),
         };
-        let origin = Instant::now();
         for &index in sources {
             let recorder = &self.recorders[index];
             let source = source(index);
@@ -460,6 +492,99 @@ mod tests {
         assert_eq!(a.starts[0].1, b.starts[0].1);
         assert_eq!(a.starts[0].3, b.starts[0].3);
         assert_eq!(started["sessionId"], a.starts[0].1);
+    }
+    #[test]
+    fn hybrid_microphone_uses_supplied_identity_origin_and_merges_actual_track_offsets() {
+        let (capture, mic, system) = fixture();
+        let id = uuid::Uuid::new_v4().to_string();
+        let origin = Instant::now() - std::time::Duration::from_secs(2);
+        let started = capture
+            .start_meeting_at(
+                PathBuf::from("recordings"),
+                json!({"captureMicrophone":true,"captureSystem":false}),
+                id.clone(),
+                origin,
+            )
+            .unwrap();
+        let actual = mic.0.lock().unwrap().starts[0].clone();
+        assert_eq!(actual.0, PathBuf::from("recordings").join(&id));
+        assert_eq!(actual.1, id);
+        assert_eq!(actual.3, origin);
+        assert!(system.0.lock().unwrap().starts.is_empty());
+        assert!(capture.start_voice(PathBuf::from("voice")).is_err());
+        let base = json!({"sessionId":id,"mode":"meeting","directory":actual.0,"captureMicrophone":true,"captureSystem":true,"trackOffsets":{},"tracks":[]});
+        let merged = crate::engine::merge_meeting_capture(
+            base,
+            Ok(
+                json!({"sessionId":id,"recording":true,"tracks":[{"track":"system","offsetMs":475,"level":{"rms":0.4,"peak":0.8}}]}),
+            ),
+            Some(Ok(started)),
+            true,
+        );
+        assert_eq!(merged["sessionId"], id);
+        assert_eq!(merged["tracks"].as_array().unwrap().len(), 2);
+        assert_eq!(merged["captureMicrophone"], true);
+        assert_eq!(merged["trackOffsets"]["microphone"], 125);
+        assert_eq!(merged["trackOffsets"]["system"], 475);
+        assert_eq!(merged["level"]["rms"], 0.4);
+        assert!(merged["tracks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|track| track["path"].as_str().is_some()));
+    }
+    #[test]
+    fn adapter_failure_stops_microphone_preserves_wav_tail_and_reports_both_failures() {
+        let directory = tempfile::tempdir().unwrap();
+        let (capture, mic, _) = fixture();
+        let id = uuid::Uuid::new_v4().to_string();
+        let session = directory.path().join(&id);
+        std::fs::create_dir(&session).unwrap();
+        let wav = session.join("microphone.wav");
+        std::fs::write(&wav, b"preserved-full-track").unwrap();
+        capture
+            .start_meeting_at(
+                directory.path().to_path_buf(),
+                json!({"captureSystem":false}),
+                id.clone(),
+                Instant::now(),
+            )
+            .unwrap();
+        mic.0.lock().unwrap().stop_error = true;
+        mic.0.lock().unwrap().chunks.push(json!({"sessionId":id,"path":session.join("microphone-0.wav"),"startMs":125,"endMs":1125}));
+        let stopped = capture.stop_meeting().unwrap();
+        let merged = crate::engine::merge_meeting_capture(
+            json!({"sessionId":id,"directory":session,"captureMicrophone":true,"captureSystem":true,"trackOffsets":{},"tracks":[]}),
+            Err("adapter stopped during startup".into()),
+            Some(Ok(stopped)),
+            false,
+        );
+        assert_eq!(merged["recording"], false);
+        assert_eq!(merged["tracks"][0]["frames"], 16000);
+        assert!(merged["error"]
+            .as_str()
+            .unwrap()
+            .contains("adapter stopped"));
+        assert!(merged["error"].as_str().unwrap().contains("disk full"));
+        assert_eq!(mic.0.lock().unwrap().stops, 1);
+        assert_eq!(capture.take_chunks().unwrap()[0]["startMs"], 125);
+        assert_eq!(std::fs::read(wav).unwrap(), b"preserved-full-track");
+        assert!(capture
+            .start_dictation(directory.path().to_path_buf())
+            .is_ok());
+    }
+    #[test]
+    fn externally_supplied_meeting_identity_is_validated_before_device_work() {
+        let (capture, mic, _) = fixture();
+        assert!(capture
+            .start_meeting_at(
+                PathBuf::from("recordings"),
+                json!({"captureSystem":false}),
+                "../other".into(),
+                Instant::now()
+            )
+            .is_err());
+        assert!(mic.0.lock().unwrap().starts.is_empty());
     }
     #[test]
     fn voice_owns_only_the_microphone_and_resumes_after_each_released_turn() {

@@ -2,13 +2,13 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-type Options = { status?: 'recording' | 'finalizing'; missingModel?: string; oldInterrupted?: boolean; failStart?: boolean; failStop?: boolean; holdStop?: boolean; holdOpen?: boolean };
+type Options = { status?: 'recording' | 'finalizing'; missingModel?: string; oldInterrupted?: boolean; failStart?: boolean; failStop?: boolean; holdStop?: boolean; holdOpen?: boolean; existingWords?: boolean };
 
 async function fixture(page: Page, options: Options = {}) {
   await page.setViewportSize({ width: 300, height: options.status ? 64 : 260 });
   await page.addInitScript((config: Options) => {
     const models = ['qwen3.5-4b', 'whisper-turbo', 'nemotron-diarization'].map(id => ({ id, name: id, role: id, sizeBytes: 100, installed: config.missingModel !== id, status: config.missingModel === id ? 'not-installed' : 'installed' }));
-    const meeting = { id: 'meeting-current', title: 'Friday planning', startedAt: new Date().toISOString(), status: config.status || 'recording', segments: [] as any[], notes: '', actionItems: [] };
+    const meeting = { id: 'meeting-current', title: 'Friday planning', startedAt: new Date().toISOString(), status: config.status || 'recording', segments: (config.existingWords ? [{ speaker: 'Speaker 1', start: 0, end: 3, text: 'Existing recognized speech.' }] : []) as any[], notes: '', actionItems: [] };
     const old = { ...meeting, id: 'meeting-old', title: 'Old interrupted meeting', status: 'interrupted', error: 'Saved audio needs attention.' };
     const state = { settings: { onboardingCompleted: true, language: 'en', activePack: 'pace', speechEnabled: false, soundEnabled: false }, models, meetings: [...(config.status ? [meeting] : []), ...(config.oldInterrupted ? [old] : [])], packs: [{ id: 'pace', name: 'Pace' }], extensions: [], memory: { enabled: false, applications: [] }, pet: { visible: true, action: 'idle' } };
     const f: any = { calls: [], state, failStart: Boolean(config.failStart), failStop: Boolean(config.failStop) };
@@ -176,6 +176,30 @@ test('a real peak before eight seconds prevents a later silence warning', async 
   await expect.poll(() => page.getByRole('meter').evaluate(element => (element as HTMLMeterElement).value)).toBeGreaterThan(0);
   await page.evaluate(() => (window as any).__meetingFixture.level(0, 0)); await page.clock.runFor(20_000);
   await expect(page.getByRole('status')).toContainText('00:20'); await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('a healthy same-session track prevents a warning when aggregate levels are zero or invalid', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-14T00:00:00Z') }); await page.clock.pauseAt(new Date('2026-11-14T00:00:01Z'));
+  await fixture(page, { status: 'recording' });
+  const meter = page.getByRole('meter', { name: 'Meeting audio level' });
+  await page.evaluate(() => (window as any).__meetingFixture.emit('meeting.level', { sessionId: 'other-meeting', level: { rms: 0, peak: 0 }, tracks: [{ track: 'system', level: { rms: .04, peak: .2 } }] }));
+  await expect(meter).toHaveAttribute('value', '0');
+  for (const aggregate of [0, NaN]) {
+    await page.evaluate(aggregate => (window as any).__meetingFixture.emit('meeting.level', { sessionId: 'meeting-current', level: { rms: aggregate, peak: aggregate }, tracks: [{ track: 'microphone', level: { rms: 0, peak: 0 } }, { track: 'system', level: { rms: .04, peak: .2 } }] }), aggregate);
+    await expect.poll(() => meter.evaluate(element => (element as HTMLMeterElement).value)).toBeCloseTo(.6);
+  }
+  await page.evaluate(() => (window as any).__meetingFixture.level(0, 0)); await page.clock.runFor(20_000);
+  await expect(meter).toHaveAttribute('value', '0'); await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('an existing transcript prevents a reopened recording from being reported as never receiving audio', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-14T00:00:00Z') }); await page.clock.pauseAt(new Date('2026-11-14T00:00:01Z'));
+  await fixture(page, { status: 'recording', existingWords: true });
+  await page.evaluate(() => (window as any).__meetingFixture.level(0, 0)); await page.clock.runFor(10_000); await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.reload(); await expect(page.getByRole('button', { name: 'Stop meeting', exact: true })).toBeVisible();
+  await page.evaluate(() => { const f = (window as any).__meetingFixture; f.update({ startedAt: '2026-11-13T23:58:00Z' }); f.level(0, 0); });
+  await page.clock.runFor(10_000); await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('meter')).toHaveAttribute('value', '0');
 });
 
 test('failed Stop keeps recording and can be retried', async ({ page }) => {

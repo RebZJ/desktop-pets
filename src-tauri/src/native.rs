@@ -4,7 +4,15 @@ mod insertion;
 
 use serde_json::{json, Value};
 use std::{
-    collections::HashMap, future::Future, path::PathBuf, pin::Pin, process::Stdio, sync::Arc,
+    collections::HashMap,
+    future::Future,
+    path::PathBuf,
+    pin::Pin,
+    process::Stdio,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 use tauri::{AppHandle, Emitter, Manager};
@@ -26,6 +34,7 @@ struct Worker {
 #[derive(Default)]
 pub struct NativeManager {
     worker: Mutex<Option<Arc<Worker>>>,
+    generation: Arc<AtomicU64>,
     portable: crate::portable::PortableManager,
     pub voice: crate::voice::Voice,
     #[cfg(not(target_os = "macos"))]
@@ -76,6 +85,8 @@ impl NativeManager {
             let stderr = child.stderr.take();
             let pending: Pending = Arc::new(Mutex::new(HashMap::new()));
             let reader_pending = pending.clone();
+            let generations = self.generation.clone();
+            let generation = generations.fetch_add(1, Ordering::SeqCst) + 1;
             let handle = app.clone();
             tokio::spawn(async move {
                 let mut lines = BufReader::new(output).lines();
@@ -85,7 +96,7 @@ impl NativeManager {
                             if line.len() > 4 * 1024 * 1024 {
                                 continue;
                             }
-                            let Ok(message) = serde_json::from_str::<Value>(&line) else {
+                            let Ok(mut message) = serde_json::from_str::<Value>(&line) else {
                                 continue;
                             };
                             if let Some(id) = message.get("id").and_then(Value::as_str) {
@@ -104,6 +115,13 @@ impl NativeManager {
                                     let _ = sender.send(result);
                                 }
                             } else if message.get("event").is_some() {
+                                if generations.load(Ordering::SeqCst) != generation {
+                                    continue;
+                                }
+                                if !message["data"].is_object() {
+                                    message["data"] = json!({});
+                                }
+                                message["data"]["_workerGeneration"] = json!(generation);
                                 let _ = handle.emit("pace-event", &message);
                                 let event_handle = handle.clone();
                                 tokio::spawn(async move {
@@ -117,7 +135,11 @@ impl NativeManager {
                 for (_, sender) in reader_pending.lock().await.drain() {
                     let _=sender.send(Err("The local assistant stopped. Your saved work is intact; retry to restart it.".into()));
                 }
-                let stopped = json!({"event":"runtime.stopped","data":{}});
+                if generations.load(Ordering::SeqCst) != generation {
+                    return;
+                }
+                let stopped =
+                    json!({"event":"runtime.stopped","data":{"_workerGeneration":generation}});
                 let _ = handle.emit("pace-event", &stopped);
                 crate::handle_native_event(handle, stopped).await;
             });
@@ -238,9 +260,21 @@ impl NativeManager {
     pub async fn stop(&self) {
         self.voice.release().await;
         self.portable.stop().await;
+        self.stop_adapter().await;
+    }
+
+    pub async fn stop_adapter(&self) {
         if let Some(worker) = self.worker.lock().await.take() {
             let _ = worker.child.lock().await.kill().await;
         }
+    }
+
+    pub fn is_current_worker(&self, generation: u64) -> bool {
+        generation != 0 && self.generation.load(Ordering::SeqCst) == generation
+    }
+
+    pub fn worker_generation(&self) -> u64 {
+        self.generation.load(Ordering::SeqCst)
     }
 }
 
@@ -250,6 +284,17 @@ fn cancellation_message(request_id: &str) -> Value {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn queued_events_from_a_previous_worker_are_stale() {
+        use std::sync::atomic::Ordering;
+        let manager = super::NativeManager::default();
+        assert!(!manager.is_current_worker(0));
+        manager.generation.store(1, Ordering::SeqCst);
+        assert!(manager.is_current_worker(1));
+        manager.generation.store(2, Ordering::SeqCst);
+        assert!(!manager.is_current_worker(1));
+        assert!(manager.is_current_worker(2));
+    }
     #[test]
     fn timeout_cancellation_targets_only_the_original_request() {
         let message = super::cancellation_message("pending-microphone-permission");

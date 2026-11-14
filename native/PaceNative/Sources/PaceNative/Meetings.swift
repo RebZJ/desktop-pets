@@ -39,9 +39,17 @@ final class AudioSink: @unchecked Sendable {
         return firstOffsetMs
     }
 
+    func recordFailure(_ message: String) {
+        lock.lock(); defer { lock.unlock() }
+        if failure == nil { failure = message }
+    }
+
     func status() -> [String: Any] {
         lock.lock(); defer { lock.unlock() }
-        return ["track": track, "frames": frames, "level": Date().timeIntervalSince(levelAt) < 0.25 ? level : ["rms": 0.0, "peak": 0.0]]
+        var result: [String: Any] = ["track": track, "frames": frames, "level": Date().timeIntervalSince(levelAt) < 0.25 ? level : ["rms": 0.0, "peak": 0.0]]
+        if let firstOffsetMs { result["offsetMs"] = firstOffsetMs }
+        if let failure { result["error"] = failure }
+        return result
     }
 
     init(url: URL, sessionId: String, track: String, startDate: Date, emit: @escaping ([String: Any]) -> Void) throws {
@@ -277,6 +285,7 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unc
     }
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
+        sink.recordFailure(error.localizedDescription)
         emit(["event": "meeting.error", "data": ["sessionId": sessionId, "track": "system", "message": error.localizedDescription]])
     }
 }
@@ -366,8 +375,7 @@ enum MeetingService {
         if captureSystem && !CGPreflightScreenCaptureAccess() {
             throw BridgeError("permission_required", "Enable Screen & System Audio Recording in System Settings before capturing meeting audio.")
         }
-        let id = UUID().uuidString
-        let date = Date()
+        let (id, date) = try meetingIdentity(params)
         let directory = try recordingDirectory(params, id: id)
         var mic: MicrophoneCapture?
         var sys: SystemAudioCapture?
@@ -459,4 +467,14 @@ enum MeetingService {
         if let mic { _ = try? mic.stop() }
         if let sys { _ = try? await sys.stop() }
     }
+}
+
+func meetingIdentity(_ params: [String: Any]) throws -> (String, Date) {
+    if params["_sessionId"] == nil && params["_originUnixMs"] == nil { return (UUID().uuidString, Date()) }
+    guard let id = params["_sessionId"] as? String, UUID(uuidString: id) != nil,
+          let milliseconds = params["_originUnixMs"] as? Double, milliseconds.isFinite,
+          abs(Date().timeIntervalSince1970 - milliseconds / 1000) < 3600 else {
+        throw BridgeError("invalid_session", "A valid shared meeting session and origin are required.")
+    }
+    return (id, Date(timeIntervalSince1970: milliseconds / 1000))
 }

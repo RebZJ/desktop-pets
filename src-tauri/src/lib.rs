@@ -1605,6 +1605,20 @@ async fn poll_listener(app: &AppHandle) {
             if status["recording"] == true && status["mode"] == "dictation" {
                 emit(app, "dictation.level", status["level"].clone());
             } else if status["recording"] == true && status["mode"] == "meeting" {
+                if let (Some(id), Some(offsets)) = (
+                    status["sessionId"].as_str(),
+                    status["trackOffsets"].as_object(),
+                ) {
+                    let _guard = state.meeting_lock.lock().await;
+                    if let Ok(mut meeting) = state.db.get("meeting", id) {
+                        if meeting["status"] == "recording"
+                            && meeting["capture"]["trackOffsets"] != json!(offsets)
+                        {
+                            meeting["capture"]["trackOffsets"] = json!(offsets);
+                            let _ = state.db.put("meeting", id, &meeting);
+                        }
+                    }
+                }
                 emit(
                     app,
                     "meeting.level",
@@ -1759,30 +1773,65 @@ async fn shutdown(app: AppHandle) {
         .capture_request(&app, "meeting.status", json!({}))
         .await
         .unwrap_or(Value::Null);
-    if status["recording"] == true {
+    let was_recording = status["recording"] == true;
+    let capture = if was_recording {
         let dictation = status["mode"] == "dictation";
         let method = if dictation {
             "audio.stop"
         } else {
             "meeting.stop"
         };
-        if let Ok(Ok(capture)) = tokio::time::timeout(
-            Duration::from_secs(4),
+        match tokio::time::timeout(
+            Duration::from_secs(8),
             state.engine.capture_request(&app, method, json!({})),
         )
         .await
         {
-            if dictation {
-                let _ = state.db.put("dictation", "recovery", &capture);
-            } else if let Some(id) = capture["sessionId"].as_str() {
-                if let Ok(mut meeting) = state.db.get("meeting", id) {
-                    if meeting["status"] == "recording" {
-                        meeting["capture"] = capture.clone();
-                        meeting["status"] = json!("interrupted");
-                        meeting["endedAt"] = json!(Utc::now().to_rfc3339());
-                        meeting["error"]=json!("Recording stopped when Desktop Pets quit. Retry to finish the saved notes.");
-                        let _ = state.db.put("meeting", id, &meeting);
+            Ok(Ok(capture)) => capture,
+            _ => {
+                let generation = state.native.worker_generation();
+                state.native.stop_adapter().await;
+                let recovered = state
+                    .engine
+                    .adapter_stopped(&app, generation)
+                    .await
+                    .ok()
+                    .flatten();
+                if let Some(capture) = recovered {
+                    capture
+                } else {
+                    // A cancelled blocking microphone stop may still be finalizing its WAV.
+                    match tokio::time::timeout(
+                        Duration::from_secs(4),
+                        state.engine.capture_request(&app, method, json!({})),
+                    )
+                    .await
+                    {
+                        Ok(Ok(capture)) => capture,
+                        _ => {
+                            let mut capture = status;
+                            capture["error"] = json!("Audio finalization did not complete before quit. The original recording files are preserved.");
+                            capture
+                        }
                     }
+                }
+            }
+        }
+    } else {
+        status
+    };
+    if was_recording && capture["mode"] == "dictation" {
+        let _ = state.db.put("dictation", "recovery", &capture);
+    } else if capture["mode"] == "meeting" {
+        if let Some(id) = capture["sessionId"].as_str() {
+            let _guard = state.meeting_lock.lock().await;
+            if let Ok(mut meeting) = state.db.get("meeting", id) {
+                if meeting["status"] == "recording" {
+                    meeting["capture"] = capture.clone();
+                    meeting["status"] = json!("interrupted");
+                    meeting["endedAt"] = json!(Utc::now().to_rfc3339());
+                    meeting["error"]=json!("Recording stopped when Desktop Pets quit. Retry to finish the saved notes.");
+                    let _ = state.db.put("meeting", id, &meeting);
                 }
             }
         }
@@ -1794,6 +1843,12 @@ async fn shutdown(app: AppHandle) {
 pub(crate) async fn handle_native_event(app: AppHandle, message: Value) {
     let event = message["event"].as_str().unwrap_or("");
     let data = &message["data"];
+    if data["_workerGeneration"]
+        .as_u64()
+        .is_some_and(|generation| !app.state::<AppState>().native.is_current_worker(generation))
+    {
+        return;
+    }
     if event == "voice.started" {
         action(&app, "talk");
     } else if event == "voice.stopped" {
@@ -1811,6 +1866,7 @@ pub(crate) async fn handle_native_event(app: AppHandle, message: Value) {
                 .as_u64()
                 .filter(|offset| *offset <= 3_600_000),
         ) {
+            let _guard = state.meeting_lock.lock().await;
             if let Ok(mut meeting) = state.db.get("meeting", id) {
                 if meeting["status"] == "recording" || meeting["status"] == "finalizing" {
                     meeting["capture"]["trackOffsets"][track] = json!(offset);
@@ -1830,23 +1886,31 @@ pub(crate) async fn handle_native_event(app: AppHandle, message: Value) {
         }
     } else if event == "runtime.stopped" {
         let state = app.state::<AppState>();
-        // The Mac platform adapter is optional; its failure cannot stop portable capture.
-        if state.engine.uses_native_capture() {
-            state.engine.native_stopped();
-            let _lifecycle = state.meeting_lifecycle.lock().await;
-            state.meeting_silent.store(false, Ordering::SeqCst);
-            recording_status(&app, false);
-            if let Ok(meetings) = state.db.list("meeting") {
-                for mut meeting in meetings {
-                    if meeting["status"] == "recording" {
-                        let id = meeting["id"].as_str().unwrap_or("").to_string();
-                        meeting["status"] = json!("interrupted");
-                        meeting["error"] = json!("The system audio adapter stopped. Retry to finish the saved recording.");
-                        let _ = state.db.put("meeting", &id, &meeting);
-                        emit(&app, "meeting.updated", meeting);
+        let Some(generation) = data["_workerGeneration"].as_u64() else {
+            return;
+        };
+        let _lifecycle = state.meeting_lifecycle.lock().await;
+        match state.engine.adapter_stopped(&app, generation).await {
+            Ok(Some(capture)) => {
+                state.meeting_silent.store(false, Ordering::SeqCst);
+                recording_status(&app, false);
+                if let Some(id) = capture["sessionId"].as_str().map(str::to_owned) {
+                    let _guard = state.meeting_lock.lock().await;
+                    if let Ok(mut meeting) = state.db.get("meeting", &id) {
+                        if meeting["status"] == "recording" {
+                            meeting["capture"] = capture;
+                            meeting["status"] = json!("interrupted");
+                            meeting["endedAt"] = json!(Utc::now().to_rfc3339());
+                            meeting["error"] = json!("The system audio adapter stopped. Retry to finish the saved recording.");
+                            let _ = state.db.put("meeting", &id, &meeting);
+                            emit(&app, "meeting.updated", meeting);
+                        }
                     }
                 }
+                enqueue_chunks(&app).await;
             }
+            Ok(None) => {}
+            Err(error) => eprintln!("Could not finalize interrupted meeting capture: {error}"),
         }
     }
 }
