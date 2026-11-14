@@ -164,13 +164,14 @@ fn source_chunks(meeting: &Value) -> Result<Vec<String>, String> {
     let mut current = String::new();
     let mut count = 0;
     for segment in segments {
+        if !crate::meeting_segment_is_available(segment) {
+            continue;
+        }
         let text = segment["text"].as_str().unwrap_or("").trim();
         if text.is_empty() {
             continue;
         }
-        let speaker: String = segment["speaker"]
-            .as_str()
-            .unwrap_or("Speaker")
+        let speaker: String = crate::meeting_speaker_context(segment)
             .chars()
             .take(80)
             .collect();

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Download, Keyboard, LoaderCircle, Mic, Volume2, VolumeX } from 'lucide-react';
-import { api, errorText, isNative, subscribe, type AppState, type LocalModel, type Settings } from './api';
+import { api, errorText, isNative, recognitionModelId, subscribe, type AppState, type LocalModel, type Settings } from './api';
 import { Pace, playPetSound, stopPetSound, usePetMood } from './Pace';
 import { ShortcutInput } from './ShortcutInput';
 import './onboarding.css';
@@ -12,7 +12,7 @@ const languages = [
   { id: 'zh', label: 'Chinese', model: 'moonshine-tiny-zh' },
   { id: 'ja', label: 'Japanese', model: 'moonshine-tiny-ja' },
   { id: 'es', label: 'Spanish', model: 'moonshine-tiny-es' },
-  { id: 'auto', label: 'Automatic · Whisper Turbo', model: 'whisper-turbo' },
+  { id: 'auto', label: 'Automatic language detection', model: 'whisper-turbo' },
 ];
 const modelDescriptions: Record<string, string> = {
   'qwen3.5-4b': 'Local brain for chat & meeting notes',
@@ -22,6 +22,7 @@ const modelDescriptions: Record<string, string> = {
   'moonshine-tiny-ja': 'Fast Japanese dictation',
   'moonshine-tiny-es': 'Fast Spanish dictation',
   'whisper-turbo': 'Multilingual dictation & meeting transcripts',
+  'qwen3-asr-1.7b': 'Higher-quality local speech recognition · 2.52 GB',
 };
 const shortcutActions = [
   { label: 'Dictation window', field: 'commandShortcut' },
@@ -70,7 +71,7 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
   const native = isNative();
   const notesReady = state.models.some(model => model.id === 'qwen3.5-4b' && model.installed);
   const selectedLanguage = state.settings.dictationLanguage || 'en';
-  const dictationModel = state.models.find(model => model.id === languages.find(language => language.id === selectedLanguage)?.model);
+  const dictationModel = state.models.find(model => model.id === recognitionModelId(state.settings, state.models));
   const packModels = [dictationModel, state.models.find(model => model.id === 'kitten-tts-micro-0.8-onnx'), state.models.find(model => model.id === 'qwen3.5-4b')].filter((model): model is LocalModel => Boolean(model));
   const recording = state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status));
 
@@ -220,7 +221,7 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
         <div className="onboarding-dialogue-body" key={step}>
           <h1 id="onboarding-title" ref={heading} tabIndex={-1}>{titles[step]}</h1>
           {step === 0 && <>
-            <p className="onboarding-lead">Choose one small dictation pack first. Add the meeting brain when you need notes and a copilot.</p>
+            <p className="onboarding-lead">Choose a speech recognition pack first. Add the meeting brain when you need notes and a copilot.</p>
             {!desktop && <p className="onboarding-preview-note">Browser preview can’t download models. The desktop app shows real model sizes and progress.</p>}
             <label className="onboarding-field-label" htmlFor="dictation-language">Dictation language</label>
             <select id="dictation-language" className="onboarding-select" value={selectedLanguage} disabled={Boolean(settingBusy) || saving} onChange={event => void updateSetting('dictationLanguage', event.target.value)}>
@@ -230,11 +231,11 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
               const downloading = installing.includes(model.id) || ['downloading', 'installing'].includes(model.status);
               const progress = typeof model.progress === 'number' ? Math.min(100, Math.max(0, model.progress <= 1 ? model.progress * 100 : model.progress)) : undefined;
               return <div className="onboarding-model" key={model.id}>
-                <div><strong>{model.id === dictationModel?.id ? 'Quick dictation' : 'Meeting brain'}</strong><p>{modelDescriptions[model.id] || model.name}</p><span>{model.name} · {modelSize(model.sizeBytes)}</span>{model.error && <p className="onboarding-model-error">{model.error}</p>}</div>
+                <div><strong>{model.id === dictationModel?.id ? 'Speech recognition' : model.id === 'kitten-tts-micro-0.8-onnx' ? 'Pace’s voice' : 'Meeting brain'}</strong><p>{modelDescriptions[model.id] || model.name}</p><span>{model.name} · {modelSize(model.sizeBytes)}</span>{model.error && <p className="onboarding-model-error">{model.error}</p>}</div>
                 {model.installed ? <span className="onboarding-ready"><Check size={15} />Ready</span> : downloading ? <div className="onboarding-download"><span role="status">{progress === undefined ? 'Downloading…' : `${Math.round(progress)}%`}</span><progress max={100} value={progress} aria-label={`${model.name} download progress`} /></div> : <button className="onboarding-item-button" aria-label={`Download ${model.name}`} disabled={!desktop || saving} onClick={() => void install(model)}><Download size={14} />Download</button>}
               </div>;
             })}</div>
-            {selectedLanguage === 'auto' && <p className="onboarding-small">Automatic language detection uses Whisper Turbo. The smaller Moonshine packs are language-specific.</p>}
+            {selectedLanguage === 'auto' && <p className="onboarding-small">{state.settings.asrModel === 'moonshine' ? 'Moonshine needs a supported language. Choose one above.' : 'Whisper and Qwen support automatic language detection. Moonshine packs are language-specific.'}</p>}<p className="onboarding-small">Choose your recognition model for dictation, voice and meetings in Settings → Listening & typing. Your current model choice is preserved.</p>
             <p className="onboarding-small">Downloads start only when you choose them and can continue while you explore. The other languages, large transcription model and speaker labels are in Local Models.</p>
           </>}
           {step === 1 && <>

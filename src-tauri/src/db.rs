@@ -9,7 +9,7 @@ pub struct Database(Mutex<Connection>);
 pub fn defaults() -> Value {
     json!({
         "onboardingCompleted":false, "theme":"camp", "interfaceFont":"pixel", "captureProtectionEnabled":true,
-        "language":"auto", "voice":"Kiki", "voiceEngine":"auto", "speechEnabled":false,
+        "language":"auto", "asrModel":"auto", "voice":"Kiki", "voiceEngine":"auto", "speechEnabled":false,
         "dictationShortcut":"Alt+Shift+D", "completionShortcut":"Alt+Shift+Enter", "dictationLanguage":"en", "dictationVocabulary":"", "writingExamples":"",
         "soundEnabled":true, "petSize":160, "activePack":"pace", "volume":0.65, "pitch":1.05, "rate":1.0,
         "memoryEnabled":false, "allowedApps":[], "allowedDomains":[],
@@ -87,6 +87,12 @@ impl Database {
                     if !["pixel", "inter", "fira"].contains(&value.as_str().unwrap_or("")) =>
                 {
                     return Err("Unsupported interface font".into())
+                }
+                "asrModel"
+                    if !["auto", "moonshine", "whisper-turbo", "qwen3-asr-1.7b"]
+                        .contains(&value.as_str().unwrap_or("")) =>
+                {
+                    return Err("Unsupported speech recognition model".into())
                 }
                 "dictationLanguage"
                     if !["auto", "en", "zh", "ja", "es"]

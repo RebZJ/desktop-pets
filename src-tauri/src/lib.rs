@@ -9,11 +9,13 @@ mod e2e;
 mod engine;
 mod extensions;
 mod listening;
+mod meeting_echo;
 mod native;
 mod notes;
 #[cfg(target_os = "macos")]
 mod pet_panel;
 mod portable;
+mod qwen_asr;
 mod voice;
 mod voicechat;
 
@@ -698,6 +700,7 @@ async fn chat_send(app: &AppHandle, state: &AppState, params: Value) -> Result<V
         .map(|segments| {
             segments
                 .iter()
+                .filter(|segment| meeting_segment_is_available(segment))
                 .rev()
                 .take(80)
                 .collect::<Vec<_>>()
@@ -707,7 +710,7 @@ async fn chat_send(app: &AppHandle, state: &AppState, params: Value) -> Result<V
                     format!(
                         "[{:.1}s] {}: {}",
                         segment["start"].as_f64().unwrap_or(0.0),
-                        segment["speaker"].as_str().unwrap_or("Speaker"),
+                        meeting_speaker_context(segment),
                         segment["text"].as_str().unwrap_or("")
                     )
                 })
@@ -850,6 +853,20 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
                 });
             }
             updated = state.db.settings()?;
+            if old["asrModel"] == "qwen3-asr-1.7b" && updated["asrModel"] != "qwen3-asr-1.7b" {
+                let handle = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = handle.state::<AppState>();
+                    let _guard = state.asr_lock.lock().await;
+                    if state
+                        .db
+                        .settings()
+                        .is_ok_and(|s| s["asrModel"] != "qwen3-asr-1.7b")
+                    {
+                        state.engine.release_asr().await;
+                    }
+                });
+            }
             emit(&app, "settings.updated", updated.clone());
             if let Some(error) = cover_error {
                 Err(error)
@@ -940,7 +957,18 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
             state.speech_epoch.fetch_add(1, Ordering::SeqCst);
             let _lifecycle = state.meeting_lifecycle.lock().await;
             let models = model_status(&app, &state).await;
-            for id in ["qwen3.5-4b", "whisper-turbo", "nemotron-diarization"] {
+            let settings = state.db.settings()?;
+            let recognition = settings["asrModel"].as_str().unwrap_or("auto");
+            let recognition = if recognition == "auto" {
+                "whisper-turbo"
+            } else {
+                recognition
+            };
+            let language = settings["language"].as_str().unwrap_or("auto");
+            state
+                .engine
+                .require_dictation_model(language, recognition)?;
+            for id in ["qwen3.5-4b", "nemotron-diarization"] {
                 if !models
                     .as_array()
                     .is_some_and(|a| a.iter().any(|m| m["id"] == id && m["installed"] == true))
@@ -977,6 +1005,9 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
                 state.meeting_silent.store(false, Ordering::SeqCst);
                 return Err("Meeting capture returned no session id".into());
             };
+            state
+                .engine
+                .warm(language.to_owned(), recognition.to_owned());
             let meeting = json!({"id":id,"title":params["title"].as_str().unwrap_or("Untitled meeting"),"startedAt":Utc::now().to_rfc3339(),"status":"recording","segments":[],"notes":"","actionItems":[],"capture":started});
             if let Err(error) = state.db.put("meeting", id, &meeting) {
                 let _ = state
@@ -1703,9 +1734,19 @@ async fn capture_memory(app: &AppHandle, state: &AppState) -> Result<Value, Stri
 async fn transcribe_audio(
     _app: &AppHandle,
     state: &AppState,
-    params: Value,
+    mut params: Value,
 ) -> Result<Value, String> {
     let _guard = state.asr_lock.lock().await;
+    if state.shutting_down.load(Ordering::SeqCst) {
+        return Err("Desktop Pets is closing. Saved audio is preserved for retry.".into());
+    }
+    let settings = state.db.settings()?;
+    if params["asrModel"].is_null() {
+        params["asrModel"] = settings["asrModel"].clone();
+    }
+    if params["dictationVocabulary"].is_null() {
+        params["dictationVocabulary"] = settings["dictationVocabulary"].clone();
+    }
     state.engine.transcribe(params).await
 }
 
@@ -1776,6 +1817,7 @@ async fn shutdown(app: AppHandle) {
     voicechat::cancel_now(&app, &state);
     let _ = tokio::time::timeout(Duration::from_secs(4), voicechat::stop(&app, &state, None)).await;
     state.engine.cancelled.store(true, Ordering::SeqCst);
+    let _ = tokio::time::timeout(Duration::from_secs(4), state.engine.shutdown_asr()).await;
     let _ = state
         .native
         .request(&app, "runtime.cancel", json!({}))
@@ -1927,23 +1969,165 @@ pub(crate) async fn handle_native_event(app: AppHandle, message: Value) {
     }
 }
 
+fn meeting_track_offset(capture: &Value, track: &str) -> Option<u64> {
+    capture["trackOffsets"][track]
+        .as_u64()
+        .or_else(|| {
+            capture["tracks"]
+                .as_array()?
+                .iter()
+                .find(|value| value["track"] == track)?["offsetMs"]
+                .as_u64()
+        })
+        .filter(|offset| *offset <= 86_400_000)
+}
+
+async fn meeting_echo_input(
+    state: &AppState,
+    id: &str,
+    microphone: &Path,
+    chunk_start: Option<u64>,
+    capture: &Value,
+    live: bool,
+) -> meeting_echo::EchoResult {
+    let skipped = |reason: &str| meeting_echo::EchoResult {
+        cleaned: None,
+        metadata: json!({"backend":"aec3-rust-0.4.0","status":"reference-unavailable","reason":reason}),
+    };
+    if state.shutting_down.load(Ordering::SeqCst) {
+        return skipped("shutting-down");
+    }
+    if capture["sessionId"] != id || Uuid::parse_str(id).is_err() {
+        return skipped("session-mismatch");
+    }
+    let paired = capture["captureSystem"] == true
+        || capture["tracks"]
+            .as_array()
+            .is_some_and(|tracks| tracks.iter().any(|track| track["track"] == "system"));
+    if !paired {
+        return skipped("no-system-track");
+    }
+    let directory = state.data_dir.join("recordings").join(id);
+    let reference = directory.join("system.wav");
+    let history = directory.join("microphone.wav");
+    // Growing-length interpretation is only for our canonical capture files in
+    // this session, never a path supplied by an imported recording or another app.
+    let owned = directory.canonicalize().ok().is_some_and(|directory| {
+        microphone
+            .canonicalize()
+            .ok()
+            .is_some_and(|path| path.parent() == Some(directory.as_path()))
+            && reference
+                .canonicalize()
+                .ok()
+                .is_some_and(|path| path == directory.join("system.wav"))
+    });
+    if !owned {
+        return skipped("recording-path-unavailable");
+    }
+    let mut mic_origin = meeting_track_offset(capture, "microphone");
+    let mut system_origin = meeting_track_offset(capture, "system");
+    if live && (mic_origin.is_none() || system_origin.is_none()) {
+        if let Ok(fresh) = state.engine.capture_status().await {
+            if fresh["sessionId"] == id {
+                mic_origin = mic_origin.or_else(|| meeting_track_offset(&fresh, "microphone"));
+                system_origin = system_origin.or_else(|| meeting_track_offset(&fresh, "system"));
+            }
+        }
+    }
+    let (Some(mic_start), Some(system_start)) =
+        (if live { chunk_start } else { mic_origin }, system_origin)
+    else {
+        return skipped("track-offset-unavailable");
+    };
+    let microphone = microphone.to_path_buf();
+    let cancelled = state.engine.cancelled.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let history = live
+            .then_some(mic_origin)
+            .flatten()
+            .filter(|_| history.is_file())
+            .map(|offset| (history, offset));
+        meeting_echo::clean_microphone(
+            &microphone,
+            &reference,
+            mic_start,
+            system_start,
+            meeting_echo::EchoOptions {
+                allow_growing_reference: live,
+                microphone_history: history
+                    .as_ref()
+                    .map(|(path, offset)| (path.as_path(), *offset)),
+            },
+            &cancelled,
+        )
+    })
+    .await;
+    match result {
+        Ok(Ok(result)) => result,
+        error => meeting_echo::EchoResult {
+            cleaned: None,
+            metadata: json!({"backend":"aec3-rust-0.4.0","status":"unavailable",
+            "reason":match error {Ok(Err(error))=>error,Err(error)=>error.to_string(),_=>unreachable!()}}),
+        },
+    }
+}
+
 async fn process_chunk(app: &AppHandle, chunk: &Value) -> Result<Value, String> {
     let state = app.state::<AppState>();
     let id = text_param(chunk, "sessionId")?;
     let ui_epoch = state.ui_epoch.load(Ordering::SeqCst);
-    if state.db.get("meeting", id)?["status"] != "recording" {
+    let meeting = state.db.get("meeting", id)?;
+    if meeting["status"] != "recording" {
         return Ok(json!({"processed":false,"reason":"meeting_not_recording"}));
     }
+    if state.shutting_down.load(Ordering::SeqCst) {
+        return Err("Desktop Pets is closing. Saved audio is preserved for retry.".into());
+    }
     let settings = state.db.settings()?;
+    let track = chunk["track"].as_str().unwrap_or("system");
+    let raw_path = PathBuf::from(text_param(chunk, "path")?);
+    let echo = if matches!(track, "microphone" | "mic") {
+        Some(
+            meeting_echo_input(
+                &state,
+                id,
+                &raw_path,
+                chunk["startMs"].as_u64(),
+                &meeting["capture"],
+                true,
+            )
+            .await,
+        )
+    } else {
+        None
+    };
+    if let Some(echo) = echo.as_ref() {
+        let _guard = state.meeting_lock.lock().await;
+        let mut meeting = state.db.get("meeting", id)?;
+        if meeting["status"] != "recording" {
+            return Ok(json!({"processed":false,"reason":"meeting_not_recording"}));
+        }
+        meeting["echoCancellation"]["live"] = echo.metadata.clone();
+        meeting["echoCancellation"]["live"]["chunkStartMs"] = chunk["startMs"].clone();
+        state.db.put("meeting", id, &meeting)?;
+    }
+    if state.shutting_down.load(Ordering::SeqCst) {
+        return Err("Desktop Pets is closing. Saved audio is preserved for retry.".into());
+    }
+    let input = echo
+        .as_ref()
+        .and_then(|echo| echo.cleaned.as_ref())
+        .map(|file| file.path())
+        .unwrap_or(&raw_path);
     let transcript = transcribe_audio(
         app,
         &state,
-        json!({"path":chunk["path"],"language":settings["language"]}),
+        json!({"path":input,"language":settings["language"]}),
     )
     .await?;
-    let track = chunk["track"].as_str().unwrap_or("system");
     let offset = chunk["startMs"].as_f64().unwrap_or(0.0) / 1000.0;
-    let segments = merge_segments(transcription_segments(&transcript, offset, track));
+    let mut segments = merge_segments(transcription_segments(&transcript, offset, track));
     let segment_count = segments.len();
     let recent;
     {
@@ -1951,6 +2135,15 @@ async fn process_chunk(app: &AppHandle, chunk: &Value) -> Result<Value, String> 
         let mut meeting = state.db.get("meeting", id)?;
         if meeting["status"] != "recording" {
             return Ok(json!({"processed":false,"reason":"meeting_not_recording"}));
+        }
+        let hold_mic = (track == "microphone" || track == "mic")
+            && meeting["capture"]["captureSystem"] == true
+            && meeting["capture"]["captureMicrophone"] == true;
+        if hold_mic {
+            let until = chrono::Utc::now().timestamp_millis() + 1800;
+            for segment in &mut segments {
+                segment["pendingEchoCheckUntilMs"] = json!(until);
+            }
         }
         let all = meeting["segments"]
             .as_array_mut()
@@ -1962,11 +2155,13 @@ async fn process_chunk(app: &AppHandle, chunk: &Value) -> Result<Value, String> 
                 .unwrap_or(0.0)
                 .total_cmp(&b["start"].as_f64().unwrap_or(0.0))
         });
+        mark_cross_track_duplicates(all);
         let latest = all.last().and_then(|s| s["end"].as_f64()).unwrap_or(0.0);
         recent = all
             .iter()
             .rev()
             .take_while(|s| s["start"].as_f64().unwrap_or(0.0) >= latest - 120.0)
+            .filter(|s| meeting_segment_is_available(s))
             .take(24)
             .collect::<Vec<_>>()
             .into_iter()
@@ -1975,7 +2170,7 @@ async fn process_chunk(app: &AppHandle, chunk: &Value) -> Result<Value, String> 
                 format!(
                     "[{:.1}s] {}: {}",
                     s["start"].as_f64().unwrap_or(0.0),
-                    s["speaker"].as_str().unwrap_or("Speaker"),
+                    meeting_speaker_context(s),
                     s["text"].as_str().unwrap_or("")
                 )
             })
@@ -1986,6 +2181,9 @@ async fn process_chunk(app: &AppHandle, chunk: &Value) -> Result<Value, String> 
             .collect::<String>();
         state.db.put("meeting", id, &meeting)?;
         emit(app, "meeting.updated", meeting);
+        if hold_mic {
+            schedule_echo_release(app, id);
+        }
     }
     if settings["meetingTips"] == true
         && !recent.is_empty()
@@ -2090,15 +2288,91 @@ fn normalized_tip(text: &str) -> String {
 
 fn transcription_segments(transcript: &Value, offset: f64, track: &str) -> Vec<Value> {
     let speaker = if track == "microphone" || track == "mic" {
-        "You"
+        "Microphone"
     } else {
-        "Speaker 1"
+        "Computer audio"
     };
+    let speaker_id = format!("{track}:unidentified");
     if let Some(segments) = transcript["segments"].as_array() {
-        segments.iter().filter_map(|s| {let text=s["text"].as_str()?.trim();if text.is_empty(){return None}let start=s["start"].as_f64().unwrap_or_else(||s["startMs"].as_f64().unwrap_or(0.0)/1000.0);let end=s["end"].as_f64().unwrap_or_else(||s["endMs"].as_f64().unwrap_or(start*1000.0)/1000.0);Some(json!({"id":Uuid::new_v4().to_string(),"speaker":speaker,"track":track,"start":offset+start,"end":offset+end,"text":text}))}).collect()
+        segments.iter().filter_map(|s| {let text=s["text"].as_str()?.trim();if text.is_empty(){return None}let start=s["start"].as_f64().unwrap_or_else(||s["startMs"].as_f64().unwrap_or(0.0)/1000.0);let end=s["end"].as_f64().unwrap_or_else(||s["endMs"].as_f64().unwrap_or(start*1000.0)/1000.0);Some(json!({"id":Uuid::new_v4().to_string(),"speaker":speaker,"speakerId":speaker_id,"track":track,"start":offset+start,"end":offset+end,"text":text}))}).collect()
     } else {
-        transcript["text"].as_str().filter(|s|!s.trim().is_empty()).map(|text|vec![json!({"id":Uuid::new_v4().to_string(),"speaker":speaker,"track":track,"start":offset,"end":offset,"text":text})]).unwrap_or_default()
+        transcript["text"].as_str().filter(|s|!s.trim().is_empty()).map(|text|vec![json!({"id":Uuid::new_v4().to_string(),"speaker":speaker,"speakerId":speaker_id,"track":track,"start":offset,"end":offset,"text":text})]).unwrap_or_default()
     }
+}
+
+pub(crate) fn meeting_speaker_context(segment: &Value) -> String {
+    let speaker = segment["speaker"]
+        .as_str()
+        .unwrap_or("Unidentified speaker");
+    let source = match segment["track"].as_str() {
+        Some("microphone" | "mic") => "Microphone",
+        Some("system") => "Computer audio",
+        _ => return speaker.to_owned(),
+    };
+    if speaker == source {
+        source.to_owned()
+    } else {
+        format!("{speaker} [{source}]")
+    }
+}
+
+pub(crate) fn meeting_segment_is_available(segment: &Value) -> bool {
+    segment["duplicateOf"].is_null()
+        && segment["pendingEchoCheckUntilMs"]
+            .as_i64()
+            .is_none_or(|until| until <= chrono::Utc::now().timestamp_millis())
+}
+
+fn schedule_echo_release(app: &AppHandle, id: &str) {
+    static ACTIVE: std::sync::OnceLock<Mutex<std::collections::HashSet<String>>> =
+        std::sync::OnceLock::new();
+    let active = ACTIVE.get_or_init(Mutex::default);
+    if !active.lock().is_ok_and(|mut ids| ids.insert(id.to_owned())) {
+        return;
+    }
+    let app = app.clone();
+    let id = id.to_owned();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(1800)).await;
+            let state = app.state::<AppState>();
+            let _lifecycle = state.meeting_lifecycle.lock().await;
+            let _guard = state.meeting_lock.lock().await;
+            let mut pending = false;
+            if let Ok(mut meeting) = state.db.get("meeting", &id) {
+                let now = chrono::Utc::now().timestamp_millis();
+                let recording =
+                    meeting["status"] == "recording" && !state.shutting_down.load(Ordering::SeqCst);
+                if !recording {
+                    if let Ok(mut ids) = active.lock() {
+                        ids.remove(&id);
+                    }
+                    break;
+                }
+                if let Some(segments) = meeting["segments"].as_array_mut() {
+                    for segment in segments.iter_mut() {
+                        if let Some(until) = segment["pendingEchoCheckUntilMs"].as_i64() {
+                            if recording && until > now {
+                                pending = true;
+                            } else if let Some(object) = segment.as_object_mut() {
+                                object.remove("pendingEchoCheckUntilMs");
+                            }
+                        }
+                    }
+                    mark_cross_track_duplicates(segments);
+                }
+                if state.db.put("meeting", &id, &meeting).is_ok() {
+                    emit(&app, "meeting.updated", meeting);
+                }
+            }
+            if !pending {
+                if let Ok(mut ids) = active.lock() {
+                    ids.remove(&id);
+                }
+                break;
+            }
+        }
+    });
 }
 
 fn merge_segments(segments: Vec<Value>) -> Vec<Value> {
@@ -2108,6 +2382,7 @@ fn merge_segments(segments: Vec<Value>) -> Vec<Value> {
             let gap =
                 segment["start"].as_f64().unwrap_or(0.0) - previous["end"].as_f64().unwrap_or(0.0);
             if previous["speaker"] == segment["speaker"]
+                && previous["speakerId"] == segment["speakerId"]
                 && previous["track"] == segment["track"]
                 && (0.0..=1.2).contains(&gap)
                 && previous["text"].as_str().unwrap_or("").chars().count()
@@ -2137,6 +2412,122 @@ fn merge_segments(segments: Vec<Value>) -> Vec<Value> {
         merged.push(segment);
     }
     merged
+}
+
+fn mark_cross_track_duplicates(segments: &mut [Value]) {
+    // Text and timing establish a probable duplicate, never a shared speaker identity.
+    let normalized = |segment: &Value| -> String {
+        segment["text"]
+            .as_str()
+            .unwrap_or("")
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .flat_map(char::to_lowercase)
+            .collect()
+    };
+    let mut candidates: Vec<_> = segments
+        .iter()
+        .filter(|s| s["track"] == "system")
+        .filter_map(|s| {
+            Some((
+                s["id"].as_str()?.to_owned(),
+                normalized(s),
+                s["start"].as_f64()?,
+                s["end"].as_f64()?,
+            ))
+        })
+        .filter(|(_, text, start, end)| {
+            !text.is_empty() && start.is_finite() && end.is_finite() && end > start
+        })
+        .collect();
+    candidates.sort_by(|a, b| a.2.total_cmp(&b.2));
+    for segment in segments {
+        if segment["track"] != "microphone" && segment["track"] != "mic" {
+            continue;
+        }
+        // Recompute derived annotations without deleting or modifying recognized words.
+        if let Some(object) = segment.as_object_mut() {
+            object.remove("duplicateOf");
+            object.remove("duplicateOfIds");
+            object.remove("duplicateReason");
+        }
+        let text = normalized(segment);
+        let words = segment["text"]
+            .as_str()
+            .unwrap_or("")
+            .split_whitespace()
+            .count();
+        let cjk = text
+            .chars()
+            .filter(|c| ('\u{3040}'..='\u{9fff}').contains(c))
+            .count();
+        if text.chars().count() < 40 || (words < 8 && cjk < 24) {
+            continue;
+        }
+        let (Some(start), Some(end)) = (segment["start"].as_f64(), segment["end"].as_f64()) else {
+            continue;
+        };
+        if !start.is_finite() || !end.is_finite() || end - start < 3.0 {
+            continue;
+        }
+        // Match a whole mic passage across system boundaries, or inside a longer system phrase.
+        // Extra mic words prevent a match, preserving local speech during double-talk.
+        let nearby: Vec<_> = candidates
+            .iter()
+            .filter(|(_, _, begin, finish)| *begin <= end + 1.0 && *finish >= start - 1.0)
+            .collect();
+        let mut matches: Vec<Vec<String>> = Vec::new();
+        let mut first = 0;
+        while first < nearby.len() {
+            let mut last = first + 1;
+            while last < nearby.len() && nearby[last].2 - nearby[last - 1].3 <= 1.2 {
+                last += 1;
+            }
+            let group = &nearby[first..last];
+            let joined: String = group.iter().map(|row| row.1.as_str()).collect();
+            for (byte, _) in joined.match_indices(&text) {
+                let limit = byte + text.len();
+                let mut position = 0;
+                let mut matched_start = None;
+                let mut matched_end = None;
+                let mut ids = Vec::new();
+                for row in group {
+                    let row_end = position + row.1.len();
+                    if byte < row_end && limit > position {
+                        if matched_start.is_none() {
+                            matched_start = Some(
+                                row.2
+                                    + (byte.saturating_sub(position) as f64 / row.1.len() as f64)
+                                        * (row.3 - row.2),
+                            );
+                        }
+                        matched_end = Some(
+                            row.2
+                                + ((limit.min(row_end) - position) as f64 / row.1.len() as f64)
+                                    * (row.3 - row.2),
+                        );
+                        ids.push(row.0.clone());
+                    }
+                    position = row_end;
+                }
+                if let (Some(begin), Some(finish)) = (matched_start, matched_end) {
+                    let shared = (end.min(finish) - start.max(begin)).max(0.0);
+                    if (begin - start).abs() <= 1.0
+                        && (finish - end).abs() <= 1.0
+                        && shared / (end - start).max(finish - begin) >= 0.8
+                    {
+                        matches.push(ids);
+                    }
+                }
+            }
+            first = last;
+        }
+        if let [matched] = matches.as_slice() {
+            segment["duplicateOf"] = json!(matched[0]);
+            segment["duplicateOfIds"] = json!(matched);
+            segment["duplicateReason"] = json!("matching-computer-audio");
+        }
+    }
 }
 
 fn show_meeting_tip(app: &AppHandle, session_id: &str, epoch: u64) {
@@ -2188,13 +2579,23 @@ async fn finalize_meeting_inner(
     state: &AppState,
     id: &str,
 ) -> Result<Value, String> {
+    if state.shutting_down.load(Ordering::SeqCst) {
+        return Err("Desktop Pets is closing. Saved audio is preserved for retry.".into());
+    }
     let mut meeting = state.db.get("meeting", id)?;
     meeting["status"] = json!("finalizing");
+    if let Some(segments) = meeting["segments"].as_array_mut() {
+        for segment in segments {
+            if let Some(object) = segment.as_object_mut() {
+                object.remove("pendingEchoCheckUntilMs");
+            }
+        }
+    }
     state.db.put("meeting", id, &meeting)?;
     emit(app, "meeting.updated", meeting.clone());
     let settings = state.db.settings()?;
     meeting["capture"] = engine::with_capture_errors(meeting["capture"].clone());
-    let capture = &meeting["capture"];
+    let capture = meeting["capture"].clone();
     let mut tracks = capture["tracks"].as_array().cloned().unwrap_or_default();
     if tracks.is_empty() {
         tracks = recover_tracks(&state.data_dir, id, &meeting["capture"]["trackOffsets"]);
@@ -2204,9 +2605,12 @@ async fn finalize_meeting_inner(
             "Recording files are unavailable. The provisional transcript is preserved.".into(),
         );
     }
-    let multiple_tracks = tracks.len() > 1;
+    let speaker_windows = settings["asrModel"] == "qwen3-asr-1.7b";
     let mut all = Vec::new();
     for track in tracks {
+        if state.shutting_down.load(Ordering::SeqCst) {
+            return Err("Desktop Pets is closing. Saved audio is preserved for retry.".into());
+        }
         let path = track["path"]
             .as_str()
             .or_else(|| track["wavPath"].as_str())
@@ -2216,12 +2620,42 @@ async fn finalize_meeting_inner(
         }
         let name = track["track"].as_str().unwrap_or("system");
         let offset = track["offsetMs"].as_f64().unwrap_or(0.0) / 1000.0;
-        let transcript = transcribe_audio(
-            app,
-            state,
-            json!({"path":path,"language":settings["language"]}),
-        )
-        .await?;
+        let raw_path = PathBuf::from(path);
+        let echo = if matches!(name, "microphone" | "mic") {
+            Some(meeting_echo_input(state, id, &raw_path, None, &capture, false).await)
+        } else {
+            None
+        };
+        if let Some(echo) = echo.as_ref() {
+            meeting["echoCancellation"]["final"] = echo.metadata.clone();
+            state.db.put("meeting", id, &meeting)?;
+        }
+        if state.shutting_down.load(Ordering::SeqCst) {
+            return Err("Desktop Pets is closing. Saved audio is preserved for retry.".into());
+        }
+        // Keep the derivative owner in this track scope through BOTH consumers.
+        let path = echo
+            .as_ref()
+            .and_then(|echo| echo.cleaned.as_ref())
+            .map(|file| file.path())
+            .unwrap_or(&raw_path);
+        // Qwen phrase timestamps must not span a known speaker change.
+        let mut diarization = if speaker_windows {
+            Some(state.engine.diarize(json!({"path":path})).await?)
+        } else {
+            None
+        };
+        let mut request = json!({"path":path,"language":settings["language"]});
+        if let Some(labels) = diarization.as_ref() {
+            // A missed diarization must not erase speech that ASR can still recognize.
+            if labels["segments"]
+                .as_array()
+                .is_some_and(|turns| !turns.is_empty())
+            {
+                request["speakerSegments"] = labels["segments"].clone();
+            }
+        }
+        let transcript = transcribe_audio(app, state, request).await?;
         let mut segments = transcription_segments(&transcript, offset, name);
         if !segments.is_empty() {
             // Preserve recognized words even if speaker recognition or a later track fails.
@@ -2236,9 +2670,20 @@ async fn finalize_meeting_inner(
                     .unwrap_or(0.0)
                     .total_cmp(&b["start"].as_f64().unwrap_or(0.0))
             });
+            mark_cross_track_duplicates(saved);
             state.db.put("meeting", id, &meeting)?;
             emit(app, "meeting.updated", meeting.clone());
-            let diarization = state.engine.diarize(json!({"path":path})).await?;
+            if diarization.is_none() {
+                if state.shutting_down.load(Ordering::SeqCst) {
+                    return Err(
+                        "Desktop Pets is closing. Saved audio is preserved for retry.".into(),
+                    );
+                }
+                diarization = Some(state.engine.diarize(json!({"path":path})).await?);
+            }
+            let diarization = diarization
+                .as_ref()
+                .ok_or("Diarization returned no speaker segments")?;
             let labels = diarization["segments"]
                 .as_array()
                 .or_else(|| diarization.as_array())
@@ -2250,18 +2695,31 @@ async fn finalize_meeting_inner(
                     speaker_label(labels, start, end, transcript["granularity"] == "word")
                 {
                     if overlap(start, end, best) > 0.0 {
-                        segment["speakerId"] =
-                            json!(format!("{name}:{}", speaker_name(&best["speaker"])));
-                        segment["speaker"] = json!(if name == "microphone" && multiple_tracks {
-                            format!("Mic · {}", speaker_name(&best["speaker"]))
-                        } else {
-                            speaker_name(&best["speaker"])
-                        });
+                        segment["speakerId"] = json!(format!("{name}:speaker:{}", best["speaker"]));
+                        segment["speaker"] = json!(speaker_name(&best["speaker"]));
                     }
                 }
             }
         }
-        all.extend(merge_segments(segments));
+        let segments = merge_segments(segments);
+        // Keep completed track labels if a later track or notes generation fails.
+        if !segments.is_empty() {
+            let saved = meeting["segments"]
+                .as_array_mut()
+                .ok_or("Invalid meeting segments")?;
+            saved.retain(|segment| segment["track"] != name);
+            saved.extend(segments.clone());
+            saved.sort_by(|a, b| {
+                a["start"]
+                    .as_f64()
+                    .unwrap_or(0.0)
+                    .total_cmp(&b["start"].as_f64().unwrap_or(0.0))
+            });
+            mark_cross_track_duplicates(saved);
+            state.db.put("meeting", id, &meeting)?;
+            emit(app, "meeting.updated", meeting.clone());
+        }
+        all.extend(segments);
     }
     all.sort_by(|a, b| {
         a["start"]
@@ -2269,6 +2727,7 @@ async fn finalize_meeting_inner(
             .unwrap_or(0.0)
             .total_cmp(&b["start"].as_f64().unwrap_or(0.0))
     });
+    mark_cross_track_duplicates(&mut all);
     require_meeting_speech(&all)?;
     meeting["segments"] = json!(all);
     meeting["error"] = Value::Null;
@@ -2399,10 +2858,15 @@ fn meeting_markdown(meeting: &Value) -> String {
     if let Some(segments) = meeting["segments"].as_array() {
         for s in segments {
             output.push_str(&format!(
-                "- [{:.1}s] **{}**: {}\n",
+                "- [{:.1}s] **{}**: {}{}\n",
                 s["start"].as_f64().unwrap_or(0.0),
-                s["speaker"].as_str().unwrap_or("Speaker"),
-                s["text"].as_str().unwrap_or("")
+                meeting_speaker_context(s),
+                s["text"].as_str().unwrap_or(""),
+                if s["duplicateOf"].as_str().is_some() {
+                    " _(Possible duplicate captured on both sources.)_"
+                } else {
+                    ""
+                }
             ));
         }
     }
@@ -2570,7 +3034,8 @@ mod tests {
             15.0,
             "microphone",
         );
-        assert_eq!(s[0]["speaker"], "You");
+        assert_eq!(s[0]["speaker"], "Microphone");
+        assert_eq!(s[0]["speakerId"], "microphone:unidentified");
         assert_eq!(s[0]["start"], 16.0);
     }
     #[test]
@@ -2583,6 +3048,57 @@ mod tests {
         assert_eq!(s[0]["start"], 16.23);
         assert_eq!(s[0]["end"], 17.46);
         assert_eq!(speaker_name(&json!(2)), "Speaker 2");
+    }
+    #[test]
+    fn echo_annotation_matches_across_system_segment_boundaries_without_dropping_words() {
+        let first = "We will send the revised project proposal";
+        let second = "tomorrow morning after review.";
+        let text = format!("{first} {second}");
+        let mut segments = vec![
+            json!({"id":"s1","track":"system","start":0.0,"end":4.0,"text":first}),
+            json!({"id":"s2","track":"system","start":4.0,"end":8.0,"text":second}),
+            json!({"id":"m","track":"microphone","start":0.1,"end":8.1,"text":text}),
+        ];
+        mark_cross_track_duplicates(&mut segments);
+        assert_eq!(segments[2]["duplicateOf"], "s1");
+        assert_eq!(segments[2]["duplicateOfIds"], json!(["s1", "s2"]));
+        assert_eq!(segments[2]["text"], text);
+        assert!(segments[0]["duplicateOf"].is_null());
+        segments[2]["text"] = json!(format!("{text} My separate local comment must remain."));
+        mark_cross_track_duplicates(&mut segments);
+        assert!(segments[2]["duplicateOf"].is_null());
+    }
+    #[test]
+    fn short_repeated_ambiguous_and_same_source_speech_is_never_hidden() {
+        let text = "We will send the revised project proposal tomorrow morning after review.";
+        let mut ambiguous = vec![
+            json!({"id":"s1","track":"system","start":0.0,"end":8.0,"text":text}),
+            json!({"id":"s2","track":"system","start":0.0,"end":8.0,"text":text}),
+            json!({"id":"m","track":"microphone","start":0.0,"end":8.0,"text":text}),
+        ];
+        mark_cross_track_duplicates(&mut ambiguous);
+        assert!(ambiguous.iter().all(|s| s["duplicateOf"].is_null()));
+        for track in ["microphone", "system"] {
+            let mut short = vec![
+                json!({"id":"a","track":track,"start":0.0,"end":4.0,"text":"Yes, I agree."}),
+                json!({"id":"b","track":"system","start":0.0,"end":4.0,"text":"Yes, I agree."}),
+            ];
+            mark_cross_track_duplicates(&mut short);
+            assert!(short.iter().all(|s| s["duplicateOf"].is_null()));
+        }
+        ambiguous.pop();
+        mark_cross_track_duplicates(&mut ambiguous);
+        assert!(ambiguous.iter().all(|s| s["duplicateOf"].is_null()));
+    }
+    #[test]
+    fn pending_echo_check_expires_without_discarding_genuine_microphone_text() {
+        let mut segment = json!({"text":"My own microphone speech","pendingEchoCheckUntilMs":chrono::Utc::now().timestamp_millis()+60_000});
+        assert!(!meeting_segment_is_available(&segment));
+        segment["pendingEchoCheckUntilMs"] = json!(0);
+        assert!(meeting_segment_is_available(&segment));
+        assert_eq!(segment["text"], "My own microphone speech");
+        segment["duplicateOf"] = json!("canonical-system-row");
+        assert!(!meeting_segment_is_available(&segment));
     }
     #[test]
     fn merges_words_without_losing_speakers_or_cjk_spacing() {

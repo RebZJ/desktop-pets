@@ -8,6 +8,7 @@ export interface Settings {
   language: string;
   voice: string;
   voiceEngine: 'auto' | 'kitten' | 'qwen';
+  asrModel: 'auto' | 'moonshine' | 'whisper-turbo' | 'qwen3-asr-1.7b';
   pitch: number;
   speechEnabled: boolean;
   soundEnabled: boolean;
@@ -42,7 +43,7 @@ export interface LocalModel {
   error?: string;
 }
 
-export interface Segment { id?: string; speaker: string; start: number; end: number; text: string }
+export interface Segment { id?: string; speaker: string; speakerId?: string; track?: string; duplicateOf?: string; duplicateOfIds?: string[]; duplicateReason?: 'matching-computer-audio'; pendingEchoCheckUntilMs?: number; start: number; end: number; text: string }
 export interface Meeting {
   id: string;
   title: string;
@@ -67,7 +68,7 @@ export interface AppState {
   pet: { visible: boolean; action: string };
 }
 
-export const defaultSettings: Settings = { onboardingCompleted: false, theme: 'camp', interfaceFont: 'pixel', captureProtectionEnabled: true, language: 'auto', voice: 'Kiki', voiceEngine: 'auto', pitch: 1.05, rate: 1, volume: .65, speechEnabled: false, soundEnabled: true, petSize: 160, memoryEnabled: false, allowedApps: [], allowedDomains: [], retentionDays: 30, meetingTips: true, clickThrough: false, hideShortcut: 'Alt+Shift+Space', commandShortcut: 'Alt+Space', dictationShortcut: 'Alt+Shift+D', completionShortcut: 'Alt+Shift+Enter', dictationLanguage: 'en', dictationVocabulary: '', writingExamples: '', activePack: 'pace' };
+export const defaultSettings: Settings = { onboardingCompleted: false, theme: 'camp', interfaceFont: 'pixel', captureProtectionEnabled: true, language: 'auto', voice: 'Kiki', voiceEngine: 'auto', asrModel: 'auto', pitch: 1.05, rate: 1, volume: .65, speechEnabled: false, soundEnabled: true, petSize: 160, memoryEnabled: false, allowedApps: [], allowedDomains: [], retentionDays: 30, meetingTips: true, clickThrough: false, hideShortcut: 'Alt+Shift+Space', commandShortcut: 'Alt+Space', dictationShortcut: 'Alt+Shift+D', completionShortcut: 'Alt+Shift+Enter', dictationLanguage: 'en', dictationVocabulary: '', writingExamples: '', activePack: 'pace' };
 export const initialState: AppState = {
   settings: defaultSettings,
   models: [
@@ -78,12 +79,30 @@ export const initialState: AppState = {
     { id: 'qwen3.5-4b', name: 'Qwen 3.5 · 4B', role: 'Meeting notes & questions', sizeBytes: 3_060_000_000, installed: false, status: 'not-installed' },
     { id: 'kitten-tts-micro-0.8-onnx', name: 'Kitten Micro · portable voice', role: 'voice', sizeBytes: 44_663_872, installed: false, status: 'not-installed' },
     { id: 'qwen3-tts-0.6b', name: 'Qwen 3 TTS · 0.6B', role: 'Pace’s voice', sizeBytes: 1_970_000_000, installed: false, status: 'not-installed' },
+    { id: 'qwen3-asr-1.7b', name: 'Qwen3-ASR 1.7B', role: 'transcription', sizeBytes: 2_520_000_000, installed: false, status: 'not-installed' },
     { id: 'whisper-turbo', name: 'Whisper large v3 turbo', role: 'Transcription', sizeBytes: 574_000_000, installed: false, status: 'not-installed' },
     { id: 'nemotron-diarization', name: 'Nemotron 3 Diarization', role: 'Speaker labels', sizeBytes: 107_012_128, installed: false, status: 'not-installed' },
   ],
   meetings: [], extensions: [], packs: [{ id: 'pace', name: 'Pace', author: 'Desktop Pets' }],
   memory: { enabled: false, applications: [] }, pet: { visible: true, action: 'idle' },
 };
+
+export const asrModelOptions = [
+  { id: 'auto', label: 'Automatic · match the language' },
+  { id: 'moonshine', label: 'Moonshine · fast' },
+  { id: 'whisper-turbo', label: 'Whisper Turbo · balanced' },
+  { id: 'qwen3-asr-1.7b', label: 'Qwen3-ASR 1.7B · quality · 2.52 GB' },
+] as const;
+
+export function recognitionModelId(settings: Settings, models: LocalModel[], meeting = false): string | undefined {
+  const selected = settings.asrModel || 'auto';
+  if (selected === 'qwen3-asr-1.7b' || selected === 'whisper-turbo') return selected;
+  const language = (meeting ? settings.language : settings.dictationLanguage || settings.language || 'en').toLowerCase().split(/[-_]/)[0];
+  const moonshine = ['en', 'zh', 'ja', 'es'].includes(language) ? `moonshine-tiny-${language}` : undefined;
+  if (selected === 'moonshine') return moonshine;
+  if (!meeting && moonshine && (models.some(model => model.id === moonshine && model.installed) || !models.some(model => model.id === 'whisper-turbo' && model.installed))) return moonshine;
+  return 'whisper-turbo';
+}
 
 type Bridge = (method: string, params: Record<string, unknown>) => unknown | Promise<unknown>;
 declare global { interface Window { __TAURI_INTERNALS__?: unknown; __DESKTOP_PETS_BRIDGE__?: Bridge | { dispatch: Bridge } } }
@@ -109,6 +128,7 @@ function browserDispatch(method: string, params: Record<string, unknown>): unkno
     if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new Error('Settings must be an object');
     if ('theme' in patch && (typeof patch.theme !== 'string' || !['camp', 'night', 'handheld'].includes(patch.theme))) throw new Error('Unsupported theme');
     if ('interfaceFont' in patch && (typeof patch.interfaceFont !== 'string' || !['pixel', 'inter', 'fira'].includes(patch.interfaceFont))) throw new Error('Unsupported interface font');
+    if ('asrModel' in patch && !['auto', 'moonshine', 'whisper-turbo', 'qwen3-asr-1.7b'].includes(patch.asrModel as string)) throw new Error('Unsupported speech recognition model');
     if ('captureProtectionEnabled' in patch && typeof patch.captureProtectionEnabled !== 'boolean') throw new Error('Invalid value for captureProtectionEnabled');
     state.settings = { ...state.settings, ...patch }; save(); return state.settings;
   }
@@ -156,6 +176,7 @@ export function normalizeSettings(value?: Partial<Settings>): Settings {
   const settings = { ...defaultSettings, ...value };
   if (!['camp', 'night', 'handheld'].includes(settings.theme)) settings.theme = defaultSettings.theme;
   if (!['pixel', 'inter', 'fira'].includes(settings.interfaceFont)) settings.interfaceFont = defaultSettings.interfaceFont;
+  if (!['auto', 'moonshine', 'whisper-turbo', 'qwen3-asr-1.7b'].includes(settings.asrModel)) settings.asrModel = defaultSettings.asrModel;
   if (typeof settings.captureProtectionEnabled !== 'boolean') settings.captureProtectionEnabled = true;
   return settings;
 }

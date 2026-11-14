@@ -123,7 +123,14 @@ pub async fn start(app: &AppHandle, state: &AppState, params: Value) -> Result<V
     {
         return Err("Wait for the current meeting to finish before starting voice chat.".into());
     }
-    state.engine.require_dictation_model("en")?;
+    let settings = state.db.settings()?;
+    let language = settings["dictationLanguage"]
+        .as_str()
+        .or_else(|| settings["language"].as_str())
+        .unwrap_or("en");
+    state
+        .engine
+        .require_dictation_model(language, settings["asrModel"].as_str().unwrap_or("auto"))?;
     crate::voice::Voice::ready(&crate::portable::models_dir(app))?;
     let meeting = params["meetingId"].as_str().map(str::to_owned);
     if let Some(id) = &meeting {
@@ -184,7 +191,6 @@ pub async fn start(app: &AppHandle, state: &AppState, params: Value) -> Result<V
         }
         return Err(error);
     }
-    state.engine.warm("en".into());
     let mut task_slot = state.voicechat.task.lock().await;
     state.voicechat.running.store(true, Ordering::SeqCst);
     let handle = app.clone();
@@ -384,10 +390,15 @@ async fn run(
         state
             .voicechat
             .update(app, epoch, "transcribing", json!({}));
+        let asr_settings = state.db.settings()?;
+        let language = asr_settings["dictationLanguage"]
+            .as_str()
+            .or_else(|| asr_settings["language"].as_str())
+            .unwrap_or("en");
         let transcript = crate::transcribe_audio(
             app,
             state,
-            json!({"path":path,"language":"en","purpose":"dictation"}),
+            json!({"path":path,"language":language,"purpose":"dictation"}),
         )
         .await;
         if !state.voicechat.valid(epoch) {
@@ -596,6 +607,17 @@ async fn listen_turn(
         .engine
         .capture_request(app, "voicechat.capture.start", json!({}))
         .await?;
+    if state.voicechat.valid(epoch) {
+        let settings = state.db.settings()?;
+        let language = settings["dictationLanguage"]
+            .as_str()
+            .or_else(|| settings["language"].as_str())
+            .unwrap_or("en");
+        state.engine.warm(
+            language.to_owned(),
+            settings["asrModel"].as_str().unwrap_or("auto").to_owned(),
+        );
+    }
     state.voicechat.update(app, epoch, "listening", json!({}));
     if state.voicechat.valid(epoch) {
         crate::action(app, "listen");

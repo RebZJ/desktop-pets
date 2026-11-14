@@ -306,5 +306,27 @@
         "sourceURL": "https://download.moonshine.ai/model/tiny-streaming-es/quantized_26_08_24/tokenizer.bin"
       }
     ]
+  },
+  {
+    "id": "qwen3-asr-1.7b",
+    "name": "Qwen3-ASR 1.7B \u00b7 Q8_0",
+    "role": "transcription",
+    "directory": "qwen3-asr-1.7b",
+    "repository": "ggml-org/Qwen3-ASR-1.7B-GGUF",
+    "revision": "36a678687ba7d07a74ca70ccb0e36902e005fb80",
+    "files": [
+      {
+        "path": "Qwen3-ASR-1.7B-Q8_0.gguf",
+        "size": 2165034944,
+        "sha256": "58e22d0532d4eacaf034cfac17a6fed159f37c41390c710186783be439d1fc57",
+        "sourceURL": "https://huggingface.co/ggml-org/Qwen3-ASR-1.7B-GGUF/resolve/36a678687ba7d07a74ca70ccb0e36902e005fb80/Qwen3-ASR-1.7B-Q8_0.gguf"
+      },
+      {
+        "path": "mmproj-Qwen3-ASR-1.7B-Q8_0.gguf",
+        "size": 355709344,
+        "sha256": "46c1d533af3f354ceb37ce855dbceff7da7fa7cf1e6a523df3b13440bd164c0d",
+        "sourceURL": "https://huggingface.co/ggml-org/Qwen3-ASR-1.7B-GGUF/resolve/36a678687ba7d07a74ca70ccb0e36902e005fb80/mmproj-Qwen3-ASR-1.7B-Q8_0.gguf"
+      }
+    ]
   }
 ]

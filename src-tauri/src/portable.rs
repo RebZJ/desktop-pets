@@ -834,7 +834,7 @@ mod tests {
     #[test]
     fn manifest_is_pinned_and_cannot_escape_model_directory() {
         let models = catalog();
-        assert_eq!(models.len(), 8);
+        assert_eq!(models.len(), 9);
         for model in models {
             assert_eq!(model.revision.len(), 40);
             for file in model.files {
