@@ -91,6 +91,15 @@ pub fn panel_position(pet: [i32; 4], monitor: [i32; 4], panel: [i32; 2], gap: i3
 mod tests {
     use super::*;
     #[test]
+    fn open_bubble_positions_follow_pet_movement_without_changing_their_gap() {
+        for panel in [[300, 220], [300, 260]] {
+            let before = panel_position([300, 500, 224, 224], [0, 0, 1440, 1000], panel, 12);
+            let after = panel_position([480, 580, 224, 224], [0, 0, 1440, 1000], panel, 12);
+            assert_eq!(after, (before.0 + 180, before.1 + 80));
+            assert_eq!(after.1 + panel[1] + 12, 580);
+        }
+    }
+    #[test]
     fn initial_pet_keeps_every_arc_button_inside_the_usable_monitor() {
         for work in [[0, 48, 3024, 1840], [-1920, 20, 1920, 1040]] {
             for sprite in [128, 160, 208] {

@@ -8,6 +8,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
+        mpsc::{self, Receiver, RecvTimeoutError, TryRecvError},
         Arc, Mutex,
     },
     time::{Duration, Instant},
@@ -64,14 +65,26 @@ impl Voice {
         .await;
     }
     pub async fn speak(&self, app: &AppHandle, params: Value) -> Result<Value, String> {
-        let root = crate::portable::models_dir(app);
-        let runtime = runtime_library(app)?;
-        Self::ready(&root)?;
         let text = params["text"]
             .as_str()
             .filter(|s| !s.trim().is_empty() && s.chars().count() <= 1500)
-            .ok_or("Provide 1–1500 characters to speak.")?
-            .to_owned();
+            .ok_or("Provide 1–1500 characters to speak.")?;
+        let (sender, receiver) = mpsc::channel();
+        for chunk in chunks(text) {
+            let _ = sender.send(chunk);
+        }
+        drop(sender);
+        self.speak_stream(app, params, receiver).await
+    }
+    pub(crate) async fn speak_stream(
+        &self,
+        app: &AppHandle,
+        params: Value,
+        text: Receiver<String>,
+    ) -> Result<Value, String> {
+        let root = crate::portable::models_dir(app);
+        let runtime = runtime_library(app)?;
+        Self::ready(&root)?;
         let voice = params["voice"].as_str().unwrap_or("Kiki").to_owned();
         if !VOICES.contains(&voice.as_str()) {
             return Err(
@@ -111,33 +124,92 @@ impl Voice {
             let cold = slot.as_ref().is_none_or(|loaded| loaded.root != root);
             if cold { initialize(&runtime)?; *slot = Some(load(&root)?); loaded_flag.store(true,Ordering::SeqCst); }
             let loaded = slot.as_ref().ok_or("The voice model did not load")?;
-            let mut audio = Vec::new();
-            for chunk in chunks(&text) {
-                if cancel.load(Ordering::SeqCst) != epoch { return Err("Voice cancelled".into()); }
-                // shortcut: CMU's permissive dictionary spells unknown names; add a neural G2P if names need natural pronunciation.
-                let ipa = loaded.g2p.phonemize_with_prosody(&chunk).map_err(|e| e.to_string())?.0.concat();
-                if ipa.trim().is_empty() { continue; }
-                let samples = loaded.model.generate_from_ipa(&ipa, &voice, rate, chunk.chars().count()).map_err(|e| format!("Kitten voice generation failed: {e:#}"))?;
-                if samples.iter().any(|s| !s.is_finite()) { return Err("The voice model returned invalid audio".into()); }
-                audio.extend(samples);
-            }
-            if audio.is_empty() { return Err("The voice model returned no audio".into()); }
+            let (sender, receiver) = mpsc::channel();
+            let phrases = Arc::new(Mutex::new(Vec::<String>::new()));
+            let failed = Arc::new(AtomicBool::new(false));
+            let first_audio_ms = Arc::new(AtomicU64::new(0));
+            let player = if play {
+                let (app, cancel, failed, phrases) = (app.clone(), cancel.clone(), failed.clone(), phrases.clone());
+                let first_audio_ms = first_audio_ms.clone();
+                let chat_epoch = params["_voiceChatEpoch"].as_u64();
+                Some(std::thread::spawn(move || {
+                    let result = playback(receiver, pitch, volume, &cancel, epoch, &failed, |index| {
+                        if index == 0 { first_audio_ms.store(started.elapsed().as_millis() as u64, Ordering::Relaxed); crate::emit(&app, "voice.started", json!({"streaming":true})); }
+                        if let Some(chat_epoch) = chat_epoch {
+                            if let Some(text) = phrases.lock().ok().and_then(|p| p.get(index).cloned()) {
+                                app.state::<crate::AppState>().voicechat.spoken_chunk(&app, chat_epoch, &text);
+                            }
+                        }
+                    });
+                    if result.is_err() { failed.store(true, Ordering::SeqCst); }
+                    crate::emit(&app, "voice.stopped", json!({}));
+                    result
+                }))
+            } else { drop(receiver); None };
+            let generated = (|| -> Result<Vec<f32>, String> {
+                let mut audio = Vec::new();
+                let mut characters = 0;
+                loop {
+                    if cancel.load(Ordering::SeqCst) != epoch || failed.load(Ordering::SeqCst) { return Err("Voice cancelled".into()); }
+                    let chunk = match text.recv_timeout(Duration::from_millis(50)) {
+                        Ok(text) => text,
+                        Err(RecvTimeoutError::Timeout) => continue,
+                        Err(RecvTimeoutError::Disconnected) => break,
+                    };
+                    characters += chunk.chars().count();
+                    if characters > 1500 || chunk.chars().count() > 220 { return Err("Voice reply exceeded the speech limit".into()); }
+                    let samples = render_phrase(loaded, &chunk, &voice, rate)?;
+                    if samples.is_empty() { continue; }
+                    if cancel.load(Ordering::SeqCst) != epoch || failed.load(Ordering::SeqCst) { return Err("Voice cancelled".into()); }
+                    audio.extend_from_slice(&samples);
+                    if play {
+                        let mut phrases = phrases.lock().map_err(|e| e.to_string())?;
+                        let index = phrases.len(); phrases.push(chunk); drop(phrases);
+                        sender.send(AudioChunk { samples, index }).map_err(|_| "Speaker stopped before the reply finished")?;
+                    }
+                }
+                if audio.is_empty() { return Err("The voice model returned no audio".into()); }
+                Ok(audio)
+            })();
+            let synthesis_ms = started.elapsed().as_millis();
+            drop(sender);
+            if generated.is_err() { failed.store(true, Ordering::SeqCst); }
+            drop(slot);
+            let played = player.map(|p| p.join().map_err(|_| "Voice playback stopped unexpectedly".to_owned()).and_then(|r| r)).unwrap_or(Ok(()));
+            let audio = match generated {
+                Err(error) if error != "Voice cancelled" => return Err(error),
+                result => { played?; result? }
+            };
             if cancel.load(Ordering::SeqCst) != epoch { return Err("Voice cancelled".into()); }
             let directory = app.state::<crate::AppState>().data_dir.join("generated");
             std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
             let path = directory.join(format!("voice-{}.wav", uuid::Uuid::new_v4()));
             write_wav(&path, &audio)?;
-            let result = json!({"path":path,"duration":audio.len() as f64 / SAMPLE_RATE as f64,"sampleRate":SAMPLE_RATE,"voice":voice,"model":MODEL_ID,"cold":cold,"synthesisMs":started.elapsed().as_millis()});
-            if play {
-                crate::emit(&app, "voice.started", json!({"streaming":false}));
-                let played = playback(audio, pitch, volume, cancel, epoch);
-                crate::emit(&app, "voice.stopped", json!({}));
-                played?;
-            }
+            let result = json!({"path":path,"duration":audio.len() as f64 / SAMPLE_RATE as f64,"sampleRate":SAMPLE_RATE,"voice":voice,"model":MODEL_ID,"cold":cold,"streaming":play,"synthesisMs":synthesis_ms,"firstAudioMs":if play {Some(first_audio_ms.load(Ordering::Relaxed))} else {None},"elapsedMs":started.elapsed().as_millis()});
             crate::emit(&app, "voice.ready", result.clone());
             Ok(result)
         }).await.map_err(|e| e.to_string())?
     }
+}
+fn render_phrase(loaded: &Loaded, text: &str, voice: &str, rate: f32) -> Result<Vec<f32>, String> {
+    // shortcut: CMU's permissive dictionary spells unknown names; add a neural G2P if names need natural pronunciation.
+    let ipa = loaded
+        .g2p
+        .phonemize_with_prosody(text)
+        .map_err(|e| e.to_string())?
+        .0
+        .concat();
+    if ipa.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let samples = loaded
+        .model
+        .generate_from_ipa(&ipa, voice, rate, text.chars().count())
+        .map_err(|e| format!("Kitten voice generation failed: {e:#}"))?;
+    if samples.is_empty() || samples.iter().any(|s| !s.is_finite()) {
+        return Err("The voice model returned invalid audio".into());
+    }
+    Ok(samples)
 }
 fn runtime_library(app: &AppHandle) -> Result<PathBuf, String> {
     let names: &[&str] = if cfg!(target_os = "macos") {
@@ -222,7 +294,8 @@ fn chunks(text: &str) -> Vec<String> {
             );
             continue;
         }
-        if current.chars().count() + word.chars().count() > 220 && !current.is_empty() {
+        let limit = if chunks.is_empty() { 80 } else { 160 };
+        if current.chars().count() + word.chars().count() + 1 > limit && !current.is_empty() {
             chunks.push(std::mem::take(&mut current));
         }
         if !current.is_empty() {
@@ -256,12 +329,55 @@ fn write_wav(path: &Path, audio: &[f32]) -> Result<(), String> {
     }
     writer.finalize().map_err(|e| e.to_string())
 }
+struct AudioChunk {
+    samples: Vec<f32>,
+    index: usize,
+}
+struct PlaybackQueue {
+    receiver: Receiver<AudioChunk>,
+    chunk: Option<AudioChunk>,
+    position: f64,
+    finished: bool,
+}
+impl PlaybackQueue {
+    fn sample(&mut self, step: f64, reached: &AtomicU64) -> f32 {
+        while self
+            .chunk
+            .as_ref()
+            .is_none_or(|chunk| self.position >= chunk.samples.len() as f64)
+        {
+            match self.receiver.try_recv() {
+                Ok(next) => {
+                    if let Some(previous) = &self.chunk {
+                        self.position -= previous.samples.len() as f64;
+                    }
+                    self.chunk = Some(next);
+                }
+                Err(TryRecvError::Empty) => return 0.0,
+                Err(TryRecvError::Disconnected) => {
+                    self.finished = true;
+                    return 0.0;
+                }
+            }
+        }
+        let chunk = self.chunk.as_ref().unwrap();
+        reached.store(chunk.index as u64 + 1, Ordering::Release);
+        let i = self.position as usize;
+        let fraction = (self.position - i as f64) as f32;
+        let sample = chunk.samples[i];
+        let next = chunk.samples.get(i + 1).copied().unwrap_or(sample);
+        self.position += step;
+        sample + (next - sample) * fraction
+    }
+}
 fn playback(
-    audio: Vec<f32>,
+    audio: Receiver<AudioChunk>,
     pitch: f32,
     volume: f32,
-    epoch: Arc<AtomicU64>,
+    epoch: &Arc<AtomicU64>,
     current: u64,
+    failed: &Arc<AtomicBool>,
+    mut on_chunk: impl FnMut(usize),
 ) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     let host = cpal::host_from_id(cpal::HostId::PipeWire)
@@ -279,7 +395,6 @@ fn playback(
         return Err("Speaker returned an invalid audio format".into());
     }
     let step = SAMPLE_RATE as f64 * pitch as f64 / config.sample_rate as f64;
-    let duration = Duration::from_secs_f64(audio.len() as f64 / SAMPLE_RATE as f64 / pitch as f64);
     let (tx, rx) = std::sync::mpsc::channel();
     let finished = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let done = finished.clone();
@@ -287,31 +402,38 @@ fn playback(
     let callback_drain = drain_ms.clone();
     let output_rate = config.sample_rate as f64;
     let stopped = epoch.clone();
-    let mut position = 0.0_f64;
+    let aborted = failed.clone();
+    let reached = Arc::new(AtomicU64::new(0));
+    let callback_reached = reached.clone();
+    let callbacks = Arc::new(AtomicU64::new(0));
+    let callback_count = callbacks.clone();
+    let mut audio = PlaybackQueue {
+        receiver: audio,
+        chunk: None,
+        position: 0.0,
+        finished: false,
+    };
     macro_rules! stream {
         ($sample:ty) => {
             device.build_output_stream(
                 config,
                 move |data: &mut [$sample], info: &cpal::OutputCallbackInfo| {
                     for frame in data.chunks_mut(channels) {
-                        let sample = if stopped.load(Ordering::SeqCst) != current {
+                        let sample = if stopped.load(Ordering::SeqCst) != current
+                            || aborted.load(Ordering::SeqCst)
+                        {
                             0.0
                         } else {
-                            let i = position as usize;
-                            let frac = (position - i as f64) as f32;
-                            audio.get(i).map_or(0.0, |s| {
-                                let next = audio.get(i + 1).copied().unwrap_or(*s);
-                                (*s + (next - *s) * frac) * volume
-                            })
+                            audio.sample(step, &callback_reached) * volume
                         };
                         for output in frame {
                             *output = <$sample as cpal::FromSample<f32>>::from_sample_(
                                 sample.clamp(-1.0, 1.0),
                             );
                         }
-                        position += step;
                     }
-                    if position >= audio.len() as f64 && !done.load(Ordering::Relaxed) {
+                    callback_count.fetch_add(1, Ordering::Release);
+                    if audio.finished && !done.load(Ordering::Relaxed) {
                         let timestamp = info.timestamp();
                         let queued = timestamp.playback.duration_since(timestamp.callback)
                             + Duration::from_secs_f64(
@@ -349,23 +471,39 @@ fn playback(
     stream
         .play()
         .map_err(|e| format!("Could not play voice: {e}"))?;
-    let deadline = Instant::now() + duration + Duration::from_secs(5);
-    while !finished.load(Ordering::Acquire) {
-        if epoch.load(Ordering::SeqCst) != current {
+    let deadline = Instant::now() + Duration::from_secs(180);
+    let mut shown = 0;
+    let mut last_callback = Instant::now();
+    let mut last_count = 0;
+    loop {
+        if epoch.load(Ordering::SeqCst) != current || failed.load(Ordering::SeqCst) {
             return Err("Voice cancelled".into());
+        }
+        let playing = reached.load(Ordering::Acquire) as usize;
+        while shown < playing {
+            on_chunk(shown);
+            shown += 1;
         }
         if let Ok(error) = rx.try_recv() {
             return Err(format!("Speaker disconnected: {error}"));
         }
-        if Instant::now() > deadline {
+        if finished.load(Ordering::Acquire) {
+            break;
+        }
+        let count = callbacks.load(Ordering::Acquire);
+        if count != last_count {
+            last_count = count;
+            last_callback = Instant::now();
+        }
+        if Instant::now() > deadline || last_callback.elapsed() > Duration::from_secs(5) {
             return Err("Speaker stopped responding".into());
         }
-        std::thread::sleep(Duration::from_millis(20));
+        std::thread::sleep(Duration::from_millis(10));
     }
     // Use the device's queued playback timestamp so Bluetooth output also drains before listening.
     let drained = Instant::now() + Duration::from_millis(drain_ms.load(Ordering::Relaxed));
     while Instant::now() < drained {
-        if epoch.load(Ordering::SeqCst) != current {
+        if epoch.load(Ordering::SeqCst) != current || failed.load(Ordering::SeqCst) {
             return Err("Voice cancelled".into());
         }
         if let Ok(error) = rx.try_recv() {
@@ -379,6 +517,75 @@ fn playback(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn playback_starts_before_input_finishes_and_never_skips_audio_during_a_gap() {
+        let (sender, receiver) = mpsc::channel();
+        let reached = AtomicU64::new(0);
+        let mut queue = PlaybackQueue {
+            receiver,
+            chunk: None,
+            position: 0.0,
+            finished: false,
+        };
+        assert_eq!(queue.sample(1.0, &reached), 0.0);
+        sender
+            .send(AudioChunk {
+                samples: vec![0.1, 0.2],
+                index: 0,
+            })
+            .unwrap();
+        assert_eq!(
+            reached.load(Ordering::Relaxed),
+            0,
+            "Queued text must not appear before playback"
+        );
+        assert_eq!(queue.sample(1.0, &reached), 0.1);
+        assert_eq!(reached.load(Ordering::Relaxed), 1);
+        assert_eq!(queue.sample(1.0, &reached), 0.2);
+        for _ in 0..20 {
+            assert_eq!(queue.sample(1.0, &reached), 0.0);
+        }
+        assert!(
+            !queue.finished,
+            "Waiting for generation is not the end of speech"
+        );
+        sender
+            .send(AudioChunk {
+                samples: vec![0.3, 0.4],
+                index: 1,
+            })
+            .unwrap();
+        drop(sender);
+        assert_eq!(queue.sample(1.0, &reached), 0.3);
+        assert_eq!(reached.load(Ordering::Relaxed), 2);
+        assert!(!queue.finished);
+        assert_eq!(queue.sample(1.0, &reached), 0.4);
+        assert_eq!(queue.sample(1.0, &reached), 0.0);
+        assert!(queue.finished);
+    }
+    #[test]
+    fn pitch_cursor_carries_the_fractional_position_between_phrases() {
+        let (sender, receiver) = mpsc::channel();
+        for (index, samples) in [vec![0.0, 0.1, 0.2], vec![0.3, 0.4, 0.5]]
+            .into_iter()
+            .enumerate()
+        {
+            sender.send(AudioChunk { samples, index }).unwrap();
+        }
+        drop(sender);
+        let mut queue = PlaybackQueue {
+            receiver,
+            chunk: None,
+            position: 0.0,
+            finished: false,
+        };
+        let reached = AtomicU64::new(0);
+        assert_eq!(queue.sample(1.5, &reached), 0.0);
+        assert!((queue.sample(1.5, &reached) - 0.15).abs() < 1e-6);
+        assert_eq!(queue.sample(1.5, &reached), 0.3);
+        assert!((queue.sample(1.5, &reached) - 0.45).abs() < 1e-6);
+        assert_eq!(reached.load(Ordering::Relaxed), 2);
+    }
     #[test]
     fn validates_and_chunks_without_losing_words() {
         assert!(number(&json!({"rate":"fast"}), "rate", 1.0, 0.5, 1.5).is_err());
@@ -394,6 +601,45 @@ mod tests {
             .0
             .concat();
         assert!(ipa.contains('h') && ipa.contains('p') && ipa.contains('l'));
+    }
+    #[test]
+    #[ignore = "requires PACE_KITTEN_FIXTURE; generates real phrase audio without opening microphone or speakers"]
+    fn actual_kiki_streaming_fixture() {
+        let source =
+            PathBuf::from(std::env::var_os("PACE_KITTEN_FIXTURE").expect("PACE_KITTEN_FIXTURE"));
+        let library = std::env::var_os("PACE_ORT_FIXTURE")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../native/lib/libmoonshine.dylib")
+            });
+        initialize(&library).unwrap();
+        let loading = Instant::now();
+        let loaded = load(&source).unwrap();
+        let load_ms = loading.elapsed().as_millis();
+        let text = "Choose one small task. Give it ten quiet minutes, then come back and tell me how it went.";
+        for pass in ["cold", "warm"] {
+            let start = Instant::now();
+            let mut audio = Vec::new();
+            let mut first_ms = 0;
+            let phrases = chunks(text);
+            assert!(phrases.len() >= 2);
+            for (index, phrase) in phrases.iter().enumerate() {
+                let samples = render_phrase(&loaded, phrase, "Kiki", 1.0).unwrap();
+                assert!(samples.iter().any(|s| s.abs() > 0.01));
+                audio.extend(samples);
+                if index == 0 {
+                    first_ms = start.elapsed().as_millis();
+                }
+            }
+            let full_ms = start.elapsed().as_millis();
+            assert!(
+                first_ms < full_ms,
+                "The first phrase must be ready before the complete reply"
+            );
+            assert!(audio.len() > SAMPLE_RATE as usize);
+            write_wav(&source.join(format!("kiki-streaming-{pass}.wav")), &audio).unwrap();
+            eprintln!("Kiki {pass}: model_load_ms={load_ms}, first_phrase_ms={first_ms}, full_reply_ms={full_ms}, audio_seconds={:.2}, phrases={}", audio.len() as f64 / SAMPLE_RATE as f64, phrases.len());
+        }
     }
     #[test]
     #[ignore = "requires PACE_KITTEN_FIXTURE pointing at the pinned portable model directory; no microphone or playback"]

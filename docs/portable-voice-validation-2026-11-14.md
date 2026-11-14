@@ -69,3 +69,21 @@ Native settings navigation, campsite routing, send-home and summon controls resp
 The check exposed an empty-dictation status bug: blank recognition was marked as a copyable draft. Both normal completion and saved-audio retry now share terminal-state construction that reports an error for empty/whitespace text. Recognized drafts, insertion warnings and existing recovery behavior are preserved. The fix passed 102 Rust tests (five explicit fixtures ignored) and a new browser regression in Chromium and WebKit. The signed fix was installed with the same signing requirement; exact settings, document and message-ID baselines matched after replacement. No new meeting was recorded during this follow-up.
 
 Core voice commit `2f57802` passed interface checks, Rust tests and bundled native runtime build/smoke checks on all three desktop CI hosts: [Windows, macOS and Linux run](https://github.com/RebZJ/desktop-pets/actions/runs/43491187839). This does not establish live Windows/Linux audio-device behavior.
+
+## Phrase streaming follow-up
+
+Voice chat now feeds short phrases from the existing text stream into the same portable Kitten engine. Kitten generates the next phrase while a single CPAL output stream plays the previous one. The engine starts loading alongside text generation. It retains the existing voice, speech settings, cancellation epochs and output-drain check before reopening the microphone. This is phrase streaming around Kitten's complete-phrase inference API, not token-level audio generation or full duplex voice.
+
+Voice captions use playback progress snapshots rather than raw LLM deltas, so the complete reply no longer appears before its audio is generated. Text-only chat still streams normally. An output underrun inserts silence while preserving the next sample position; it cannot skip words to catch up.
+
+The real installed Kiki model was read through an isolated fixture, with WAV output confined to `artifacts/runtime/hover-scratch-side/voice-model-fixture/`. One macOS run measured model load at 791ms. First synthesis was 600ms for the first phrase versus 1,489ms for the complete 7.21-second reply; a subsequent warm synthesis was 407ms versus 1,172ms. These are synthesis timings for supplied text, excluding LLM generation, microphone endpointing, output-device latency and human listening. Installed models and the running app were untouched.
+
+Reproduce with an explicitly supplied model root (the test writes WAVs into that fixture root):
+
+```sh
+PACE_KITTEN_FIXTURE='/path/to/isolated/fixture-root' \
+cargo test --manifest-path src-tauri/Cargo.toml --lib --locked \
+  voice::tests::actual_kiki_streaming_fixture -- --ignored --nocapture
+```
+
+Queue/caption, phrase-boundary, cancellation and concurrent-generation checks accompany the change. Native speaker timing, Bluetooth behavior and live Windows/Linux playback were not exercised in this follow-up; the installed app was not rebuilt or restarted.

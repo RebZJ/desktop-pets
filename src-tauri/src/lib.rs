@@ -2481,6 +2481,14 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window,event| {
+            if window.label() == "pet" && matches!(event, tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged{..}) {
+                let app = window.app_handle();
+                for label in companion::COMPANION_LABELS {
+                    if app.get_webview_window(label).is_some_and(|panel| panel.is_visible().unwrap_or(false)) {
+                        position_companion_on_main(app, label);
+                    }
+                }
+            }
             if window.label() == "command" {
                 if let tauri::WindowEvent::CloseRequested{api,..} = event {
                     api.prevent_close(); let _ = window.hide();

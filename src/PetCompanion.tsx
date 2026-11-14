@@ -14,9 +14,9 @@ type DictationState = { phase?: string; text?: string; error?: string; savedAudi
 type Recovery = { message: string; text?: string; retry?: boolean; models?: boolean; clipboard?: string };
 
 export function DesktopPet({ state }: { state: AppState }) {
-  const mood = usePetMood(validAction(state.pet.action));
   const [menu, setMenu] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const mood = usePetMood(validAction(state.pet.action), controlsOpen);
   const [hint, setHint] = useState('');
   const overlay = useRef<HTMLDivElement>(null);
   const revealed = useRef(false);
@@ -35,6 +35,7 @@ export function DesktopPet({ state }: { state: AppState }) {
   const recognized = useRef(sessionStorage.getItem('pace.dictation-source') || '');
   const down = useRef<{ x: number; y: number } | undefined>(undefined);
   const dragged = useRef(false);
+  const stroke = useRef<{ x: number; y: number; at: number; distance: number; fastDistance: number; reactedAt: number } | undefined>(undefined);
   useEffect(() => { document.documentElement.classList.add('overlay-document'); return () => document.documentElement.classList.remove('overlay-document'); }, []);
   useLayoutEffect(() => mood.setAction(validAction(state.pet.action)), [state.pet.action]);
   const dismissRecovery = () => { recoveryEpoch.current++; clearTimeout(recoveryTimer.current); setRecovery(undefined); setCopied(false); };
@@ -74,8 +75,8 @@ export function DesktopPet({ state }: { state: AppState }) {
     });
     return () => { cancelled = true; recoveryEpoch.current++; clearTimeout(recoveryTimer.current); dispose?.(); };
   }, []);
-  const closeControls = () => { clearTimeout(hideTimer.current); revealed.current = false; setControlsOpen(false); setHint(''); };
-  const resetControls = () => { hovered.current = false; keyboardMode.current = false; closeControls(); setMenu(false); };
+  const closeControls = () => { clearTimeout(hideTimer.current); hideTimer.current = undefined; revealed.current = false; setControlsOpen(false); setHint(''); };
+  const resetControls = () => { hovered.current = false; keyboardMode.current = false; stroke.current = undefined; closeControls(); setMenu(false); };
   useEffect(() => {
     const key = (event: KeyboardEvent) => { if (!event.isTrusted) return; if (event.key === 'Escape') { keyboardMode.current = false; closeControls(); return; } keyboardMode.current = true; if (overlay.current?.contains(document.activeElement)) revealControls(); };
     const pointer = () => { keyboardMode.current = false; if (!hovered.current) leaveControls(); };
@@ -87,15 +88,17 @@ export function DesktopPet({ state }: { state: AppState }) {
   useEffect(() => { if (!state.pet.visible) resetControls(); }, [state.pet.visible]);
   const revealControls = () => {
     clearTimeout(hideTimer.current);
+    hideTimer.current = undefined;
     if (revealed.current) return;
     revealed.current = true; setControlsOpen(true);
   };
   const leaveControls = () => {
-    clearTimeout(hideTimer.current);
+    if (hideTimer.current !== undefined) return;
     hideTimer.current = setTimeout(() => {
-      if (hovered.current || keyboardMode.current && document.hasFocus() && overlay.current?.contains(document.activeElement)) return;
-      closeControls();
-    }, 420);
+      hideTimer.current = undefined;
+      if (hovered.current) return;
+      keyboardMode.current = false; closeControls(); setMenu(false);
+    }, 220);
   };
   const open = (method: string, params = {}) => { dismissRecovery(); const epoch = recoveryEpoch.current; if (method.startsWith('window.') || method === 'pet.toggle') resetControls(); else setMenu(false); void api(method, params).catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }); };
   const restoreClipboard = async (id: string) => {
@@ -129,6 +132,24 @@ export function DesktopPet({ state }: { state: AppState }) {
     if (state.settings.soundEnabled && !state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status))) playPetSound(action, state.settings.volume, state.packs.find(pack => pack.id === state.settings.activePack));
     open('pet.action', { action });
   };
+  const scratch = (x: number, y: number, at: number) => {
+    const previous = stroke.current;
+    if (!previous || !['idle', 'sleep', 'wave', 'happy', 'annoyed'].includes(mood.action)) return;
+    const elapsed = at - previous.at;
+    const distance = Math.hypot(x - previous.x, y - previous.y);
+    if (elapsed <= 0 || elapsed > 300) { previous.x = x; previous.y = y; previous.at = at; previous.distance = 0; previous.fastDistance = 0; return; }
+    if (distance < 2) return;
+    previous.x = x; previous.y = y; previous.at = at;
+    const scale = state.settings.petSize / 160;
+    previous.distance += distance;
+    if (distance / elapsed > 0.9 * scale) previous.fastDistance += distance;
+    if (previous.distance < 24 * scale) return;
+    const reaction = previous.fastDistance / previous.distance >= 0.6 ? 'annoyed' : 'happy';
+    if (at - previous.reactedAt < 700 && !(reaction === 'annoyed' && mood.action !== 'annoyed')) return;
+    previous.distance = 0; previous.fastDistance = 0; previous.reactedAt = at;
+    mood.pet(reaction);
+    if (reaction !== mood.action && state.settings.soundEnabled && !state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status))) playPetSound(reaction, state.settings.volume, state.packs.find(pack => pack.id === state.settings.activePack));
+  };
   const dictateHint = dictationPhase === 'recording' ? 'Stop dictation' : dictationPhase === 'transcribing' ? 'Transcribing…' : 'Type into your app';
   const toolsVisible = controlsOpen && !recovery && !hiding && !['summon', 'burrow'].includes(state.pet.action);
   const shortcutHint = (label: string, shortcut?: string) => shortcut ? `${label} · ${shortcut}` : label;
@@ -140,18 +161,19 @@ export function DesktopPet({ state }: { state: AppState }) {
       const current = buttons.indexOf(document.activeElement as HTMLButtonElement); event.preventDefault(); buttons[(current + (event.key === 'ArrowLeft' ? -1 : 1) + buttons.length) % buttons.length]?.focus();
     }}><span>{copied ? 'Copied.' : recovery.message}</span><button className="pet-recovery-dismiss" aria-label="Dismiss dictation notice" onClick={() => { dismissRecovery(); if (!keyboardMode.current) { hovered.current = false; closeControls(); } overlay.current?.querySelector<HTMLButtonElement>('.overlay-pet-button')?.focus(); }}><X size={11} /></button><div>{recovery.clipboard && <button aria-label="Restore original clipboard" title="Restore original clipboard" disabled={restoringClipboard} onClick={() => void restoreClipboard(recovery.clipboard!)}><Undo2 size={10} /></button>}{recovery.text && <button onClick={() => { const epoch = recoveryEpoch.current; void copyText(recovery.text!).then(() => { if (recoveryEpoch.current === epoch) { setCopied(true); setClipboardRecovery(undefined); setRecovery(current => current ? { ...current, clipboard: undefined } : current); } }).catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }); }}><Copy size={10} />Copy words</button>}{recovery.retry && <button disabled={micPending} onClick={() => { setMicPending(true); const epoch = recoveryEpoch.current; void api('dictation.retry').catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }).finally(() => setMicPending(false)); }}><RotateCcw size={10} />Retry audio</button>}{recovery.models && !recovery.text && <button onClick={() => open('window.main', { page: 'models' })}>Open models</button>}</div></div>}
 
-    {menu && <div className="pet-menu"><button onClick={() => open('window.chat')}><MessageCircle size={14} />Chat with Pace</button><button onClick={() => open('window.meeting')}><FileText size={14} />Meeting notes</button>{clipboardRecovery && <button disabled={restoringClipboard} onClick={() => void restoreClipboard(clipboardRecovery)}><Undo2 size={14} />Restore original clipboard</button>}<button onClick={() => open('window.main', { page: 'settings', section: 'shortcuts' })}>Controls & look</button><button onClick={() => { mood.setAction('celebrate'); if (state.settings.soundEnabled && !state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status))) playPetSound('celebrate', state.settings.volume); open('pet.action', { action: 'celebrate' }); }}>A tiny victory!</button><button onClick={() => open('pet.toggle', { visible: false })}>Hide Pace</button></div>}
-    <button className="overlay-pet-button" aria-label="Pet Pace; drag to move; right-click for menu" aria-controls="pace-actions" aria-expanded={toolsVisible} onPointerEnter={() => { hovered.current = true; revealControls(); }} onPointerLeave={() => { hovered.current = false; leaveControls(); }} disabled={hiding || ['summon', 'burrow'].includes(state.pet.action)} onKeyDown={event => {
+    {menu && <div className="pet-menu" onPointerEnter={() => { hovered.current = true; revealControls(); }} onPointerLeave={() => { hovered.current = false; leaveControls(); }}><button onClick={() => open('window.chat')}><MessageCircle size={14} />Chat with Pace</button><button onClick={() => open('window.meeting')}><FileText size={14} />Meeting notes</button>{clipboardRecovery && <button disabled={restoringClipboard} onClick={() => void restoreClipboard(clipboardRecovery)}><Undo2 size={14} />Restore original clipboard</button>}<button onClick={() => open('window.main', { page: 'settings', section: 'shortcuts' })}>Controls & look</button><button onClick={() => { mood.setAction('celebrate'); if (state.settings.soundEnabled && !state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status))) playPetSound('celebrate', state.settings.volume); open('pet.action', { action: 'celebrate' }); }}>A tiny victory!</button><button onClick={() => open('pet.toggle', { visible: false })}>Hide Pace</button></div>}
+    <button className="overlay-pet-button" aria-label="Pet Pace; drag to move; right-click for menu" aria-controls="pace-actions" aria-expanded={toolsVisible} onPointerEnter={event => { if (event.pointerType === 'touch') return; hovered.current = true; mood.wake(); revealControls(); stroke.current = { x: event.clientX, y: event.clientY, at: event.timeStamp, distance: 0, fastDistance: 0, reactedAt: -Infinity }; }} onPointerLeave={() => { hovered.current = false; stroke.current = undefined; leaveControls(); }} disabled={hiding || ['summon', 'burrow'].includes(state.pet.action)} onKeyDown={event => {
       if (!event.nativeEvent.isTrusted) return;
       if (event.key !== 'ArrowUp' && event.key !== 'ArrowRight' && !(event.key === 'Tab' && !event.shiftKey)) return;
       event.preventDefault(); revealControls();
       requestAnimationFrame(() => overlay.current?.querySelector<HTMLButtonElement>(recovery ? '.pet-recovery button:not(:disabled)' : '.pet-controls button:not(:disabled):not([hidden])')?.focus());
     }} onPointerDown={event => { down.current = { x: event.clientX, y: event.clientY }; dragged.current = false; }} onPointerMove={event => {
+      if (event.buttons === 0 && event.pointerType === 'mouse') { down.current = undefined; scratch(event.clientX, event.clientY, event.timeStamp); return; }
       if (!down.current || dragged.current || Math.hypot(event.clientX - down.current.x, event.clientY - down.current.y) <= 7) return;
       dragged.current = true;
       const epoch = recoveryEpoch.current;
       if (isNative()) void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().startDragging()).catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); });
-    }} onPointerUp={() => { down.current = undefined; }} onClick={event => { if (event.detail !== 0 && dragged.current) { dragged.current = false; return; } pet(); }}><Pace action={mood.action} size={state.settings.petSize} pack={state.packs.find(pack => pack.id === state.settings.activePack)} label={`Pace is ${mood.action}`} /></button>
+    }} onPointerUp={() => { down.current = undefined; }} onPointerCancel={() => { down.current = undefined; stroke.current = undefined; }} onClick={event => { if (event.detail !== 0 && dragged.current) { dragged.current = false; return; } pet(); }}><Pace action={mood.action} size={state.settings.petSize} pack={state.packs.find(pack => pack.id === state.settings.activePack)} label={`Pace is ${mood.action}`} /></button>
     <nav id="pace-actions" className="pet-controls" aria-label="Pace actions" onPointerEnter={() => { hovered.current = true; revealControls(); }} onPointerLeave={() => { hovered.current = false; leaveControls(); }} onKeyDown={event => {
       if (!['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
       const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled):not([hidden])')];

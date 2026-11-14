@@ -6,11 +6,11 @@ use std::{
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
-        Mutex,
+        mpsc, Arc, Mutex,
     },
     time::{Duration, Instant},
 };
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Listener, Manager};
 
 pub struct VoiceChat {
     active: AtomicBool,
@@ -50,6 +50,27 @@ impl VoiceChat {
         self.cancelled_sessions
             .lock()
             .is_ok_and(|ids| ids.iter().any(|saved| saved == id))
+    }
+    pub(crate) fn spoken_chunk(&self, app: &AppHandle, epoch: u64, text: &str) {
+        if !self.valid(epoch) {
+            return;
+        }
+        if let Ok(mut view) = self.view.lock() {
+            if !self.valid(epoch) {
+                return;
+            }
+            let previous = view["text"].as_str().unwrap_or("");
+            let text = if previous.is_empty() {
+                text.to_owned()
+            } else {
+                format!("{previous} {text}")
+            };
+            view["text"] = json!(text);
+            view["phase"] = json!("speaking");
+            view["sequence"] = json!(view["sequence"].as_u64().unwrap_or(0) + 1);
+            emit(app, "voicechat.state", view.clone());
+        }
+        crate::action(app, "talk");
     }
     fn update(&self, app: &AppHandle, epoch: u64, phase: &str, extra: Value) {
         if !self.valid(epoch) {
@@ -386,21 +407,7 @@ async fn run(
             "thinking",
             json!({"userText":text,"text":"","error":null}),
         );
-        let answer = crate::chat_send(
-            app,
-            state,
-            json!({"text":text,"meetingId":meeting,"clientRequestId":id,"_voice":true}),
-        )
-        .await?;
-        if !state.voicechat.valid(epoch) {
-            return Ok(());
-        }
-        let reply = answer["text"].as_str().ok_or("Pace returned no reply")?;
-        state
-            .voicechat
-            .update(app, epoch, "speaking", json!({"text":reply}));
         let mut settings = state.db.settings()?;
-        settings["text"] = json!(reply);
         settings["_voiceChatEpoch"] = json!(epoch);
         settings["_voiceEpoch"] = json!(state.native.voice.epoch());
         settings["voiceEngine"] = json!("kitten");
@@ -412,12 +419,172 @@ async fn run(
         {
             settings["voice"] = json!("Kiki");
         }
-        let spoken = crate::speak(app, state, settings, None).await?;
+        let (sender, receiver) = mpsc::channel();
+        let phrases = Arc::new(Mutex::new(ReplyPhrases::default()));
+        let final_sender = sender.clone();
+        let (handle, stream, request_id) = (app.clone(), phrases.clone(), id.to_owned());
+        let listener = app.listen("pace-event", move |event| {
+            let Ok(event) = serde_json::from_str::<Value>(event.payload()) else {
+                return;
+            };
+            if event["event"] != "chat.delta"
+                || event["data"]["clientRequestId"].as_str() != Some(&request_id)
+                || !handle.state::<AppState>().voicechat.valid(epoch)
+            {
+                return;
+            }
+            if let Some(delta) = event["data"]["text"].as_str() {
+                if let Ok(mut phrases) = stream.lock() {
+                    for phrase in phrases.push(delta) {
+                        let _ = sender.send(phrase);
+                    }
+                }
+            }
+        });
+        let listener = ReplyListener {
+            app: app.clone(),
+            id: listener,
+        };
+        let generation = async {
+            let answer = crate::chat_send(
+                app,
+                state,
+                json!({"text":text,"meetingId":meeting,"clientRequestId":id,"_voice":true}),
+            )
+            .await?;
+            if !state.voicechat.valid(epoch) {
+                return Err("Voice chat cancelled".to_owned());
+            }
+            let reply = answer["text"].as_str().ok_or("Pace returned no reply")?;
+            // Unregistering releases the sender, closing the speech input after the final fragment.
+            drop(listener);
+            let tail = phrases.lock().map_err(|e| e.to_string())?.finish(reply)?;
+            for phrase in tail {
+                final_sender
+                    .send(phrase)
+                    .map_err(|_| "Voice playback stopped")?;
+            }
+            drop(final_sender);
+            if state.voicechat.current()?["phase"] == "speaking" {
+                crate::action(app, "talk");
+            }
+            Ok::<_, String>(())
+        };
+        // Text and Kitten use separate models: run them together without the general generation lock.
+        let speech = state.native.voice.speak_stream(app, settings, receiver);
+        let spoken = match speak_reply(generation, speech, &state.native.voice).await {
+            Ok(spoken) => spoken,
+            Err(error) => {
+                let _ = tokio::time::timeout(
+                    Duration::from_millis(250),
+                    state
+                        .native
+                        .request(app, "runtime.cancel", json!({"id":id})),
+                )
+                .await;
+                return Err(error);
+            }
+        };
         if let Some(path) = spoken["path"].as_str() {
             let _ = std::fs::remove_file(path);
         }
     }
     Ok(())
+}
+struct ReplyListener {
+    app: AppHandle,
+    id: tauri::EventId,
+}
+impl Drop for ReplyListener {
+    fn drop(&mut self) {
+        self.app.unlisten(self.id);
+    }
+}
+async fn speak_reply(
+    generation: impl std::future::Future<Output = Result<(), String>>,
+    speech: impl std::future::Future<Output = Result<Value, String>>,
+    voice: &crate::voice::Voice,
+) -> Result<Value, String> {
+    match tokio::try_join!(generation, speech) {
+        Ok(((), spoken)) => Ok(spoken),
+        Err(error) => {
+            voice.stop();
+            Err(error)
+        }
+    }
+}
+#[derive(Default)]
+struct ReplyPhrases {
+    received: String,
+    pending: String,
+    sent: usize,
+}
+impl ReplyPhrases {
+    fn push(&mut self, delta: &str) -> Vec<String> {
+        // Bound malformed/model output even when it has no punctuation or spaces.
+        if self.received.chars().count() + delta.chars().count() > 1500 {
+            return Vec::new();
+        }
+        self.received.push_str(delta);
+        self.pending.push_str(delta);
+        let mut ready = Vec::new();
+        loop {
+            let limit = if self.sent == 0 { 80 } else { 160 };
+            let mut boundary = None;
+            for (count, (byte, ch)) in self.pending.char_indices().enumerate() {
+                if count >= limit {
+                    break;
+                }
+                let following = &self.pending[byte + ch.len_utf8()..];
+                if matches!(ch, '.' | '?' | '!')
+                    && following.starts_with(char::is_whitespace)
+                    && count >= 12
+                {
+                    boundary = Some(byte + ch.len_utf8());
+                    break;
+                }
+            }
+            if boundary.is_none() && self.pending.chars().count() >= limit {
+                let end = self
+                    .pending
+                    .char_indices()
+                    .nth(limit)
+                    .map_or(self.pending.len(), |(i, _)| i);
+                boundary = Some(
+                    self.pending[..end]
+                        .rfind(char::is_whitespace)
+                        .filter(|i| *i > 0)
+                        .unwrap_or(end),
+                );
+            }
+            let Some(end) = boundary else {
+                break;
+            };
+            let phrase = self.pending[..end].trim().to_owned();
+            self.pending = self.pending[end..].trim_start().to_owned();
+            if !phrase.is_empty() {
+                self.sent += 1;
+                ready.push(phrase);
+            }
+        }
+        ready
+    }
+    fn finish(&mut self, reply: &str) -> Result<Vec<String>, String> {
+        if reply.chars().count() > 1500 {
+            return Err("Pace's reply was too long to speak".into());
+        }
+        let mut ready = if let Some(tail) = reply.strip_prefix(&self.received) {
+            self.push(tail)
+        } else if reply.trim() == self.received.trim() {
+            Vec::new()
+        } else {
+            return Err("Pace's streamed reply changed. Please try again.".into());
+        };
+        if !self.pending.trim().is_empty() {
+            ready.push(std::mem::take(&mut self.pending).trim().to_owned());
+        }
+        Ok(ready)
+    }
 }
 async fn listen_turn(
     app: &AppHandle,
@@ -532,6 +699,81 @@ impl Endpoint {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn reply_phrases_release_the_first_sentence_before_the_answer_finishes() {
+        let mut phrases = ReplyPhrases::default();
+        assert!(phrases.push("Choose one small task.").is_empty());
+        assert_eq!(phrases.push(" Then"), ["Choose one small task."]);
+        assert!(phrases.push(" give it ten quiet minutes.").is_empty());
+        assert_eq!(
+            phrases
+                .finish("Choose one small task. Then give it ten quiet minutes.")
+                .unwrap(),
+            ["Then give it ten quiet minutes."]
+        );
+        assert!(phrases.finish("A different answer").is_err());
+    }
+    #[test]
+    fn fragmented_unicode_and_unpunctuated_replies_stay_bounded_without_repeating() {
+        let text = "Café time is a small break before the next task ".repeat(12);
+        let mut phrases = ReplyPhrases::default();
+        let mut spoken = Vec::new();
+        for ch in text.chars() {
+            spoken.extend(phrases.push(&ch.to_string()));
+        }
+        spoken.extend(phrases.finish(&text).unwrap());
+        assert!(spoken[0].chars().count() <= 80);
+        assert!(spoken.iter().all(|p| p.chars().count() <= 160));
+        assert_eq!(
+            spoken.join(" ").split_whitespace().collect::<Vec<_>>(),
+            text.split_whitespace().collect::<Vec<_>>()
+        );
+        let mut no_deltas = ReplyPhrases::default();
+        assert_eq!(
+            no_deltas.finish("A short answer.").unwrap(),
+            ["A short answer."]
+        );
+        assert!(no_deltas.finish(&"a".repeat(1501)).is_err());
+    }
+    #[tokio::test]
+    async fn generation_and_speech_overlap_instead_of_waiting_for_the_full_answer() {
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(2);
+        let (started, audible) = tokio::sync::oneshot::channel();
+        let generation = async move {
+            sender.send("First phrase.").await.unwrap();
+            audible.await.unwrap();
+            sender.send("Second phrase.").await.unwrap();
+            Ok(())
+        };
+        let speech = async move {
+            assert_eq!(receiver.recv().await, Some("First phrase."));
+            started.send(()).unwrap();
+            assert_eq!(receiver.recv().await, Some("Second phrase."));
+            assert!(receiver.recv().await.is_none());
+            Ok(json!({"streaming":true}))
+        };
+        assert!(
+            tokio::time::timeout(
+                Duration::from_millis(250),
+                speak_reply(generation, speech, &crate::voice::Voice::default())
+            )
+            .await
+            .unwrap()
+            .unwrap()["streaming"]
+                == true
+        );
+    }
+    #[tokio::test]
+    async fn a_speech_failure_cancels_a_stalled_generation_and_invalidates_audio() {
+        let voice = crate::voice::Voice::default();
+        let generation = std::future::pending::<Result<(), String>>();
+        let speech = async { Err("Speaker disconnected".to_owned()) };
+        assert_eq!(
+            speak_reply(generation, speech, &voice).await.unwrap_err(),
+            "Speaker disconnected"
+        );
+        assert_eq!(voice.epoch(), 1);
+    }
     #[tokio::test]
     async fn stalled_owner_is_aborted_and_releases_its_guard_and_resource() {
         struct Resource(std::sync::Arc<AtomicBool>);

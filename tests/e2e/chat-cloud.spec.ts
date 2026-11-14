@@ -83,7 +83,7 @@ test('one explicit Start continues listening after replies, with real meter and 
 });
 
 
-test('voice streams real thinking deltas and complete speaking snapshots replace them once', async ({ page }) => {
+test('voice captions wait for playback and ignore raw generation deltas', async ({ page }) => {
   await fixture(page); await page.getByRole('button', { name: 'Start voice conversation' }).click();
   await page.evaluate(() => {
     const f = (window as any).__chatFixture;
@@ -93,21 +93,24 @@ test('voice streams real thinking deltas and complete speaking snapshots replace
     f.emit('voicechat.state', { ...f.current, sequence: 1, phase: 'starting' });
   });
   await expect(page.getByRole('status')).toHaveText('Thinking…');
-  await expect(conversation(page)).toContainText('Choose one'); await expect(conversation(page)).not.toContainText('Wrong session');
+  await expect(conversation(page)).not.toContainText('Choose one'); await expect(conversation(page)).not.toContainText('Wrong session');
   await page.evaluate(() => {
     const f = (window as any).__chatFixture;
-    f.voice('speaking', { sequence: 4, text: 'Choose one small task.' });
+    f.voice('speaking', { sequence: 4, text: 'Choose one' });
     f.emit('chat.delta', { clientRequestId: f.current.sessionId, text: 'Late duplicate' });
     f.emit('voicechat.state', { ...f.current, sequence: 3, phase: 'thinking', text: 'Stale partial' });
   });
   await expect(page.getByRole('status')).toHaveText('Pace is speaking…');
+  await expect(conversation(page)).toContainText('Choose one');
+  await expect(conversation(page)).not.toContainText('small task');
+  await page.evaluate(() => (window as any).__chatFixture.voice('speaking', { sequence: 5, text: 'Choose one small task.' }));
   await expect(conversation(page)).toContainText('Choose one small task.');
   await expect(conversation(page)).not.toContainText('Late duplicate'); await expect(conversation(page)).not.toContainText('Stale partial');
   expect((await conversation(page).innerText()).match(/Choose one/g)).toHaveLength(1);
-  await page.evaluate(() => (window as any).__chatFixture.voice('transcribing', { sequence: 5 }));
+  await page.evaluate(() => (window as any).__chatFixture.voice('transcribing', { sequence: 6 }));
   await expect(conversation(page)).not.toContainText('Choose one');
-  await page.evaluate(() => { const f = (window as any).__chatFixture; f.voice('thinking', { sequence: 6, userText: 'Next question', text: '' }); f.emit('chat.delta', { clientRequestId: f.current.sessionId, text: 'New partial' }); });
-  await expect(conversation(page)).toContainText('New partial');
+  await page.evaluate(() => { const f = (window as any).__chatFixture; f.voice('thinking', { sequence: 7, userText: 'Next question', text: '' }); f.emit('chat.delta', { clientRequestId: f.current.sessionId, text: 'New partial' }); });
+  await expect(conversation(page)).not.toContainText('New partial');
   const id = await page.evaluate(() => (window as any).__chatFixture.current.sessionId);
   await page.getByRole('button', { name: 'End voice conversation' }).click();
   await page.evaluate(id => (window as any).__chatFixture.emit('chat.delta', { clientRequestId: id, text: 'After End' }), id);
@@ -165,7 +168,7 @@ test('initial and immediate context switches cannot leak old typed or spoken rep
   await fixture(page, { held: true, heldContext: true, meetingId: 'old-meeting' });
   await expect(page.getByRole('button', { name: 'Start voice conversation' })).toBeDisabled();
   await page.evaluate(() => { const f = (window as any).__chatFixture; f.context('meeting-one'); f.resolveContext(); });
-  await expect(page.getByText('Ask about this meeting', { exact: true })).toBeVisible();
+  await expect(page.getByText('Meeting chat', { exact: true })).toBeVisible();
   const input = page.getByRole('textbox', { name: 'Message Pace' }); await input.fill('What was decided?'); await page.getByRole('button', { name: 'Send message' }).click();
   await page.evaluate(() => { const f = (window as any).__chatFixture; f.context(); f.resolve(); });
   await expect(conversation(page)).not.toContainText('One tiny step');
@@ -192,4 +195,75 @@ test('focusing the same chat keeps delivered messages and a live session running
   await expect(page.getByRole('button', { name: 'End voice conversation' })).toBeVisible();
   expect((await calls(page, 'voicechat.stop')).length).toBe(0);
   expect(await page.evaluate(() => (window as any).__chatFixture.current.sessionId)).toBe(id);
+});
+
+test('pixel bubbles float on a clear background with a fixed bottom dock', async ({ page }) => {
+  await fixture(page);
+  await expect(page.locator('.chat-history')).toHaveAttribute('data-scrolled', 'false');
+  for (const height of [180, 220, 330]) {
+    await page.setViewportSize({ width: 300, height });
+    const layout = await page.evaluate(() => {
+      const shell = document.querySelector('.chat-cloud')!;
+      const history = document.querySelector('.chat-history')!.getBoundingClientRect();
+      const dock = document.querySelector('.chat-dock')!.getBoundingClientRect();
+      const style = getComputedStyle(shell);
+      const bubble = document.querySelector('.chat-bubble')!;
+      const reply = document.querySelector('.chat-reply')!;
+      return { background: style.backgroundColor, border: style.borderTopWidth, shadow: style.boxShadow,
+        historyBottom: history.bottom, dockTop: dock.top, dockBottom: dock.bottom,
+        width: document.documentElement.scrollWidth, scrollbars: getComputedStyle(reply).scrollbarWidth,
+        outline: getComputedStyle(bubble, '::before').clipPath,
+        tail: bubble.querySelector('.chat-bubble-tail') !== null };
+    });
+    expect(layout).toMatchObject({ background: 'rgba(0, 0, 0, 0)', border: '0px', shadow: 'none', scrollbars: 'none', tail: true });
+    expect(layout.outline).toContain('polygon(');
+    expect(layout.historyBottom).toBeLessThanOrEqual(layout.dockTop);
+    expect(layout.dockBottom).toBeLessThanOrEqual(height);
+    expect(layout.width).toBeLessThanOrEqual(300);
+    await expect(page.getByRole('button', { name: 'Start voice conversation' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Close chat' })).toBeVisible();
+  }
+  await page.getByRole('textbox', { name: 'Message Pace' }).fill('One small next step?');
+  await page.getByRole('button', { name: 'Send message' }).click();
+  await expect(page.locator('.chat-user')).toContainText('One small next step?');
+  await expect(page.locator('.chat-pace')).toContainText('One tiny step');
+  const positions = await page.evaluate(() => {
+    const turn = document.querySelector('.chat-turn')!.getBoundingClientRect();
+    const user = document.querySelector('.chat-user')!.getBoundingClientRect();
+    const pace = document.querySelector('.chat-pace')!.getBoundingClientRect();
+    return { userRight: user.right, paceLeft: pace.left, turnRight: turn.right, turnLeft: turn.left };
+  });
+  expect(positions.userRight).toBeCloseTo(positions.turnRight);
+  expect(positions.paceLeft).toBeCloseTo(positions.turnLeft);
+  await page.screenshot({ path: test.info().outputPath('pixel-chat-history.png'), omitBackground: true });
+});
+
+test('history scrolls without visible bars and streaming respects reading position', async ({ page }) => {
+  await fixture(page, { held: true });
+  await page.getByRole('textbox', { name: 'Message Pace' }).fill('Help me make a small plan.');
+  await page.getByRole('button', { name: 'Send message' }).click();
+  const stream = (text: string) => page.evaluate(text => {
+    const f = (window as any).__chatFixture;
+    const id = f.calls.find((call: any) => call.method === 'chat.send').params.clientRequestId;
+    f.emit('chat.delta', { clientRequestId: id, text });
+  }, text);
+  await stream('First, pick one task. Then give it ten quiet minutes.\n'.repeat(12));
+  const log = conversation(page);
+  const scrollTop = () => log.evaluate(element => element.scrollTop);
+  await expect.poll(scrollTop).toBeGreaterThan(100);
+  await expect(page.locator('.chat-history')).toHaveAttribute('data-scrolled', 'true');
+  expect(await page.locator('.chat-history').evaluate(element => getComputedStyle(element).maskImage)).toContain('linear-gradient');
+  const box = (await log.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, -10000);
+  await expect.poll(scrollTop).toBe(0);
+  await expect(page.locator('.chat-history')).toHaveAttribute('data-scrolled', 'false');
+  await stream('A fresh thought should not pull you away from what you are reading.\n');
+  await expect(log).toContainText('A fresh thought');
+  expect(await scrollTop()).toBe(0);
+  await log.focus(); await log.press('End');
+  await expect.poll(() => log.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+  await stream('And one more thought, when you are ready.\n'.repeat(4));
+  await expect.poll(() => log.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+  await page.screenshot({ path: test.info().outputPath('pixel-chat-fade.png'), omitBackground: true });
 });

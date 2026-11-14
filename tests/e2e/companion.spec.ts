@@ -2,10 +2,10 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-type Options = { soundEnabled?: boolean; petSize?: number; phase?: string; text?: string; error?: string; toggleError?: string; holdToggle?: boolean; holdCurrent?: boolean; savedAudio?: boolean };
+type Options = { soundEnabled?: boolean; petSize?: number; petAction?: string; phase?: string; text?: string; error?: string; toggleError?: string; holdToggle?: boolean; holdCurrent?: boolean; savedAudio?: boolean };
 async function fixture(page: Page, options: Options = {}) {
   await page.addInitScript((config: Options) => {
-    const state = { settings: { onboardingCompleted: true, soundEnabled: config.soundEnabled || false, activePack: 'pace', petSize: config.petSize || 160, dictationShortcut: 'Alt+Shift+D' }, models: [], meetings: [], packs: [{ id: 'pace', name: 'Pace' }], memory: { enabled: false, applications: [] }, extensions: [], pet: { visible: true, action: 'idle' } };
+    const state = { settings: { onboardingCompleted: true, soundEnabled: config.soundEnabled || false, activePack: 'pace', petSize: config.petSize || 160, dictationShortcut: 'Alt+Shift+D' }, models: [], meetings: [], packs: [{ id: 'pace', name: 'Pace' }], memory: { enabled: false, applications: [] }, extensions: [], pet: { visible: true, action: config.petAction || 'idle' } };
     let current = { phase: config.phase || 'idle', text: config.text, error: config.error, savedAudio: config.savedAudio };
     const f: any = { calls: [], copied: [], currentReads: 0 };
     (window as any).__companionFixture = f;
@@ -66,6 +66,63 @@ async function screenshot(page: Page, name: string) {
 }
 async function calls(page: Page) { return page.evaluate(() => (window as any).__companionFixture.calls as Array<{ method: string; params: any }>); }
 const petName = 'Pet Pace; drag to move; right-click for menu';
+
+async function scratch(page: Page, samples: Array<[number, number, number]>) {
+  await page.locator('.overlay-pet-button').evaluate((element, points) => {
+    const box = element.getBoundingClientRect();
+    for (const [x, y, at] of points) {
+      const event = new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse', buttons: 0, clientX: box.x + x, clientY: box.y + y });
+      Object.defineProperty(event, 'timeStamp', { value: at }); element.dispatchEvent(event);
+    }
+  }, samples);
+}
+
+test('hover wakes a sleeping Pace, keeps him awake, and moving away hides tools', async ({ page }) => {
+  await page.setViewportSize({ width: 224, height: 224 }); await page.clock.install();
+  await fixture(page, { petAction: 'sleep' }); await page.goto('/?window=pet');
+  const pet = page.getByRole('button', { name: petName }); const chat = page.getByRole('button', { name: 'Chat with Pace', exact: true });
+  await expect(page.getByRole('img', { name: 'Pace is sleep', exact: true })).toBeVisible(); await expect(chat).toBeHidden();
+  await pet.hover(); await expect(page.getByRole('img', { name: 'Pace is wave', exact: true })).toBeVisible(); await expect(chat).toBeVisible();
+  await page.clock.fastForward(31_000); await expect(page.getByRole('img', { name: 'Pace is idle', exact: true })).toBeVisible();
+  await page.mouse.move(1, 1);
+  for (const x of [2, 3, 4]) { await page.clock.runFor(90); await page.mouse.move(x, 1); }
+  await expect(chat).toBeHidden();
+  expect((await calls(page)).some(call => call.method === 'pet.action')).toBe(false);
+});
+
+test('gentle mouse scratches pet Pace, fast scratches annoy him, and clicks still work', async ({ page }) => {
+  await page.setViewportSize({ width: 224, height: 224 }); await fixture(page); await page.goto('/?window=pet');
+  const pet = page.getByRole('button', { name: petName }); await pet.hover();
+  await scratch(page, [[50, 80, 1000], [70, 80, 1100], [90, 80, 1200]]);
+  await expect(page.getByRole('img', { name: 'Pace is happy', exact: true })).toBeVisible();
+  await scratch(page, [[90, 80, 1210], [70, 80, 1218], [50, 80, 1226]]);
+  await expect(page.getByRole('img', { name: 'Pace is annoyed', exact: true })).toBeVisible();
+  await scratch(page, Array.from({ length: 25 }, (_, index) => [50 + index, 80, 2100 + index * 16] as [number, number, number]));
+  await expect(page.getByRole('img', { name: 'Pace is happy', exact: true })).toBeVisible();
+  expect((await calls(page)).some(call => call.method === 'pet.action')).toBe(false);
+  await pet.dispatchEvent('click'); await expect(page.getByRole('img', { name: 'Pace is happy', exact: true })).toBeVisible();
+  expect((await calls(page)).filter(call => call.method === 'pet.action')).toEqual([{ method: 'pet.action', params: { action: 'happy' } }]);
+});
+
+test('pointer jitter and scratching during listening do not replace Pace’s work state', async ({ browser }) => {
+  for (const action of ['idle', 'listen']) {
+    const page = await browser.newPage({ viewport: { width: 224, height: 224 } });
+    await fixture(page, { petAction: action }); await page.goto('/?window=pet'); await page.getByRole('button', { name: petName }).hover();
+    await scratch(page, action === 'idle' ? [[50, 80, 1000], [51, 80, 1016], [50, 80, 1032], [51, 80, 1048]] : [[50, 80, 1000], [90, 80, 1016], [50, 80, 1032]]);
+    await expect(page.getByRole('img', { name: `Pace is ${action}`, exact: true })).toBeVisible();
+    expect((await calls(page)).some(call => call.method === 'pet.action')).toBe(false); await page.close();
+  }
+});
+
+test('releasing outside Pace does not turn the next scratch into a drag', async ({ page }) => {
+  await page.setViewportSize({ width: 224, height: 224 }); await fixture(page); await page.goto('/?window=pet');
+  const pet = page.getByRole('button', { name: petName }); await pet.hover(); await page.mouse.down();
+  await page.mouse.move(1, 1); await page.mouse.up(); await pet.hover();
+  await scratch(page, [[50, 80, 1000], [70, 80, 1100], [90, 80, 1200]]);
+  await expect(page.getByRole('img', { name: 'Pace is happy', exact: true })).toBeVisible();
+  await expect(page.getByRole('status', { name: 'Dictation recovery' })).toHaveCount(0);
+  expect((await calls(page)).filter(call => call.method === 'pet.action')).toHaveLength(0);
+});
 
 test('four compact action icons fit each native pet size without writing', async ({ browser }) => {
   for (const size of [128, 160, 208]) {

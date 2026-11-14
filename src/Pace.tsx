@@ -69,24 +69,29 @@ export function Pace({ action = 'idle', size = 160, paused = false, flip = false
   } as CSSProperties} />;
 }
 
-export function usePetMood(initial: PaceAction = 'idle') {
+export function usePetMood(initial: PaceAction = 'idle', stayAwake = false) {
   const [action, setAction] = useState<PaceAction>(initial);
   const [clicks, setClicks] = useState<number[]>([]);
   const [activity, setActivity] = useState(Date.now());
   useEffect(() => {
+    if (action === 'idle' && stayAwake) return;
     const duration = action === 'summon' ? 1000 : action === 'happy' || action === 'annoyed' ? 3000 : action === 'wave' || action === 'celebrate' ? 2200 : 20_000;
     if (!['idle', 'happy', 'annoyed', 'wave', 'celebrate', 'summon'].includes(action)) return;
     const timer = setTimeout(() => setAction(action === 'idle' ? 'sleep' : 'idle'), duration);
     return () => clearTimeout(timer);
-  }, [action, activity]);
-  const pet = () => {
+  }, [action, activity, stayAwake]);
+  const wake = () => {
+    setActivity(Date.now());
+    setAction(current => current === 'sleep' ? 'wave' : current);
+  };
+  const pet = (reaction?: 'happy' | 'annoyed') => {
     const now = Date.now();
     const recent = [...clicks.filter(time => now - time < 1200), now];
-    setClicks(recent);
+    if (!reaction) setClicks(recent);
     setActivity(now);
-    const next: PaceAction = recent.length >= 4 ? 'annoyed' : 'happy';
+    const next: PaceAction = reaction || (recent.length >= 4 ? 'annoyed' : 'happy');
     setAction(next);
     return next;
   };
-  return { action, setAction, pet };
+  return { action, setAction, pet, wake };
 }

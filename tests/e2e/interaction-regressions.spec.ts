@@ -42,7 +42,7 @@ test('overlay pet activates by keyboard while a pointer drag does not pet it', a
   expect(await page.evaluate(() => (window as any).__interactionCalls.pet.length)).toBe(2);
   await pet.evaluate(element => element.blur());
   await page.mouse.move(0, 0);
-  await expect(controls.getByRole('button', { name: 'Chat with Pace', exact: true })).toBeVisible();
+  await expect(controls.getByRole('button', { name: 'Chat with Pace', exact: true })).toBeHidden();
   await expect(controls.getByRole('button', { name: 'Dictate into your app', exact: true })).toBeHidden();
 });
 
