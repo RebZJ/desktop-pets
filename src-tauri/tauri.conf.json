@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "app.desktoppets.pace",
   "build": {
-    "beforeDevCommand": "npm run dev -- --port 1420 --strictPort",
+    "beforeDevCommand": "npm run dev:web -- --port 1420 --strictPort",
     "devUrl": "http://127.0.0.1:1420",
     "beforeBuildCommand": "npm run native:build && npm run build",
     "frontendDist": "../dist"
@@ -27,6 +27,7 @@
       {
         "label": "pet",
         "title": "Pace",
+        "visible": false,
         "url": "index.html?window=pet",
         "width": 224,
         "height": 224,

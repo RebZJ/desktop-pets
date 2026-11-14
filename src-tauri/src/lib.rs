@@ -1,5 +1,6 @@
 mod asr;
 mod audio;
+mod build_identity;
 mod companion;
 mod db;
 mod dictation;
@@ -437,6 +438,7 @@ fn validate_shortcut_changes(settings: &Value, patch: &Value) -> Result<(), Stri
 }
 
 fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
+    if !build_identity::shortcuts_enabled(app) { return Ok(()); }
     let [hide, command, dictation] = configured_shortcuts(settings)?;
     if app
         .state::<AppState>()
@@ -515,7 +517,8 @@ fn shortcut_status(app: &AppHandle) -> Result<Value, String> {
     let fields = ["hideShortcut", "commandShortcut", "dictationShortcut"];
     let bindings: serde_json::Map<String, Value> = fields.into_iter().zip(configured_shortcuts(&settings)?)
         .map(|(field, shortcut)| (field.to_owned(), json!({"shortcut":settings[field],"registered":app.global_shortcut().is_registered(shortcut)}))).collect();
-    Ok(json!({"suspended":state.shortcut_recording.load(Ordering::SeqCst),"bindings":bindings}))
+    Ok(json!({"suspended":!build_identity::shortcuts_enabled(app) || state.shortcut_recording.load(Ordering::SeqCst),"bindings":bindings,
+        "disabledReason":if build_identity::shortcuts_enabled(app) {Value::Null}else{json!("DEV global shortcuts are off. Quit the installed app and restart with PACE_DEV_SHORTCUTS=1 to test hotkeys.")}}))
 }
 
 fn set_shortcut_recording(app: &AppHandle, active: bool, reason: &str) -> Result<Value, String> {
@@ -749,6 +752,7 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
     }
     let state = app.state::<AppState>();
     match method.as_str() {
+        "build.identity" => Ok(build_identity::current(&app)),
         "app.state" => {
             let settings = state.db.settings()?;
             Ok(
@@ -1803,12 +1807,9 @@ async fn speak(
 
 fn recording_status(app: &AppHandle, recording: bool) {
     if let Some(tray) = app.tray_by_id("pace-tray") {
-        let _ = tray.set_title(if recording { Some("REC") } else { None::<&str> });
-        let _ = tray.set_tooltip(Some(if recording {
-            "Pace is recording · open Desktop Pets to stop"
-        } else {
-            "Desktop Pets · Pace"
-        }));
+        let title = match (build_identity::is_dev(app),recording) {(true,true)=>Some("DEV REC"),(true,false)=>Some("DEV"),(false,true)=>Some("REC"),(false,false)=>None};
+        let _ = tray.set_title(title);
+        let _ = tray.set_tooltip(Some(format!("{} · {}", if recording {"Pace is recording · open Desktop Pets to stop"}else{"Desktop Pets · Pace"},build_identity::label(app))));
     }
 }
 
@@ -2891,8 +2892,11 @@ pub fn run() {
                     _=>false
                 }
             }).build()?;
-            let app_data_dir=app.path().app_data_dir()?;
-            let data_dir=app_data_dir.parent().unwrap_or(&app_data_dir).join("Desktop Pets");
+            if cfg!(debug_assertions) && (app.config().identifier == "app.desktoppets.pace" || (!app.config().identifier.ends_with(".dev") && std::env::var_os("PACE_E2E_DATA_DIR").is_none())) {
+                return Err(std::io::Error::other("Start development with npm run dev so it uses the separate Desktop Pets Dev app identity.").into());
+            }
+            build_identity::configure_windows(app.handle());
+            let data_dir=build_identity::data_dir(app.handle()).map_err(std::io::Error::other)?;
             #[cfg(debug_assertions)] let data_dir=std::env::var_os("PACE_E2E_DATA_DIR").map(PathBuf::from).unwrap_or(data_dir);
             std::fs::create_dir_all(&data_dir)?;
             #[cfg(unix)] {use std::os::unix::fs::PermissionsExt;std::fs::set_permissions(&data_dir,std::fs::Permissions::from_mode(0o700))?;}
@@ -2900,7 +2904,7 @@ pub fn run() {
             for mut meeting in database.list("meeting").map_err(std::io::Error::other)? {if meeting["status"]=="recording" || meeting["status"]=="finalizing" {let id=meeting["id"].as_str().unwrap_or("").to_string();meeting["status"]=json!("interrupted");meeting["error"]=json!("The app closed during this meeting. Saved transcripts and audio have been preserved.");let _=database.put("meeting",&id,&meeting);}}
             let settings=database.settings().map_err(std::io::Error::other)?;
             if let Err(error)=apply_capture_protection_on_main(app.handle(),settings["captureProtectionEnabled"].as_bool().unwrap_or(true)){eprintln!("Screen-share cover request: {error}");}
-            if settings["onboardingCompleted"] != true { if let Some(main) = app.get_webview_window("main") { let _ = main.show(); let _ = main.set_focus(); } }
+            if build_identity::is_dev(app.handle()) || settings["onboardingCompleted"] != true { if let Some(main) = app.get_webview_window("main") { let _ = main.show(); let _ = main.set_focus(); } }
             app.asset_protocol_scope().allow_directory(data_dir.join("packs"),true)?;
             let engine=engine::Engine::new(app.handle(),&data_dir).map_err(std::io::Error::other)?;
             if let Ok(recording)=database.get("dictation","recovery") {
@@ -2925,14 +2929,14 @@ pub fn run() {
                 let _=pet.set_size(LogicalSize::new(pet_size+64.0,pet_size+64.0));
             }
             if let Ok(mut pet) = app.state::<AppState>().pet.lock() { pet["visible"] = json!(false); }
-            let _ = set_pet_visible(app.handle(), true, true);
-            let show=MenuItem::with_id(app,"show","Open Desktop Pets",true,None::<&str>)?;
+            if !build_identity::is_dev(app.handle()) { let _ = set_pet_visible(app.handle(), true, true); }
+            let show=MenuItem::with_id(app,"show",if build_identity::is_dev(app.handle()) {"Open Desktop Pets Dev"}else{"Open Desktop Pets"},true,None::<&str>)?;
             let pet=MenuItem::with_id(app,"pet","Hide / show Pace",true,None::<&str>)?;
             let command=MenuItem::with_id(app,"command","Dictation",true,None::<&str>)?;
-            let quit=MenuItem::with_id(app,"quit","Quit Desktop Pets",true,None::<&str>)?;
+            let quit=MenuItem::with_id(app,"quit",if build_identity::is_dev(app.handle()) {"Quit Desktop Pets Dev"}else{"Quit Desktop Pets"},true,None::<&str>)?;
             let menu=Menu::with_items(app,&[&show,&pet,&command,&quit])?;
             let icon=tauri::image::Image::new_owned([239,91,48,255].repeat(16*16),16,16);
-            TrayIconBuilder::with_id("pace-tray").icon(icon).tooltip("Desktop Pets · Pace").menu(&menu).on_menu_event(|app,event|match event.id.as_ref(){
+            TrayIconBuilder::with_id("pace-tray").icon(icon).title(if build_identity::is_dev(app.handle()) {"DEV"}else{""}).tooltip(format!("Desktop Pets · Pace · {}",build_identity::label(app.handle()))).menu(&menu).on_menu_event(|app,event|match event.id.as_ref(){
                 "show"=>{if let Some(window)=app.get_webview_window("main"){let _=window.show();let _=window.set_focus();}},
                 "pet"=>{let visible=app.state::<AppState>().pet.lock().map(|p|p["visible"]!=true).unwrap_or(true);let _=set_pet_visible(app,visible,true);},
                 "command"=>{let handle=app.clone();tauri::async_runtime::spawn(async move {let _=dictation::toggle(handle).await;});},

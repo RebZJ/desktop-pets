@@ -44,7 +44,17 @@ Install only the needed models through **Local models**. Nothing downloads on la
 
 Dictation does not require Qwen. The app starts its authenticated loopback llama.cpp child when generation needs it and stops it on cancellation/shutdown. Packaged users need no Python, Ollama, external model server, account or cloud inference service. Download size is separate from working memory; the development Mac has 16 GB.
 
-`npm run dev` is a browser preview. It does not provide native audio or inference; browser contract tests use explicitly synthetic fixtures.
+`npm run dev` (also `npm run desktop`) starts **Desktop Pets Dev** with Tauri and Vite hot reload. Frontend edits refresh the running windows; Rust edits rebuild and restart the dev host. It uses bundle ID `app.desktoppets.pace.dev` and a separate **Desktop Pets Dev** profile, including its own settings, conversations and recordings. The installed app keeps its existing bundle identity, profile and signing.
+
+DEV is visible on the pet, main window, native window titles and tray. Main Settings also shows **DEV** or **INSTALLED**, the source revision and app version. A `+` means the compiled host included local changes. Development never silently starts under the installed app's identity; use the documented launcher rather than bare `tauri dev`.
+
+DEV opens its main window and keeps its desktop pet hidden at startup. Summon it from that window when needed; this avoids placing a second pet over an installed app's active conversation.
+
+The launcher reuses the installed `Desktop Pets/models` directory when it exists, so already-downloaded packs remain available. `PACE_MODELS_DIR=/absolute/path npm run dev` explicitly chooses another model directory. This shares only model files, never the installed database or preferences. With no installed model directory, DEV uses its own profile's `models` directory. The launcher's `--check` option prints the resolved identity and paths without launching an app.
+
+DEV global shortcuts are **off by default**, allowing the installed app to keep its bindings. Use the dev window controls. For explicit hotkey testing, quit the installed app first, then launch with `PACE_DEV_SHORTCUTS=1 npm run dev` (set that environment variable using your shell's syntax on Windows). A registration conflict is reported in shortcut settings; DEV does not unregister another application's shortcuts.
+
+`npm run dev:web` is the browser-only preview without native audio or inference. Browser fixtures and Playwright use this command; it never launches a native host.
 
 ## Everyday use
 
