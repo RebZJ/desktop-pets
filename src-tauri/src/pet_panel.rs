@@ -1,6 +1,6 @@
 use tauri::{AppHandle, Manager};
 use tauri_nspanel::objc2_app_kit::{NSWindowSharingType, NSWindowStyleMask};
-use tauri_nspanel::{tauri_panel, WebviewWindowExt};
+use tauri_nspanel::{tauri_panel, TrackingAreaOptions, WebviewWindowExt};
 
 tauri_panel! {
     panel!(PacePetPanel {
@@ -8,6 +8,15 @@ tauri_panel! {
             can_become_key_window: false,
             can_become_main_window: false,
             hides_on_deactivate: false
+        }
+        with: {
+            tracking_area: {
+                options: TrackingAreaOptions::new()
+                    .active_always()
+                    .mouse_entered_and_exited()
+                    .mouse_moved(),
+                auto_resize: true
+            }
         }
     })
 }
@@ -21,6 +30,8 @@ pub fn setup(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     // Keep Tauri's existing borderless, protected, positioned window and add activation prevention.
     panel.add_style_mask(NSWindowStyleMask::NonactivatingPanel)?;
     panel.set_released_when_closed(false);
+    panel.set_accepts_mouse_moved_events(true);
+    debug_assert!(panel.as_panel().acceptsMouseMovedEvents());
     debug_assert!(!panel.can_become_key_window());
     debug_assert!(!panel.can_become_main_window());
     debug_assert!(panel

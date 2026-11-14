@@ -9,5 +9,5 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: { baseURL: 'http://127.0.0.1:1420', trace: 'retain-on-failure', screenshot: 'only-on-failure' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: { command: 'npm run dev -- --port 1420 --strictPort', url: 'http://127.0.0.1:1420', reuseExistingServer: !process.env.CI },
+  webServer: { command: 'npm run dev:web -- --port 1420 --strictPort', url: 'http://127.0.0.1:1420', reuseExistingServer: !process.env.CI },
 });

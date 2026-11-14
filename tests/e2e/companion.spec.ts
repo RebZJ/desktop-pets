@@ -5,7 +5,7 @@ import path from 'node:path';
 type Options = { soundEnabled?: boolean; petSize?: number; petAction?: string; phase?: string; text?: string; error?: string; toggleError?: string; holdToggle?: boolean; holdCurrent?: boolean; savedAudio?: boolean };
 async function fixture(page: Page, options: Options = {}) {
   await page.addInitScript((config: Options) => {
-    const state = { settings: { onboardingCompleted: true, soundEnabled: config.soundEnabled || false, activePack: 'pace', petSize: config.petSize || 160, dictationShortcut: 'Alt+Shift+D' }, models: [], meetings: [], packs: [{ id: 'pace', name: 'Pace' }], memory: { enabled: false, applications: [] }, extensions: [], pet: { visible: true, action: config.petAction || 'idle' } };
+    const state = { settings: { onboardingCompleted: true, soundEnabled: config.soundEnabled || false, activePack: 'pace', petSize: config.petSize || 160, dictationShortcut: 'Alt+Shift+D' }, models: [{ id: 'moonshine-tiny-en', name: 'Synthetic English ASR', role: 'transcription', sizeBytes: 45_400_000, installed: true, status: 'installed' }], meetings: [], packs: [{ id: 'pace', name: 'Pace' }], memory: { enabled: false, applications: [] }, extensions: [], pet: { visible: true, action: config.petAction || 'idle' } };
     let current = { phase: config.phase || 'idle', text: config.text, error: config.error, savedAudio: config.savedAudio };
     const f: any = { calls: [], copied: [], currentReads: 0 };
     (window as any).__companionFixture = f;
@@ -186,6 +186,19 @@ test('pointer exit and window blur close a selector even when focus-visible stay
   await page.evaluate(() => (window as any).__companionFixture.emit('pet.visibility', { visible: true })); await expect(chat).toBeHidden();
 });
 
+test('moving over Pace after another window resets hover reveals the tools again', async ({ page }) => {
+  await page.setViewportSize({ width: 224, height: 224 }); await fixture(page); await page.goto('/?window=pet');
+  const pet = page.getByRole('button', { name: petName }); const chat = page.getByRole('button', { name: 'Chat with Pace', exact: true });
+  await pet.hover(); await expect(chat).toBeVisible();
+  const box = (await pet.boundingBox())!;
+  await page.evaluate(() => window.dispatchEvent(new Event('blur'))); await expect(chat).toBeHidden();
+  // The cursor never left the pet, so WebKit need not deliver a second pointerenter.
+  await page.mouse.move(box.x + box.width / 2 + 3, box.y + box.height / 2);
+  await expect(chat).toBeVisible();
+  await page.mouse.move(1, 1); await expect(chat).toBeHidden();
+  await page.mouse.move(5, 5); await expect(chat).toBeHidden();
+});
+
 test('pointer dismissal of a recovery notice cannot leave the selector open', async ({ page }) => {
   await page.setViewportSize({ width: 224, height: 224 }); await fixture(page, { phase: 'draft', text: 'Words ready for review.' }); await page.goto('/?window=pet');
   const pet = page.getByRole('button', { name: petName }); const chat = page.getByRole('button', { name: 'Chat with Pace', exact: true });
@@ -202,7 +215,8 @@ test('opening a pet tool collapses stale hover before another window can cover i
     await expect(chat).toBeHidden(); await page.mouse.move(1, 1); await expect(chat).toBeHidden();
   }
   await pet.click({ button: 'right' }); await page.getByRole('button', { name: 'Controls & look', exact: true }).click();
-  await expect(chat).toBeHidden(); await page.mouse.move(1, 1); await expect(chat).toBeHidden();
+  // This fixture does not open a covering native window; leave the newly exposed pet.
+  await page.mouse.move(1, 1); await expect(chat).toBeHidden();
   await pet.hover(); await page.getByRole('button', { name: 'Dictate into your app', exact: true }).click();
   await expect(chat).toBeHidden();
   expect((await calls(page)).some(call => call.method === 'dictation.toggle')).toBe(true);

@@ -166,7 +166,12 @@ export function DesktopPet({ state }: { state: AppState }) {
       event.preventDefault(); revealControls();
       requestAnimationFrame(() => overlay.current?.querySelector<HTMLButtonElement>(recovery ? '.pet-recovery button:not(:disabled)' : '.pet-controls button:not(:disabled):not([hidden])')?.focus());
     }} onPointerDown={event => { down.current = { x: event.clientX, y: event.clientY }; dragged.current = false; }} onPointerMove={event => {
-      if (event.buttons === 0 && event.pointerType === 'mouse') { down.current = undefined; scratch(event.clientX, event.clientY, event.timeStamp); return; }
+      if (event.buttons === 0 && event.pointerType === 'mouse') {
+        // Closing another window can reset hover without the cursor leaving Pace.
+        if (!hovered.current) { hovered.current = true; mood.wake(); }
+        revealControls();
+        down.current = undefined; scratch(event.clientX, event.clientY, event.timeStamp); return;
+      }
       if (!down.current || dragged.current || Math.hypot(event.clientX - down.current.x, event.clientY - down.current.y) <= 7) return;
       dragged.current = true;
       const epoch = recoveryEpoch.current;

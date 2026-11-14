@@ -1,0 +1,6 @@
+.build-label{display:inline-flex;align-items:center;gap:4px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;color:var(--muted);font-size:9px;font-weight:700;line-height:1.3;white-space:nowrap}
+.build-label[data-channel=dev]{color:#733309;background:#fff0cf;border-color:#d19b58}
+.build-label-overlay{position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:100;pointer-events:none;user-select:none;padding:2px 4px;font-size:8px;line-height:1.2}
+.build-shortcut-note{font-size:11px;line-height:1.7;color:var(--muted);max-width:65ch;margin:0 0 16px}
+.build-about-version{display:flex;flex-direction:column;align-items:flex-end;gap:5px;margin-left:auto}
+@media(max-width:650px){.topbar .build-label{font-size:8px;padding:3px 4px}.build-about-version{align-items:flex-start;margin-left:0}}
