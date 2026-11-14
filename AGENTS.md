@@ -7,4 +7,5 @@
 - Keep product behavior in the repository; agent-specific plugins may assist development but must not become runtime requirements.
 - Capture the insertion target before opening tools. Verify the original app/window and focused field wherever the platform exposes it; refuse a known changed target. Distinguish dispatched input from verified insertion. Preserve existing content and clipboard formats, never overwrite a newer user copy, and never submit a message or retry uncertain input automatically. Keep recognized words available to copy when insertion is unavailable.
 - Verify real desktop behavior separately from browser fixtures and compilation. State which operating systems, editors, audio sources and devices were actually exercised.
+- Give interactive test apps a distinct name, bundle identity and isolated profile. Never run an empty test profile under the installed app’s identity alongside the normal app; do not borrow its permissions or make its models appear missing.
 - Preserve installed models, user recordings, conversations, settings and stable application signing identity during updates. Do not reset permissions as a routine debugging step.
