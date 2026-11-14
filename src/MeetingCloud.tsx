@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { AudioLines, FileText, LoaderCircle, MessageCircle, Mic, Square, X } from 'lucide-react';
-import { api, clockTime, errorText, subscribe, type AppState, type Meeting } from './api';
+import { api, clockTime, errorText, recognitionModelId, subscribe, type AppState, type Meeting } from './api';
 import './meeting-cloud.css';
 
 type Levels = { sessionId: string; level: { rms: number; peak: number }; tracks?: Array<{ track: string; level: { rms: number; peak: number } }> };
-const kit = ['qwen3.5-4b', 'whisper-turbo', 'nemotron-diarization'];
 
 export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () => Promise<void> }) {
   const active = state.meetings.find(meeting => ['recording', 'finalizing'].includes(meeting.status));
@@ -18,7 +17,9 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
   const [elapsed, setElapsed] = useState(0);
   const [levels, setLevels] = useState<Levels>();
   const [heardAudio, setHeardAudio] = useState(false);
-  const ready = kit.every(id => state.models.some(model => model.id === id && model.installed));
+  const recognition = recognitionModelId(state.settings, state.models, true);
+  const kit = ['qwen3.5-4b', 'nemotron-diarization', recognition];
+  const ready = Boolean(recognition) && kit.every(id => state.models.some(model => model.id === id && model.installed));
   const recording = meeting?.status === 'recording';
   const noAudio = recording && elapsed >= 8 && levels?.sessionId === meeting.id && !heardAudio && !meeting.segments.some(segment => segment.text.trim());
   const message = error || meeting?.error || (noAudio ? 'No audio coming in. Check your microphone and call output.' : '');
@@ -61,7 +62,7 @@ export function MeetingCloud({ state, refresh }: { state: AppState; refresh: () 
         <label className="sr-only" htmlFor="quick-meeting-title">Meeting title</label><input id="quick-meeting-title" value={title} maxLength={160} onChange={event => setTitle(event.target.value)} placeholder="Meeting name (optional)" />
         <fieldset disabled={Boolean(busy)}><legend>Listen to</legend><label><input type="checkbox" checked={microphone} onChange={event => setMicrophone(event.target.checked)} />Microphone</label><label><input type="checkbox" checked={system} onChange={event => setSystem(event.target.checked)} />System audio</label></fieldset>
         <p className="meeting-setup-help">Let everyone know. Stop when you’re done; Pace makes the notes.</p>
-        {!ready && <button className="meeting-model-link" type="button" onClick={() => void api('window.main', { page: 'models' }).catch(cause => setError(errorText(cause)))}>Install meeting models to start →</button>}
+        {!ready && <button className="meeting-model-link" type="button" onClick={() => void api('window.main', { page: recognition ? 'models' : 'settings' }).catch(cause => setError(errorText(cause)))}>{recognition ? 'Download selected meeting models →' : 'Choose a meeting language in Settings →'}</button>}
       </form>
     </> : <div className="meeting-widget-bar">
       <div className="meeting-signal" title={levels?.tracks?.map(track => `${track.track}: ${track.level.peak > 0.0001 ? 'audio detected' : 'quiet'}`).join(' · ') || 'Checking audio input'}><AudioLines size={15} /><meter aria-label="Meeting audio level" min={0} max={1} value={meter} /></div>

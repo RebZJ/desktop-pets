@@ -25,6 +25,19 @@
       "ecosystem": "cargo",
       "files": [
         {
+          "path": "cargo/aec3@0.4.0/LICENSE",
+          "sha256": "afc122270b7209b845d177ad09bc0843eb651e8806087075e7ff5a65c459dbfd"
+        }
+      ],
+      "license": "MIT OR BSD-3-Clause",
+      "name": "aec3",
+      "source": "https://crates.io/crates/aec3/0.4.0",
+      "version": "0.4.0"
+    },
+    {
+      "ecosystem": "cargo",
+      "files": [
+        {
           "path": "cargo/aho-corasick@1.1.5/COPYING",
           "sha256": "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f"
         },

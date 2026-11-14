@@ -16,7 +16,8 @@ async fn start(app: &AppHandle, state: &AppState, ui_epoch: u64) -> Result<Value
         .as_str()
         .or_else(|| settings["language"].as_str())
         .unwrap_or("en");
-    state.engine.require_dictation_model(language)?;
+    let model = settings["asrModel"].as_str().unwrap_or("auto");
+    state.engine.require_dictation_model(language, model)?;
     if state.dictating.swap(true, Ordering::SeqCst) {
         return Err("Dictation is already recording".into());
     }
@@ -35,7 +36,7 @@ async fn start(app: &AppHandle, state: &AppState, ui_epoch: u64) -> Result<Value
     if result.is_err() {
         state.dictating.store(false, Ordering::SeqCst);
     } else {
-        state.engine.warm(language.to_owned());
+        state.engine.warm(language.to_owned(), model.to_owned());
         action(app, "dictate");
         emit(app, "dictation.state", json!({"phase":"recording"}));
     }

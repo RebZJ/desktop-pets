@@ -1,13 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Copy, FileText, LoaderCircle, MessageCircle, Mic, RotateCcw, Settings as SettingsIcon, Square, Undo2, X } from 'lucide-react';
-import { api, copyText, errorText, isNative, subscribe, type AppState } from './api';
+import { api, copyText, errorText, isNative, recognitionModelId, subscribe, type AppState } from './api';
 import { Pace, playPetSound, usePetMood, validAction } from './Pace';
 
 function dictationModelMissing(state: AppState) {
-  const language = (state.settings.dictationLanguage || state.settings.language || 'en').toLowerCase().split(/[-_]/)[0];
-  const whisper = state.models.find(model => model.id === 'whisper-turbo');
-  const moonshine = state.models.find(model => model.id === `moonshine-tiny-${language}`);
-  return whisper?.installed === false && (!['en', 'zh', 'ja', 'es'].includes(language) || moonshine?.installed === false);
+  const id = recognitionModelId(state.settings, state.models);
+  return id !== undefined && !state.models.some(model => model.id === id && model.installed);
 }
 
 type DictationState = { phase?: string; text?: string; error?: string; savedAudio?: boolean; dispatched?: boolean; clipboardRecoveryId?: string };

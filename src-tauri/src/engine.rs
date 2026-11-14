@@ -17,6 +17,7 @@ use tauri::{AppHandle, Manager};
 pub struct Engine {
     pub capture: Arc<Listening>,
     speech: Arc<Mutex<AsrRuntime>>,
+    qwen: Arc<crate::qwen_asr::QwenAsr>,
     pub cancelled: Arc<AtomicBool>,
     models: PathBuf,
     library: PathBuf,
@@ -68,9 +69,15 @@ impl Engine {
             diarization_cli: binary("nemo-speech"),
         });
         let cancelled = speech.cancelled.clone();
+        let qwen = Arc::new(crate::qwen_asr::QwenAsr::new(
+            binary("llama-server"),
+            &models,
+            cancelled.clone(),
+        ));
         Ok(Self {
             capture: Arc::new(Listening::new()?),
             speech: Arc::new(Mutex::new(speech)),
+            qwen,
             cancelled,
             models,
             library,
@@ -82,7 +89,18 @@ impl Engine {
         })
     }
 
-    pub fn require_dictation_model(&self, language: &str) -> Result<(), String> {
+    pub fn require_dictation_model(&self, language: &str, model: &str) -> Result<(), String> {
+        if model == "qwen3-asr-1.7b" {
+            crate::qwen_asr::validate_language(language)?;
+            return if crate::qwen_asr::QwenAsr::installed(&self.models) {
+                Ok(())
+            } else {
+                Err("Install Qwen3-ASR 1.7B in Local models before recording.".into())
+            };
+        }
+        if !matches!(model, "auto" | "moonshine" | "whisper-turbo") {
+            return Err("Unknown speech recognition model.".into());
+        }
         let language = language
             .split(['-', '_'])
             .next()
@@ -101,11 +119,15 @@ impl Engine {
         ]
         .iter()
         .all(|name| tiny.join(name).is_file());
-        if ["en", "zh", "ja", "es"].contains(&language.as_str())
+        if model != "whisper-turbo"
+            && ["en", "zh", "ja", "es"].contains(&language.as_str())
             && tiny_ready
             && self.library.is_file()
         {
             return Ok(());
+        }
+        if model == "moonshine" {
+            return Err("Moonshine needs an installed English, Chinese, Japanese or Spanish pack and an explicit dictation language. Choose a language or another ASR model.".into());
         }
         let whisper = self.models.join("whisper-turbo");
         if whisper.join("ggml-large-v3-turbo-q5_0.bin").is_file()
@@ -113,13 +135,27 @@ impl Engine {
         {
             return Ok(());
         }
+        if model == "whisper-turbo" {
+            return Err("Install Whisper Turbo in Local models before recording.".into());
+        }
         Err(
             "Install the dictation language pack or Whisper in Local models before recording."
                 .into(),
         )
     }
 
-    pub fn warm(&self, language: String) {
+    pub fn warm(&self, language: String, model: String) {
+        self.cancelled.store(false, Ordering::SeqCst);
+        if model == "qwen3-asr-1.7b" {
+            let qwen = self.qwen.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = qwen.prepare().await;
+            });
+            return;
+        }
+        if model == "whisper-turbo" {
+            return;
+        }
         let speech = self.speech.clone();
         tauri::async_runtime::spawn_blocking(move || {
             if let Ok(mut runtime) = speech.lock() {
@@ -129,6 +165,10 @@ impl Engine {
     }
 
     pub async fn transcribe(&self, params: Value) -> Result<Value, String> {
+        if params["asrModel"] == "qwen3-asr-1.7b" {
+            self.cancelled.store(false, Ordering::SeqCst);
+            return self.qwen.transcribe(params).await;
+        }
         let speech = self.speech.clone();
         tauri::async_runtime::spawn_blocking(move || {
             speech
@@ -138,6 +178,12 @@ impl Engine {
         })
         .await
         .map_err(|e| e.to_string())?
+    }
+    pub async fn shutdown_asr(&self) {
+        self.qwen.stop().await;
+    }
+    pub async fn release_asr(&self) {
+        self.qwen.release().await;
     }
     pub async fn diarize(&self, params: Value) -> Result<Value, String> {
         let speech = self.speech.clone();

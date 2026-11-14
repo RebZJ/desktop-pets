@@ -56,6 +56,10 @@ impl AsrRuntime {
         let path = input_path(params)?;
         let samples = read_pcm(&path)?;
         let dictation = params["purpose"].as_str() == Some("dictation");
+        let choice = params["asrModel"].as_str().unwrap_or("auto");
+        if !matches!(choice, "auto" | "moonshine" | "whisper-turbo") {
+            return Err("Unknown speech recognition model.".into());
+        }
         let raw_language = params["language"].as_str().unwrap_or("auto");
         let language = if dictation {
             normalize_language(raw_language)
@@ -74,7 +78,13 @@ impl AsrRuntime {
         } else {
             vec![]
         };
-        if dictation
+        if choice == "moonshine"
+            && (!matches!(language.as_str(), "en" | "zh" | "ja" | "es")
+                || !self.moonshine_installed(&language))
+        {
+            return Err("Moonshine needs an installed English, Chinese, Japanese or Spanish pack and an explicit dictation language. Choose a language or another ASR model.".into());
+        }
+        if (choice == "moonshine" || (choice == "auto" && dictation))
             && ["en", "zh", "ja", "es"].contains(&language.as_str())
             && self.moonshine_installed(&language)
         {
@@ -285,7 +295,7 @@ impl AsrRuntime {
     }
 }
 
-fn normalize_language(language: &str) -> String {
+pub(crate) fn normalize_language(language: &str) -> String {
     language
         .to_lowercase()
         .replace('_', "-")
@@ -294,7 +304,7 @@ fn normalize_language(language: &str) -> String {
         .unwrap_or("")
         .into()
 }
-fn vocabulary(value: Option<&Value>) -> Result<Vec<String>, String> {
+pub(crate) fn vocabulary(value: Option<&Value>) -> Result<Vec<String>, String> {
     let Some(value) = value else {
         return Ok(vec![]);
     };
@@ -317,7 +327,7 @@ fn vocabulary(value: Option<&Value>) -> Result<Vec<String>, String> {
         .map(str::to_owned)
         .collect())
 }
-fn input_path(params: &Value) -> Result<PathBuf, String> {
+pub(crate) fn input_path(params: &Value) -> Result<PathBuf, String> {
     let path = PathBuf::from(
         params["path"]
             .as_str()
@@ -358,7 +368,7 @@ fn validate_pcm(path: &Path) -> Result<(), String> {
             .map_err(|e| format!("Incomplete WAV: {e}"))
     })
 }
-fn read_pcm(path: &Path) -> Result<Vec<i16>, String> {
+pub(crate) fn read_pcm(path: &Path) -> Result<Vec<i16>, String> {
     pcm_reader(path)?
         .samples::<i16>()
         .collect::<Result<Vec<_>, _>>()
