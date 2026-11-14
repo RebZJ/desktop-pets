@@ -67,10 +67,11 @@
       },
       {
         "label": "bubble",
-        "title": "Pace says",
+        "title": "Pace is listening",
         "url": "index.html?window=bubble",
-        "width": 240,
-        "height": 76,
+        "focusable": false,
+        "width": 160,
+        "height": 48,
         "decorations": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
@@ -81,8 +82,9 @@
         "transparent": true,
         "contentProtected": true,
         "acceptFirstMouse": true,
-        "minWidth": 240,
-        "minHeight": 76
+        "minWidth": 160,
+        "minHeight": 48,
+        "resizable": false
       },
       {
         "label": "meeting",

@@ -255,7 +255,7 @@ export function Onboarding({ state, refresh, onSettings, onComplete }: {
                 </div>;
               })}
             </div>
-            <div className="onboarding-key-try"><button className="onboarding-item-button" disabled={!native} onClick={() => void api('window.talk').catch(cause => setError(errorText(cause)))}><Keyboard size={14} />Open dictation</button><span>Opens the dictation draft. It doesn’t verify a global key.</span></div>
+            <div className="onboarding-key-try"><button className="onboarding-item-button" disabled={!native} onClick={() => void api('window.talk').catch(cause => setError(errorText(cause)))}><Keyboard size={14} />Start dictation</button><span>Starts recording. It doesn’t verify a global key.</span></div>
           </>}
           {step === 3 && <>
             <p className="onboarding-lead">Try your microphone here, then choose only the access you want Pace to have.</p>

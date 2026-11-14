@@ -1,6 +1,10 @@
 pub const WINDOW_LABELS: [&str; 5] = ["main", "pet", "bubble", "command", "meeting"];
 pub const COMPANION_LABELS: [&str; 3] = ["bubble", "command", "meeting"];
 
+pub fn dictation_indicator_allowed(phase: Option<&str>, pet_visible: bool) -> bool {
+    pet_visible && matches!(phase, Some("starting" | "recording" | "transcribing"))
+}
+
 pub fn request_capture_cover(
     enabled: bool,
     mut request: impl FnMut(&str, bool) -> Result<(), String>,
@@ -125,6 +129,18 @@ mod tests {
         );
     }
     #[test]
+    fn dictation_indicator_only_shows_for_current_active_capture() {
+        for phase in ["starting", "recording", "transcribing"] {
+            assert!(dictation_indicator_allowed(Some(phase), true));
+            assert!(!dictation_indicator_allowed(Some(phase), false));
+        }
+        for phase in ["idle", "draft", "inserted", "error", "unknown"] {
+            assert!(!dictation_indicator_allowed(Some(phase), true));
+        }
+        assert!(!dictation_indicator_allowed(None, true));
+    }
+
+    #[test]
     fn all_windows_are_covered_and_meeting_starts_hidden_without_focus() {
         let config: serde_json::Value =
             serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
@@ -152,6 +168,16 @@ mod tests {
         assert_eq!(meeting["visible"], false);
         assert_eq!(meeting["acceptFirstMouse"], true);
         assert!(COMPANION_LABELS.contains(&"meeting"));
+        let indicator = windows
+            .iter()
+            .find(|window| window["label"] == "bubble")
+            .unwrap();
+        assert_eq!(indicator["width"], 160);
+        assert_eq!(indicator["height"], 48);
+        assert_eq!(indicator["focus"], false);
+        assert_eq!(indicator["focusable"], false);
+        assert_eq!(indicator["visible"], false);
+        assert_eq!(indicator["resizable"], false);
     }
 
     #[test]

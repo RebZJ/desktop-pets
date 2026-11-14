@@ -81,6 +81,26 @@ fn emit(app: &AppHandle, event: &str, data: Value) {
             if let Ok(mut view) = state.engine.dictation_view.lock() {
                 *view = data.clone();
             }
+            let handle = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                let state = handle.state::<AppState>();
+                let visible = state.pet.lock().is_ok_and(|pet| pet["visible"] == true);
+                let phase = state
+                    .engine
+                    .dictation_view
+                    .lock()
+                    .ok()
+                    .and_then(|view| view["phase"].as_str().map(str::to_owned));
+                if let Some(window) = handle.get_webview_window("bubble") {
+                    // Read the latest phase so a queued completion cannot hide a newer recording.
+                    if companion::dictation_indicator_allowed(phase.as_deref(), visible) {
+                        position_dictation_on_main(&handle);
+                        let _ = show_without_focus(&window);
+                    } else {
+                        let _ = window.hide();
+                    }
+                }
+            });
         }
     }
     let _ = app.emit("pace-event", json!({"event":event,"data":data}));
@@ -320,17 +340,6 @@ fn open_companion(app: &AppHandle, label: &'static str, focus: bool) {
     let _ = app.run_on_main_thread(move || show_companion_on_main(&handle, label, focus));
 }
 
-fn open_companion_for_request(app: &AppHandle, label: &'static str, epoch: u64) {
-    let handle = app.clone();
-    let _ = app.run_on_main_thread(move || {
-        let state = handle.state::<AppState>();
-        let visible = state.pet.lock().is_ok_and(|pet| pet["visible"] == true);
-        if visible && state.ui_epoch.load(Ordering::SeqCst) == epoch {
-            show_companion_on_main(&handle, label, false);
-        }
-    });
-}
-
 fn position_dictation_on_main(app: &AppHandle) {
     let Some(window) = app.get_webview_window("bubble") else {
         return;
@@ -463,7 +472,10 @@ fn register_shortcuts(app: &AppHandle, settings: &Value) -> Result<(), String> {
                     .load(Ordering::SeqCst)
             {
                 emit(app, "shortcut.triggered", json!({"action":"talk"}));
-                open_companion(app, "bubble", true);
+                let handle = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = dictation::toggle(handle).await;
+                });
             }
         })
         .map_err(|e| format!("Could not register the command shortcut: {e}"))?;
@@ -834,9 +846,7 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
         "audio.diarize" => state.engine.diarize(params).await,
         "window.dictationSize" => {
             let (width, height) = match params["mode"].as_str() {
-                Some("compact") => (240.0, 76.0),
-                Some("error") => (320.0, 180.0),
-                Some("draft") => (320.0, 260.0),
+                Some("compact" | "error" | "draft") => (160.0, 48.0),
                 _ => return Err("Invalid dictation widget size".into()),
             };
             let handle = app.clone();
@@ -1273,10 +1283,7 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
         "window.command" => {
             Err("Writing is paused while dictation and meeting notes are being finished.".into())
         }
-        "window.talk" => {
-            open_companion(&app, "bubble", true);
-            Ok(json!({"opened":true}))
-        }
+        "window.talk" => dictation::toggle(app.clone()).await,
         "chat.context.current" => Ok(state
             .chat_context
             .lock()
@@ -1596,11 +1603,6 @@ async fn poll_listener(app: &AppHandle) {
                         json!({"phase":"error","error":status["error"],"savedAudio":true}),
                     );
                     action(app, "idle");
-                    open_companion_for_request(
-                        app,
-                        "bubble",
-                        state.ui_epoch.load(Ordering::SeqCst),
-                    );
                 }
                 if status["mode"] == "meeting" {
                     if let Some(id) = status["sessionId"].as_str() {
@@ -2370,7 +2372,7 @@ pub fn run() {
             TrayIconBuilder::with_id("pace-tray").icon(icon).tooltip("Desktop Pets · Pace").menu(&menu).on_menu_event(|app,event|match event.id.as_ref(){
                 "show"=>{if let Some(window)=app.get_webview_window("main"){let _=window.show();let _=window.set_focus();}},
                 "pet"=>{let visible=app.state::<AppState>().pet.lock().map(|p|p["visible"]!=true).unwrap_or(true);let _=set_pet_visible(app,visible,true);},
-                "command"=>{open_companion(app,"bubble",true);},
+                "command"=>{let handle=app.clone();tauri::async_runtime::spawn(async move {let _=dictation::toggle(handle).await;});},
                 "quit"=>app.exit(0),_=>{}
             }).build(app)?;
             let handle=app.handle().clone();

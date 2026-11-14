@@ -1,7 +1,4 @@
-use crate::{
-    action, dictation_shortcut::Action, emit, open_companion_for_request, set_pet_visible,
-    stop_dictation, AppState,
-};
+use crate::{action, dictation_shortcut::Action, emit, set_pet_visible, stop_dictation, AppState};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Manager};
@@ -162,7 +159,6 @@ async fn start_global(app: &AppHandle, state: &AppState) -> Result<Value, String
     let _ = set_pet_visible(&app, true, true);
     let ui_epoch = state.ui_epoch.load(Ordering::SeqCst);
     emit(app, "dictation.state", json!({"phase":"starting"}));
-    open_companion_for_request(app, "bubble", ui_epoch);
     match start(app, state, ui_epoch).await {
         Ok(mut result) => {
             // Recording already runs; slow accessibility must not delay the microphone.
@@ -191,9 +187,6 @@ async fn start_global(app: &AppHandle, state: &AppState) -> Result<Value, String
                 .lock()
                 .map_err(|e| e.to_string())?
                 .take();
-            if error != "Dictation cancelled" {
-                open_companion_for_request(&app, "bubble", ui_epoch);
-            }
             emit(
                 &app,
                 "dictation.state",
@@ -240,9 +233,6 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
                 json!({"phase":"error","error":error,"savedAudio":saved_audio}),
             );
             if target.is_some() {
-                if insert {
-                    open_companion_for_request(app, "bubble", ui_epoch);
-                }
                 emit(
                     app,
                     "dictation.finished",
@@ -286,9 +276,6 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
         finished_state(&data["text"], inserted, &data["insertionError"]),
     );
     if target.is_some() {
-        if insert && !inserted {
-            open_companion_for_request(app, "bubble", ui_epoch);
-        }
         emit(app, "dictation.finished", data.clone());
     }
     Ok(data)

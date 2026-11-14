@@ -27,7 +27,7 @@ test('overlay pet activates by keyboard while a pointer drag does not pet it', a
   await interactionFixture(page); await page.goto('/?window=pet');
   const pet = page.getByRole('button', { name: 'Pet Pace; drag to move; right-click for menu', exact: true });
   const controls = page.locator('.pet-controls');
-  await expect(controls.getByRole('button', { name: 'Chat with Pace', exact: true })).toBeVisible();
+  await expect(controls.getByRole('button', { name: 'Chat with Pace', exact: true })).toBeHidden();
   await expect(controls.getByRole('button', { name: 'Dictate into your app', exact: true })).toBeHidden();
   // WebKit leaves the transparent overlay on its first Tab; retain keyboard modality before focusing the pet.
   await page.keyboard.press('Tab');
@@ -92,7 +92,7 @@ test('pet artwork and menu fit every configured native pet size', async ({ brows
     await page.goto('http://127.0.0.1:1420/?window=pet');
     await expect(page.locator('.overlay-pet-button .pace-sprite')).toHaveCSS('width', `${size}px`);
     const pet = page.getByRole('button', { name: 'Pet Pace; drag to move; right-click for menu', exact: true });
-    await expect(page.getByRole('button', { name: 'Chat with Pace', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Chat with Pace', exact: true })).toBeHidden();
     await expect(page.getByRole('button', { name: 'Dictate into your app', exact: true })).toBeHidden();
     await pet.hover();
     await expect(page.locator('.pet-controls')).toBeVisible();
@@ -110,21 +110,23 @@ test('pet artwork and menu fit every configured native pet size', async ({ brows
   }
 });
 
-test('dictation speech bubble keeps a long recognized draft copyable inside the native window', async ({ page }) => {
-  await page.setViewportSize({ width: 300, height: 200 });
+test('long dictation stays copyable from a tiny pet notice without opening an editor', async ({ page }) => {
+  await page.setViewportSize({ width: 224, height: 224 });
   await page.addInitScript(() => {
+    (window as any).__copiedDictation = '';
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => { (window as any).__copiedDictation = text; } } });
     (window as any).__DESKTOP_PETS_BRIDGE__ = async (method: string) => {
       if (method === 'app.state') return { settings: { onboardingCompleted: true, soundEnabled: false }, models: [], meetings: [] };
       if (method === 'dictation.current') return { phase: 'draft', text: 'A long recognized dictation phrase. '.repeat(80) };
       throw new Error(`Unexpected dictation fixture: ${method}`);
     };
   });
-  await page.goto('/?window=bubble');
-  const input = page.getByRole('textbox', { name: 'Dictation text', exact: true });
-  await expect(input).toHaveValue(/A long recognized dictation phrase/);
-  const box = await input.boundingBox(); expect(box).not.toBeNull(); expect(box!.y + box!.height).toBeLessThanOrEqual(200);
-  await expect(page.getByRole('button', { name: 'Copy dictation', exact: true })).toBeEnabled();
-  await expect(page.getByRole('button', { name: 'Start dictation', exact: true })).toBeEnabled();
+  await page.goto('/?window=pet');
+  const notice = page.getByRole('status', { name: 'Dictation recovery' }); await expect(notice).toContainText('Words ready.');
+  const box = await notice.boundingBox(); expect(box!.width).toBeLessThanOrEqual(160); expect(box!.height).toBeLessThanOrEqual(48);
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Copy words', exact: true }).click();
+  expect(await page.evaluate(() => (window as any).__copiedDictation)).toBe('A long recognized dictation phrase. '.repeat(80).trim());
 });
 
 

@@ -1,22 +1,30 @@
 .companion-pet{position:relative;padding:0 0 8px;width:100%;gap:0;justify-content:flex-end;pointer-events:none}
 .companion-pet .overlay-pet-button{flex:none;max-width:100%;border-radius:0;pointer-events:auto}
 .pet-controls{position:absolute;top:4px;left:4px;right:4px;height:80px;z-index:2;pointer-events:none}
-.controls-open .pet-controls{opacity:1;visibility:visible;transform:translateY(0)}
-.pet-controls button{position:absolute;left:calc((100% - 28px)*var(--slot));top:var(--arc);display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:2px solid var(--cloud-ink);border-radius:0;background:var(--cloud-paper);color:var(--cloud-ink);box-shadow:0 2px 4px #152b2122;transform-origin:center;transition:opacity 90ms steps(3,end),transform 100ms steps(3,end),background-color 80ms steps(2,end);opacity:0;visibility:hidden;pointer-events:none}
-.controls-open .pet-controls button,.pet-controls .pet-chat{opacity:1;visibility:visible;pointer-events:auto}
+.controls-open .pet-controls{opacity:1;visibility:visible;animation:pet-tools-float 3.6s steps(2,end) infinite}
+.pet-controls button{position:absolute;left:calc((100% - 28px)*var(--slot));top:var(--arc);display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:2px solid var(--cloud-ink);border-radius:0;background:var(--cloud-paper);color:var(--cloud-ink);box-shadow:0 2px 4px #152b2122;transform-origin:center;transition:opacity 100ms steps(2,end),transform 160ms steps(2,end),background-color 100ms steps(2,end);opacity:0;visibility:hidden;pointer-events:none}
+.controls-open .pet-controls button{opacity:1;visibility:visible;pointer-events:auto}
 .pet-transitioning .pet-controls{display:none}
+.pet-controls button:after{content:"";position:absolute;bottom:-5px;left:10px;width:5px;height:5px;background:var(--cloud-paper);border-right:2px solid var(--cloud-ink);border-bottom:2px solid var(--cloud-ink);pointer-events:none}
+.pet-controls button:hover:after,.pet-controls button:focus-visible:after{background:var(--cloud-red)}
 .pet-controls button[hidden]{display:none}
 .pet-dictate{--slot:0;--arc:42px}.pet-chat{--slot:.33;--arc:4px}.pet-meeting{--slot:.67;--arc:4px}.pet-settings{--slot:1;--arc:42px}
-.pet-controls button:hover,.pet-controls button:focus-visible{background:var(--cloud-red);color:var(--on-accent);transform:translateY(-2px) scale(1.10);z-index:1}
-.pet-controls button:hover+button,.pet-controls button:has(+button:hover){transform:translateY(-1px) scale(1.04)}
+.pet-controls button:hover,.pet-controls button:focus-visible{background:var(--cloud-red);color:var(--on-accent);transform:translateY(-2px) scale(1.07);z-index:1}
+.pet-controls button:hover+button,.pet-controls button:has(+button:hover){transform:translateY(-1px) scale(1.025)}
 .pet-controls button:active{transform:scale(.96)}
 .pet-controls button[aria-pressed=true]{background:var(--cloud-red);color:var(--on-accent)}
 .pet-controls button:disabled{opacity:.65;cursor:wait}
-.companion-pet:has(:focus-visible) .pet-controls,.companion-pet:has(:focus-visible) .pet-controls button{transition:none}
+.companion-pet:has(:focus-visible) .pet-controls,.companion-pet:has(:focus-visible) .pet-controls button{transition:none;animation:none;transform:none}
 .pet-action-hint{position:absolute;top:52px;left:38px;right:38px;padding:3px 4px;border:1px solid var(--cloud-ink);background:var(--cloud-paper);color:var(--cloud-ink);text-align:center;font:10px/1.25 var(--body-font);overflow-wrap:anywhere;pointer-events:none}
 .companion-pet .pet-menu{bottom:10px;right:6px;border:2px solid var(--cloud-ink);border-radius:0;background:var(--cloud-paper);box-shadow:0 5px 10px #152b2133;padding:4px;width:164px;max-width:calc(100vw - 12px);pointer-events:auto}
 .companion-pet .pet-menu>button{font-size:11px;color:var(--cloud-ink);border-radius:0;min-height:30px}
-.pet-error{position:absolute;left:6px;right:6px;top:90px;z-index:4;background:var(--cloud-paper);color:var(--danger);border:2px solid var(--cloud-red);padding:6px;font-size:11px;line-height:1.5;max-height:90px;overflow:auto;pointer-events:auto}
+.pet-recovery{position:absolute;top:4px;left:50%;transform:translateX(-50%);z-index:4;width:160px;max-width:calc(100% - 12px);max-height:48px;min-height:34px;display:grid;grid-template-columns:1fr 18px;gap:2px 4px;padding:4px 6px;border:2px solid var(--cloud-ink);background:var(--cloud-paper);color:var(--cloud-ink);box-shadow:0 3px 7px #152b2122;font:10px/1.3 var(--body-font);pointer-events:auto}
+.pet-recovery:after{content:"";position:absolute;bottom:-5px;left:calc(50% - 3px);width:6px;height:5px;background:var(--cloud-paper);border-right:2px solid var(--cloud-ink);border-bottom:2px solid var(--cloud-ink)}
+.pet-recovery>span{align-self:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pet-recovery>div{grid-column:1/-1;display:flex;gap:8px}
+.pet-recovery button{display:flex;align-items:center;gap:3px;min-height:16px;padding:0;border:0;border-radius:0;background:transparent;color:var(--cloud-ink);font:10px/1.3 var(--body-font);text-decoration:underline;text-underline-offset:2px}
+.pet-recovery .pet-recovery-dismiss{justify-content:center;text-decoration:none}
+.pet-recovery button:focus-visible{outline:2px solid var(--cloud-red);outline-offset:1px}
 .pace-cloud{display:flex;flex-direction:column;position:relative;background:var(--cloud-paper);color:var(--cloud-ink);font-family:var(--body-font);border:3px solid var(--cloud-ink);border-radius:0;padding:12px;box-shadow:inset 0 0 0 3px var(--cloud-paper),inset 0 0 0 4px var(--cloud-line),0 4px 12px #152b2122;margin:8px 10px 20px;width:calc(100% - 20px);max-width:none;min-width:0;height:calc(100dvh - 28px);max-height:calc(100dvh - 28px);font-size:12px;isolation:isolate}
 .pace-cloud.bubble-window{overflow:visible}
 .pace-cloud:before,.pace-cloud:after{content:'';position:absolute;top:-3px;left:-3px;width:5px;height:5px;background:transparent;border-right:3px solid var(--cloud-ink);border-bottom:3px solid var(--cloud-ink)}
@@ -88,6 +96,9 @@
 .completion-cloud:has(.cloud-error) .completion-empty{display:none}
 @media(max-width:360px){.completion-cloud .completion-actions>span{display:none}.completion-cloud .completion-actions{justify-content:flex-end}}
 @media(prefers-reduced-motion:reduce){.companion-pet,.pace-cloud,.pet-controls,.pet-controls button,.pet-controls button:hover,.pet-controls button:focus-visible,.pet-controls button:hover+button,.pet-controls button:has(+button:hover),.pet-controls button:active{transition:none;transform:none}}
+
+@keyframes pet-tools-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@media(prefers-reduced-motion:reduce){.controls-open .pet-controls{animation:none}}
 
 @keyframes pace-once-frames{to{background-position:calc(-1 * var(--pace-frame-width) * var(--pace-last-frame)) 0}}
 @media(prefers-reduced-motion:reduce){.pace-sprite[style*=pace-once-frames]{animation-duration:1ms!important}}

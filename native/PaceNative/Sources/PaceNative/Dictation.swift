@@ -19,7 +19,10 @@ enum DictationService {
         guard let value = BridgeService.ax(element, kAXValueAttribute) as? String,
               value.utf16.count <= 100_000,
               let range = BridgeService.selectionRange(element), validDictationRange(range, in: value),
-              BridgeService.isSettable(element, kAXSelectedTextAttribute) else {
+              dictationInsertionAttribute(
+                selectedTextWritable: BridgeService.isSettable(element, kAXSelectedTextAttribute),
+                valueWritable: BridgeService.isSettable(element, kAXValueAttribute),
+                rangeWritable: BridgeService.isSettable(element, kAXSelectedTextRangeAttribute)) != nil else {
             throw BridgeError("insertion_unavailable", "This field does not support cursor insertion. Your dictation will be available to copy.")
         }
         let id = UUID().uuidString
@@ -53,16 +56,35 @@ enum DictationService {
               let current = BridgeService.ax(snapshot.element, kAXValueAttribute) as? String,
               let range = BridgeService.selectionRange(snapshot.element),
               dictationTargetMatches(originalValue: snapshot.value, currentValue: current, originalRange: snapshot.range, currentRange: range),
-              BridgeService.isSettable(snapshot.element, kAXSelectedTextAttribute) else {
+              let attribute = dictationInsertionAttribute(
+                selectedTextWritable: BridgeService.isSettable(snapshot.element, kAXSelectedTextAttribute),
+                valueWritable: BridgeService.isSettable(snapshot.element, kAXValueAttribute),
+                rangeWritable: BridgeService.isSettable(snapshot.element, kAXSelectedTextRangeAttribute)) else {
             throw BridgeError("stale_target", "The original text field or cursor changed. Copy your dictation instead.")
         }
         let expected = (snapshot.value as NSString).replacingCharacters(in: snapshot.range, with: text)
-        let result = AXUIElementSetAttributeValue(snapshot.element, kAXSelectedTextAttribute as CFString, text as CFString)
+        let replacement = attribute == kAXValueAttribute ? expected : text
+        let result = AXUIElementSetAttributeValue(snapshot.element, attribute as CFString, replacement as CFString)
         guard result == .success, BridgeService.ax(snapshot.element, kAXValueAttribute) as? String == expected else {
             throw BridgeError("insertion_unconfirmed", "The app did not confirm insertion. Check the field before copying; Pace will not retry automatically.")
         }
+        if attribute == kAXValueAttribute {
+            var caret = CFRange(location: snapshot.range.location + text.utf16.count, length: 0)
+            guard NSWorkspace.shared.frontmostApplication?.processIdentifier == snapshot.pid,
+                  let focused = BridgeService.axElement(BridgeService.ax(application, kAXFocusedUIElementAttribute)), CFEqual(focused, snapshot.element),
+                  let value = AXValueCreate(.cfRange, &caret),
+                  AXUIElementSetAttributeValue(snapshot.element, kAXSelectedTextRangeAttribute as CFString, value) == .success,
+                  BridgeService.selectionRange(snapshot.element) == NSRange(location: caret.location, length: 0) else {
+                throw BridgeError("insertion_unconfirmed", "The text was inserted, but the app did not confirm the cursor position. Check the field before copying; Pace will not retry automatically.")
+            }
+        }
         return ["inserted": true]
     }
+}
+
+func dictationInsertionAttribute(selectedTextWritable: Bool, valueWritable: @autoclosure () -> Bool, rangeWritable: @autoclosure () -> Bool) -> String? {
+    if selectedTextWritable { return kAXSelectedTextAttribute }
+    return valueWritable() && rangeWritable() ? kAXValueAttribute : nil
 }
 
 func dictationTargetMatches(originalValue: String, currentValue: String, originalRange: NSRange, currentRange: NSRange) -> Bool {

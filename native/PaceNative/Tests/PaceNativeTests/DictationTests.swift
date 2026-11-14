@@ -1,7 +1,15 @@
 import XCTest
+import ApplicationServices
 @testable import PaceNative
 
 final class DictationTests: XCTestCase {
+    func testInsertionPrefersSelectedTextAndRequiresValueAndCaretForFallback() {
+        func unnecessaryProbe() -> Bool { XCTFail("The existing selected-text path must not probe fallback attributes"); return false }
+        XCTAssertEqual(dictationInsertionAttribute(selectedTextWritable: true, valueWritable: unnecessaryProbe(), rangeWritable: unnecessaryProbe()), kAXSelectedTextAttribute)
+        XCTAssertEqual(dictationInsertionAttribute(selectedTextWritable: false, valueWritable: true, rangeWritable: true), kAXValueAttribute)
+        XCTAssertNil(dictationInsertionAttribute(selectedTextWritable: false, valueWritable: true, rangeWritable: false))
+        XCTAssertNil(dictationInsertionAttribute(selectedTextWritable: false, valueWritable: false, rangeWritable: unnecessaryProbe()))
+    }
     func testCursorInsertionPreservesPrefixSuffixAndUTF16Selection() {
         let value = "before 🐾 after"
         let range = NSRange(location: 7, length: 2)

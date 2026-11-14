@@ -164,7 +164,7 @@ test('shortcut changes wait for acknowledgement and only native events mark keys
     await expect(page.getByRole('status')).toContainText('Shortcut saved.');
   }
   await expect(talk.locator('small')).toHaveText('Press the keys to try it');
-  await page.getByRole('button', { name: 'Open dictation', exact: true }).click();
+  await page.getByRole('button', { name: 'Start dictation', exact: true }).click();
   await expect.poll(async () => (await bridgeCalls(page)).filter(call => call.method === 'window.talk').length).toBe(1);
   await expect(talk.locator('small')).toHaveText('Press the keys to try it');
   for (const [action, label] of [['talk', 'Dictation window'], ['dictate', 'Dictate'], ['hide', 'Quick Hide']]) {
@@ -416,7 +416,7 @@ test('utility windows bypass first-run onboarding', async ({ page }) => {
     await page.goto(`/?window=${kind}`);
     await expect(tour(page)).toHaveCount(0);
     if (kind === 'pet') await expect(page.getByRole('button', { name: 'Pet Pace; drag to move; right-click for menu', exact: true })).toBeVisible();
-    else if (kind === 'bubble') await expect(page.getByRole('main', { name: 'Dictation with Pace', exact: true })).toBeVisible();
+    else if (kind === 'bubble') await expect(page.getByRole('main', { name: 'Dictation with Pace', exact: true })).toHaveCount(0);
     else await expect(page.getByRole('main', { name: 'Chat with Pace' })).toBeVisible();
     expect((await bridgeCalls(page)).filter(call => call.method === 'settings.update')).toEqual([]);
   }

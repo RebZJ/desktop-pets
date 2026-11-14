@@ -2,7 +2,7 @@
 
 **Pace is a pixel companion for local voice conversations, dictation and speaker-labeled meeting notes.**
 
-Home opens to Pace’s campsite, with Chat, Dictate, Meeting notes and summon/send-home controls. A persistent little chat icon also sits above the desktop pet; hover or focus reveals the other tools. Chat opens an explicit 300×220 speech bubble. Type freely, or choose **Start voice conversation** once for automatic local listening, thinking and spoken replies. Opening a window never records. Writing and cursor autocomplete remain deferred; saved records, models and preferences are preserved.
+Home opens to Pace’s campsite, with Chat, Dictate, Meeting notes and summon/send-home controls. Hover over the desktop pet or give it keyboard focus to reveal the four-tool arc; no chat icon remains visible at rest. Chat opens an explicit 300×220 speech bubble. Type freely, or choose **Start voice conversation** once for automatic local listening, thinking and spoken replies. Opening Chat never records; Dictate explicitly starts capture. Writing and cursor autocomplete remain deferred; saved records, models and preferences are preserved.
 
 Voice uses English ASR, the local Qwen text model and Kitten’s Kiki voice by default. It is half duplex: the microphone is released while Pace transcribes, thinks and speaks, then listening resumes automatically. Pace cannot hear interruptions during a reply. **End**, close and hide stop the voice session. The meeting copilot stays grounded in the selected transcript and has no general tool access.
 
@@ -12,7 +12,7 @@ This source uses a portable **Tauri 2 + React + Rust** application. Rust owns mi
 
 | Platform | Implemented boundary and remaining verification |
 | --- | --- |
-| macOS 15+ | Native microphone Start/Stop and an actual system-audio meeting passed through speaker labels, notes and copilot. ScreenCaptureKit handles system capture; Rust handles microphone and local models. |
+| macOS 15+ | Earlier native microphone Start/Stop and system-audio meeting checks passed through speaker labels, notes and copilot. ScreenCaptureKit handles system capture; Rust handles microphone and local models. Dictation prefers AXSelectedText insertion, with an AXValue-and-caret fallback for supported fields that pass exact target checks. The user's Codex composer still requires a manual check; broader-editor support is not universal coverage. |
 | Windows x64 | WASAPI capture and loopback. Direct insertion is restricted to native Edit/RichEdit controls; browser/custom controls use Copy. Rust tests and all bundled native runtime builds/smokes passed on Windows x64. Live device/insertion and installer testing remain. |
 | Linux x64 | PipeWire microphone/system capture. Dictation offers Copy. Rust tests and bundled runtime builds/smokes passed; live devices and installers remain unverified. |
 
@@ -48,14 +48,14 @@ Dictation does not require Qwen. The app starts its authenticated loopback llama
 
 ## Everyday use
 
-- Tap the configured dictation shortcut to start/stop, or hold it and release to finish. Open Dictate to use the widget controls. Stop to review the transcript. Successful target insertion rechecks the captured field; Copy remains the recovery path. A failed recognition keeps saved audio for retry when available. A retry never silently inserts into an old target.
+- Choose Dictate, the tray dictation action or the window shortcut to start/stop capture. The configured global dictation shortcut also supports tap to start/stop or hold and release to finish. A nonfocusable 160×48 bottom-center indicator appears only during startup, recording and transcription, then disappears even on errors. Measured RMS drives pixel columns; a tiny notice above Pace offers Copy or saved-audio Retry when needed. It is not an editor. Insertion rechecks the original field; retry never inserts into an old target. Unsent drafts and failed-recognition audio remain available for recovery.
 - Start a meeting with the selected microphone/system source. Live words, quiet suggestions and the meeting question field share one cloud. Stop recording before final notes are generated. Full records hold editable notes, action items and exports.
-- Open Chat with Pace from Home or the little desktop chat icon. Start voice once to keep talking across turns; End stops it. Typing works without microphone access and preserves unsent drafts. Missing voice models offer Open Local models.
+- Open Chat with Pace from Home or the pet's hover/focus selector. Start voice once to keep talking across turns; End stops it. Typing works without microphone access and preserves unsent drafts. Missing voice models offer Open Local models.
 - Open Settings to choose language, dictation vocabulary, shortcuts, models and appearance. Existing chat/draft/settings data remains saved. Writing and cursor autocomplete stay deferred.
 
 | Default action | Shortcut |
 | --- | --- |
-| Open dictation | Alt/Option–Space |
+| Start/stop dictation | Alt/Option–Space |
 | Start/finish global dictation | Alt/Option–Shift–D |
 | Quick hide/show | Alt/Option–Shift–Space |
 
@@ -76,6 +76,6 @@ npm run tauri -- build
 
 The Tauri packaging command builds the native runtimes and chooses the host's installer targets. Model weights are excluded. Signing, notarization and release publication are separate; there is no claim of a newly verified public installer.
 
-See [Pace’s habitat and sprite provenance](docs/pace-habitat-2026-11-14.md), [portable voice validation](docs/portable-voice-validation-2026-11-14.md), [the compact interface update and research](docs/companion-ux-2026-11-14.md), [portable implementation and validation](docs/portable-native-validation-2026-11-14.md), [model selection](docs/model-selection.md), and [native architecture/builds](native/README.md). The historical [Swift validation](docs/native-validation.md) and [60-minute soak](docs/soak-validation.md) describe earlier implementations and do not establish the portable runtime's device behavior.
+See [the latest dictation and hover validation and limits](docs/dictation-hover-2026-11-14.md), [Pace’s habitat and sprite provenance](docs/pace-habitat-2026-11-14.md), [portable voice validation](docs/portable-voice-validation-2026-11-14.md), [the earlier compact interface research](docs/companion-ux-2026-11-14.md), [portable implementation and validation](docs/portable-native-validation-2026-11-14.md), [model selection](docs/model-selection.md), and [native architecture/builds](native/README.md). Earlier interface descriptions retain their historical scope. The historical [Swift validation](docs/native-validation.md) and [60-minute soak](docs/soak-validation.md) describe earlier implementations and do not establish the portable runtime's device behavior.
 
 Code is **MIT**. Original Pace artwork is **CC BY 4.0**, credited to Outpaced / Desktop Pets. Model/runtime licenses remain separate; see [NOTICE](NOTICE.md). [Pet pack format](docs/pet-packs.md) and [contributing](CONTRIBUTING.md) remain available.
