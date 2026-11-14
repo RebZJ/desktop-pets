@@ -1,0 +1,362 @@
+[
+  {
+    "action": "talk",
+    "candidate": "v2",
+    "frameSize": [
+      256,
+      256
+    ],
+    "frames": [
+      {
+        "frame": 0,
+        "bboxAnyAlpha": [
+          14,
+          40,
+          256,
+          255
+        ],
+        "bboxAt128": [
+          57,
+          47,
+          189,
+          224
+        ],
+        "partialAlpha": 17511,
+        "partialAlphaBelow128": 2760,
+        "componentsAt128": [
+          14810
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 0
+      },
+      {
+        "frame": 1,
+        "bboxAnyAlpha": [
+          0,
+          13,
+          256,
+          241
+        ],
+        "bboxAt128": [
+          57,
+          47,
+          189,
+          224
+        ],
+        "partialAlpha": 17601,
+        "partialAlphaBelow128": 2910,
+        "componentsAt128": [
+          14768
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 139
+      },
+      {
+        "frame": 2,
+        "bboxAnyAlpha": [
+          1,
+          9,
+          256,
+          248
+        ],
+        "bboxAt128": [
+          57,
+          47,
+          189,
+          224
+        ],
+        "partialAlpha": 17548,
+        "partialAlphaBelow128": 2795,
+        "componentsAt128": [
+          14830
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 59
+      },
+      {
+        "frame": 3,
+        "bboxAnyAlpha": [
+          0,
+          21,
+          241,
+          256
+        ],
+        "bboxAt128": [
+          57,
+          47,
+          189,
+          224
+        ],
+        "partialAlpha": 17528,
+        "partialAlphaBelow128": 2825,
+        "componentsAt128": [
+          14780
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 141
+      },
+      {
+        "frame": 4,
+        "bboxAnyAlpha": [
+          0,
+          0,
+          253,
+          251
+        ],
+        "bboxAt128": [
+          57,
+          47,
+          189,
+          224
+        ],
+        "partialAlpha": 17588,
+        "partialAlphaBelow128": 2830,
+        "componentsAt128": [
+          14791
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 98
+      },
+      {
+        "frame": 5,
+        "bboxAnyAlpha": [
+          1,
+          16,
+          248,
+          246
+        ],
+        "bboxAt128": [
+          57,
+          47,
+          189,
+          224
+        ],
+        "partialAlpha": 17578,
+        "partialAlphaBelow128": 2850,
+        "componentsAt128": [
+          14770
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 182
+      },
+      {
+        "frame": 6,
+        "bboxAnyAlpha": [
+          6,
+          8,
+          256,
+          256
+        ],
+        "bboxAt128": [
+          57,
+          47,
+          188,
+          224
+        ],
+        "partialAlpha": 17641,
+        "partialAlphaBelow128": 2880,
+        "componentsAt128": [
+          14803
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 125
+      },
+      {
+        "frame": 7,
+        "bboxAnyAlpha": [
+          0,
+          0,
+          248,
+          227
+        ],
+        "bboxAt128": [
+          57,
+          47,
+          189,
+          224
+        ],
+        "partialAlpha": 17530,
+        "partialAlphaBelow128": 2800,
+        "componentsAt128": [
+          14770
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 171
+      }
+    ],
+    "approved": false,
+    "reason": "Strict binary alpha and locked-body requirements not achieved by built-in generation or cleanup."
+  },
+  {
+    "action": "listen",
+    "candidate": "v2",
+    "frameSize": [
+      256,
+      256
+    ],
+    "frames": [
+      {
+        "frame": 0,
+        "bboxAnyAlpha": [
+          0,
+          5,
+          256,
+          256
+        ],
+        "bboxAt128": [
+          60,
+          39,
+          190,
+          218
+        ],
+        "partialAlpha": 18757,
+        "partialAlphaBelow128": 3204,
+        "componentsAt128": [
+          15619
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 0
+      },
+      {
+        "frame": 1,
+        "bboxAnyAlpha": [
+          0,
+          5,
+          256,
+          256
+        ],
+        "bboxAt128": [
+          60,
+          39,
+          190,
+          218
+        ],
+        "partialAlpha": 18683,
+        "partialAlphaBelow128": 3145,
+        "componentsAt128": [
+          15555
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 145
+      },
+      {
+        "frame": 2,
+        "bboxAnyAlpha": [
+          0,
+          11,
+          256,
+          256
+        ],
+        "bboxAt128": [
+          60,
+          39,
+          190,
+          218
+        ],
+        "partialAlpha": 19066,
+        "partialAlphaBelow128": 3488,
+        "componentsAt128": [
+          15646
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 53
+      },
+      {
+        "frame": 3,
+        "bboxAnyAlpha": [
+          0,
+          7,
+          247,
+          256
+        ],
+        "bboxAt128": [
+          60,
+          39,
+          190,
+          218
+        ],
+        "partialAlpha": 18718,
+        "partialAlphaBelow128": 3228,
+        "componentsAt128": [
+          15524
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 118
+      },
+      {
+        "frame": 4,
+        "bboxAnyAlpha": [
+          0,
+          0,
+          256,
+          243
+        ],
+        "bboxAt128": [
+          60,
+          40,
+          190,
+          218
+        ],
+        "partialAlpha": 18453,
+        "partialAlphaBelow128": 2921,
+        "componentsAt128": [
+          15583
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 78
+      },
+      {
+        "frame": 5,
+        "bboxAnyAlpha": [
+          0,
+          0,
+          256,
+          245
+        ],
+        "bboxAt128": [
+          60,
+          40,
+          190,
+          218
+        ],
+        "partialAlpha": 19068,
+        "partialAlphaBelow128": 3620,
+        "componentsAt128": [
+          15473
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 146
+      },
+      {
+        "frame": 6,
+        "bboxAnyAlpha": [
+          0,
+          0,
+          256,
+          256
+        ],
+        "bboxAt128": [
+          60,
+          40,
+          190,
+          218
+        ],
+        "partialAlpha": 18939,
+        "partialAlphaBelow128": 3405,
+        "componentsAt128": [
+          15587
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 92
+      },
+      {
+        "frame": 7,
+        "bboxAnyAlpha": [
+          0,
+          0,
+          241,
+          246
+        ],
+        "bboxAt128": [
+          60,
+          40,
+          190,
+          218
+        ],
+        "partialAlpha": 18952,
+        "partialAlphaBelow128": 3508,
+        "componentsAt128": [
+          15466
+        ],
+        "bodySilhouetteChangedPixelsVsFrame0": 143
+      }
+    ],
+    "approved": false,
+    "reason": "Strict binary alpha and locked-body requirements not achieved by built-in generation or cleanup."
+  }
+]

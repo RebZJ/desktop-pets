@@ -1,0 +1,214 @@
+{
+  "referenceRgbColors": 16,
+  "actions": [
+    {
+      "id": "summon",
+      "src": "summon-v1.webp",
+      "sha256": "9d0a5fe4242b06b98d68eaaf3c27300a3642f3dfce257b50de1ef7d5c6479e2a",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 8,
+      "decodedRgbaMatchesFrames": true,
+      "binaryAlpha": true,
+      "canonicalPaletteOnly": true,
+      "exactTwoPixelGrid": true,
+      "noClipping": true,
+      "canonicalIdleAnchor": 7,
+      "previewCycleMilliseconds": 1000,
+      "frames": [
+        {
+          "index": 0,
+          "bounds": [
+            90,
+            208,
+            194,
+            224
+          ],
+          "colors": 2
+        },
+        {
+          "index": 1,
+          "bounds": [
+            90,
+            158,
+            198,
+            224
+          ],
+          "colors": 14
+        },
+        {
+          "index": 2,
+          "bounds": [
+            92,
+            128,
+            198,
+            224
+          ],
+          "colors": 16
+        },
+        {
+          "index": 3,
+          "bounds": [
+            92,
+            90,
+            198,
+            224
+          ],
+          "colors": 16
+        },
+        {
+          "index": 4,
+          "bounds": [
+            74,
+            84,
+            200,
+            224
+          ],
+          "colors": 16
+        },
+        {
+          "index": 5,
+          "bounds": [
+            70,
+            36,
+            202,
+            224
+          ],
+          "colors": 16
+        },
+        {
+          "index": 6,
+          "bounds": [
+            70,
+            62,
+            198,
+            224
+          ],
+          "colors": 15
+        },
+        {
+          "index": 7,
+          "bounds": [
+            64,
+            48,
+            198,
+            224
+          ],
+          "colors": 16
+        }
+      ]
+    },
+    {
+      "id": "burrow",
+      "src": "burrow-v1.webp",
+      "sha256": "2bd690ceb0816fde14e0f31be6ba77ce3000e2c154b9030378f71389578ce30c",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 8,
+      "fps": 8,
+      "decodedRgbaMatchesFrames": true,
+      "binaryAlpha": true,
+      "canonicalPaletteOnly": true,
+      "exactTwoPixelGrid": true,
+      "noClipping": true,
+      "canonicalIdleAnchor": 0,
+      "previewCycleMilliseconds": 1000,
+      "frames": [
+        {
+          "index": 0,
+          "bounds": [
+            64,
+            48,
+            198,
+            224
+          ],
+          "colors": 16
+        },
+        {
+          "index": 1,
+          "bounds": [
+            62,
+            66,
+            202,
+            226
+          ],
+          "colors": 16
+        },
+        {
+          "index": 2,
+          "bounds": [
+            58,
+            80,
+            204,
+            226
+          ],
+          "colors": 16
+        },
+        {
+          "index": 3,
+          "bounds": [
+            68,
+            96,
+            194,
+            226
+          ],
+          "colors": 16
+        },
+        {
+          "index": 4,
+          "bounds": [
+            84,
+            110,
+            202,
+            226
+          ],
+          "colors": 15
+        },
+        {
+          "index": 5,
+          "bounds": [
+            84,
+            134,
+            192,
+            226
+          ],
+          "colors": 16
+        },
+        {
+          "index": 6,
+          "bounds": [
+            84,
+            172,
+            192,
+            224
+          ],
+          "colors": 13
+        },
+        {
+          "index": 7,
+          "bounds": [
+            86,
+            210,
+            182,
+            224
+          ],
+          "colors": 2
+        }
+      ]
+    }
+  ],
+  "review": {
+    "imageCalls": 3,
+    "viewed": [
+      "all 16 final frames at native 160px on cream and dark backgrounds",
+      "canonical idle and generated standing pose comparison at 256px"
+    ],
+    "limitations": [
+      "Generated in-between facial pixels and head proportions are close derivatives, not pixel-identical to the original.",
+      "Hole rim varies by one logical pixel in height; its authored motion and the hop were preserved.",
+      "The GIFs repeat for review; production actions are one-shot.",
+      "In-app continuous playback and runtime integration are owned by the parent task."
+    ]
+  }
+}

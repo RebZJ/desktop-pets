@@ -1,0 +1,16 @@
+.dictation-cloud{display:flex;align-items:center;gap:4px;width:152px;height:36px;margin:6px 4px;padding:3px 4px;border:1px solid var(--cloud-ink);background:var(--cloud-paper);color:var(--cloud-ink);font:10px/1.2 var(--body-font);image-rendering:pixelated}
+.dictation-signal{display:flex;flex-direction:column;justify-content:center;gap:3px;flex:1;min-width:0}
+.dictation-signal [role=status]{white-space:nowrap;font:10px/1.2 var(--body-font)}
+.dictation-pixels{display:flex;align-items:flex-end;gap:3px;height:12px}
+.dictation-pixels i{width:5px;display:block;background:var(--cloud-line)}
+.dictation-pixels i.lit{background:var(--cloud-ink)}
+.dictation-work{display:flex;align-items:center;gap:4px;height:7px}
+.dictation-work i{width:3px;height:3px;background:var(--cloud-ink);animation:dictation-work-step 1.2s steps(2,end) infinite}
+.dictation-work i:nth-child(2){animation-delay:-.4s}.dictation-work i:nth-child(3){animation-delay:-.8s}
+@keyframes dictation-work-step{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+.dictation-cloud button{display:flex;align-items:center;justify-content:center;flex:none;width:22px;height:26px;min-height:0;padding:0;border:0;border-radius:0;background:transparent;color:var(--cloud-ink)}
+.dictation-cloud .dictation-toggle{background:var(--cloud-ink);color:var(--cloud-paper)}
+.dictation-cloud button:hover{background:var(--accent-pale);color:var(--cloud-ink)}
+.dictation-cloud button:disabled{opacity:.5}
+.dictation-cloud button:focus-visible{outline:2px solid var(--cloud-red);outline-offset:1px}
+@media(prefers-reduced-motion:reduce){.dictation-work i{animation:none}}

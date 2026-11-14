@@ -1,0 +1,8 @@
+# Preserve upstream notices and required unified-diff context exactly.
+native/licenses/** -whitespace
+native/patches/*.patch -whitespace
+
+# Preserve upstream font license bytes.
+public/fonts/**/OFL.txt -whitespace
+# Hashed source patches must retain the exact reviewed bytes on every host.
+*.patch text eol=lf

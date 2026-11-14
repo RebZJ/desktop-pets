@@ -101,8 +101,11 @@ def main():
         upstream = None
         if package.get('repository') and vcs_file.exists():
             upstream = {'repository': package['repository'], 'revision': json.loads(vcs_file.read_text())['git']['sha1']}
+        source = package.get('source') or ''
+        if not source.startswith('git+'):
+            source = f"https://crates.io/crates/{package['name']}/{package['version']}"
         packages.append(collect('cargo', package['name'], package['version'], directory,
-                                package['license'], f"https://crates.io/crates/{package['name']}/{package['version']}",
+                                package['license'], source,
                                 package.get('license_file'), upstream))
     for relative, entry in npm_packages():
         directory = ROOT / relative

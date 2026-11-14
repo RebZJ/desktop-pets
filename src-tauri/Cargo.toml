@@ -17,13 +17,33 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2.12.4", features = ["tray-icon", "image-png", "protocol-asset"] }
 tauri-plugin-global-shortcut = "2"
+tauri-plugin-clipboard-manager = "=2.5.0"
+cpal = "=0.18.2"
+hound = "3.5"
+kittentts = "=0.4.1"
+ort = { version = "=2.0.0-rc.11", default-features = false, features = ["load-dynamic"] }
+piper-plus-g2p = { version = "=0.5.4", default-features = false, features = ["english", "bundled-dicts"] }
+rubato = "0.16.2"
+libloading = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+futures-util = "0.3"
+sha2 = "0.10"
+tempfile = "3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["process", "io-util", "sync", "time", "rt-multi-thread", "macros", "net"] }
+tokio = { version = "1", features = ["process", "io-util", "sync", "time", "rt-multi-thread", "macros", "net", "fs"] }
 rusqlite = { version = "0.37", features = ["bundled"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 zip = { version = "6", default-features = false, features = ["deflate"] }
 
-[dev-dependencies]
-tempfile = "3"
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "3ffa93ed14e0f8e857e43619b4157f2a685d35a4" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+cpal = { version = "=0.18.2", features = ["pipewire"] }
+
+[target.'cfg(windows)'.dependencies]
+enigo = { version = "=0.6.1", default-features = false }
+windows = { version = "=0.61.3", features = ["Win32_UI_Accessibility", "Win32_System_Com", "Win32_System_Ole", "Win32_System_Variant"] }
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Controls", "Win32_UI_Input_KeyboardAndMouse"] }

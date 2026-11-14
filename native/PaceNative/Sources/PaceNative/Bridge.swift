@@ -41,10 +41,25 @@ enum BridgeService {
             }.sorted { ($0["name"] as? String ?? "") < ($1["name"] as? String ?? "") }]
         case "writing.capture": return try captureWriting()
         case "writing.apply": return try applyWriting(params)
+        case "dictation.capture": return try DictationService.capture(params)
+        case "dictation.insert": return try await DictationService.insert(params)
+        case "dictation.discard": return DictationService.discard(params)
+        case "dictation.clipboard.current": return DictationPasteboard.shared.current()
+        case "dictation.clipboard.restore":
+            guard let id = params["recoveryId"] as? String else { throw BridgeError("invalid_params", "Provide the clipboard recovery identifier.") }
+            return try DictationPasteboard.shared.restore(id)
+        case "completion.available": return CompletionService.availability()
+        case "completion.capture": return try CompletionService.capture()
+        case "completion.apply": return try await CompletionService.apply(params)
+        case "completion.dismiss": return CompletionService.dismiss(params)
         case "memory.capture": return try captureMemory(params)
         default:
             if let result = try await MeetingService.handle(method: method, params: params, emit: emit) { return result }
+            #if PACE_PLATFORM_ONLY
+            return nil
+            #else
             return try await DiarizationService.handle(method: method, params: params, emit: emit)
+            #endif
         }
     }
 
@@ -61,22 +76,25 @@ enum BridgeService {
                 "screenRecording": CGPreflightScreenCaptureAccess() ? "granted" : "denied"]
     }
 
-    private static func ax(_ element: AXUIElement, _ attribute: String) -> CFTypeRef? {
+    static func ax(_ element: AXUIElement, _ attribute: String) -> CFTypeRef? {
         var result: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &result) == .success else { return nil }
         return result
     }
 
-    private static func axElement(_ value: CFTypeRef?) -> AXUIElement? {
+    static func axElement(_ value: CFTypeRef?) -> AXUIElement? {
         guard let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
         return (value as! AXUIElement)
     }
 
-    private static func focused() throws -> (NSRunningApplication, AXUIElement, AXUIElement?) {
+    static func focused(allowCompanion: Bool = false, expectedBundleId: String? = nil) throws -> (NSRunningApplication, AXUIElement, AXUIElement?) {
         guard AXIsProcessTrusted() else { throw BridgeError("permission_required", "Enable Accessibility in System Settings to read selected text.") }
         guard let app = NSWorkspace.shared.frontmostApplication else { throw BridgeError("no_focused_app", "No application has focus.") }
+        guard expectedBundleId == nil || app.bundleIdentifier == expectedBundleId else {
+            throw BridgeError("unexpected_app", "The requested dictation app is not focused (frontmost PID: \(app.processIdentifier)). Focus it and try again.")
+        }
         guard app.processIdentifier != ProcessInfo.processInfo.processIdentifier,
-              !isBlockedApplication(app.bundleIdentifier ?? "") else {
+              (!isBlockedApplication(app.bundleIdentifier ?? "") || (allowCompanion && app.bundleIdentifier == "app.desktoppets.pace")) else {
             throw BridgeError("excluded_app", "Pace does not read \(app.localizedName ?? "this application") (\(app.bundleIdentifier ?? "unknown application")).")
         }
         let application = AXUIElementCreateApplication(app.processIdentifier)
@@ -91,7 +109,7 @@ enum BridgeService {
         return (app, element, axElement(ax(application, kAXFocusedWindowAttribute)))
     }
 
-    private static func selectionRange(_ element: AXUIElement) -> NSRange? {
+    static func selectionRange(_ element: AXUIElement) -> NSRange? {
         guard let value = ax(element, kAXSelectedTextRangeAttribute), CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
         let axValue = value as! AXValue
         guard AXValueGetType(axValue) == .cfRange else { return nil }
@@ -119,7 +137,7 @@ enum BridgeService {
                 "canApply": isSettable(element, scope == "draft" ? kAXValueAttribute : kAXSelectedTextAttribute)]
     }
 
-    private static func isSettable(_ element: AXUIElement, _ attribute: String) -> Bool {
+    static func isSettable(_ element: AXUIElement, _ attribute: String) -> Bool {
         var writable = DarwinBoolean(false)
         return AXUIElementIsAttributeSettable(element, attribute as CFString, &writable) == .success && writable.boolValue
     }

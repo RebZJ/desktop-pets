@@ -28,14 +28,16 @@ struct ModelDefinition {
     let role: String
     let repo: String
     let sizeBytes: Int64
+    var pinnedManifest: ModelManifest? = nil
     var singleFile: String? = nil
     var supplementalFiles: [ModelFile] = []
     static let all = [
         ModelDefinition(id: "qwen3.5-4b", name: "Qwen 3.5 4B · 4-bit", role: "chat", repo: "mlx-community/Qwen3.5-4B-4bit", sizeBytes: 3_061_000_000),
+        ModelDefinition(id: "kitten-tts-micro-0.8", name: "KittenTTS Micro 0.8 · English", role: "voice", repo: KittenBundle.repository, sizeBytes: 149_000_000, pinnedManifest: KittenBundle.manifest, supplementalFiles: KittenBundle.g2pFiles),
         ModelDefinition(id: "qwen3-tts-0.6b", name: "Qwen 3 TTS · 0.6B · 8-bit", role: "voice", repo: "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit", sizeBytes: 1_970_000_000),
         ModelDefinition(id: "whisper-turbo", name: "Whisper large-v3-turbo · Q5_0 + Silero VAD", role: "transcription", repo: "ggerganov/whisper.cpp", sizeBytes: 574_926_293, singleFile: "ggml-large-v3-turbo-q5_0.bin", supplementalFiles: [SileroVAD.file]),
         ModelDefinition(id: "nemotron-diarization", name: "Nemotron 3 Diarization · Q8", role: "diarization", repo: "nvidia/Nemotron-3-Diarization", sizeBytes: 107_012_128, singleFile: "Nemotron-3-Diarization.q8_0.gguf"),
-    ]
+    ] + MoonshineBundle.models
     var directory: URL { NativePaths.models.appendingPathComponent(id, isDirectory: true) }
     static func find(_ id: String) throws -> ModelDefinition {
         let canonical = id == "nemotron-3-diarization" ? "nemotron-diarization" : id
@@ -82,6 +84,7 @@ actor ModelStore {
     static func isInstalled(_ model: ModelDefinition) -> Bool {
         let marker = model.directory.appendingPathComponent(".installed.json")
         guard let data = try? Data(contentsOf: marker), let manifest = try? JSONDecoder().decode(ModelManifest.self, from: data) else { return false }
+        if model.id == KittenBundle.modelID && !manifest.files.contains(where: { $0.path == "voices.safetensors" }) { return false }
         return manifestIncludesSupplements(manifest, model: model) && !manifest.files.isEmpty && manifest.files.allSatisfy { file in
             let attrs = try? FileManager.default.attributesOfItem(atPath: model.directory.appendingPathComponent(file.path).path)
             return (attrs?[.size] as? NSNumber)?.int64Value == file.size
@@ -89,10 +92,12 @@ actor ModelStore {
     }
 
     static func manifestIncludesSupplements(_ manifest: ModelManifest, model: ModelDefinition) -> Bool {
-        model.supplementalFiles.allSatisfy { required in manifest.files.contains(where: { $0.path == required.path && $0.sha256 == required.sha256 && $0.size == required.size }) }
+        let requiredFiles = (model.pinnedManifest?.files ?? []) + model.supplementalFiles
+        return requiredFiles.allSatisfy { required in manifest.files.contains(where: { $0.path == required.path && $0.sha256 == required.sha256 && $0.gitBlob == required.gitBlob && $0.size == required.size }) }
     }
 
     static func addingSupplements(to manifest: ModelManifest, model: ModelDefinition) -> ModelManifest {
+        let manifest = model.pinnedManifest ?? manifest
         let requiredPaths = Set(model.supplementalFiles.map(\.path))
         return ModelManifest(repository: manifest.repository, revision: manifest.revision,
                              files: manifest.files.filter { !requiredPaths.contains($0.path) } + model.supplementalFiles)
@@ -107,12 +112,15 @@ actor ModelStore {
     func install(id: String, emit: @escaping Emit) async throws -> [String: Any] {
         let model = try ModelDefinition.find(id)
         guard !installing.contains(model.id) else { throw WorkerError("busy", "This model is already downloading.") }
-        if Self.isInstalled(model) { return ["id": model.id, "installed": true] }
+        if Self.isInstalled(model) {
+            let pronunciationValid = try (model.id != KittenBundle.modelID || KittenBundle.g2pFiles.allSatisfy { try Self.verify(model.directory.appendingPathComponent($0.path), file: $0) })
+            if pronunciationValid { return ["id": model.id, "installed": true] }
+        }
         installing.insert(model.id)
         defer { installing.remove(model.id) }
         try FileManager.default.createDirectory(at: model.directory, withIntermediateDirectories: true)
         let manifestURL = model.directory.appendingPathComponent(".download.json")
-        let manifest: ModelManifest
+        var manifest: ModelManifest
         if let data = try? Data(contentsOf: manifestURL), let saved = try? JSONDecoder().decode(ModelManifest.self, from: data) {
             manifest = Self.addingSupplements(to: saved, model: model)
             try JSONEncoder().encode(manifest).write(to: manifestURL, options: .atomic)
@@ -140,7 +148,7 @@ actor ModelStore {
             }
             let escaped = file.path.split(separator: "/").map { String($0).addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)! }.joined(separator: "/")
             let url = file.sourceURL ?? "https://huggingface.co/\(manifest.repository)/resolve/\(manifest.revision)/\(escaped)"
-            guard URL(string: url)?.scheme == "https", URL(string: url)?.host == "huggingface.co" else { throw WorkerError("invalid_manifest", "Model files must use the configured HTTPS model host.") }
+            guard URL(string: url)?.scheme == "https", ["huggingface.co", "download.moonshine.ai"].contains(URL(string: url)?.host ?? "") else { throw WorkerError("invalid_manifest", "Model files must use a configured HTTPS model host.") }
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/curl")
             process.arguments = ["--fail", "--location", "--silent", "--show-error", "--retry", "3", "--continue-at", "-", "--output", partial.path, url]
@@ -168,6 +176,11 @@ actor ModelStore {
             if FileManager.default.fileExists(atPath: destination.path) { try FileManager.default.removeItem(at: destination) }
             try FileManager.default.moveItem(at: partial, to: destination)
             completed += file.size
+        }
+        if model.id == KittenBundle.modelID {
+            let converted = try KittenBundle.convertVoices(in: model.directory)
+            manifest = ModelManifest(repository: manifest.repository, revision: manifest.revision,
+                                     files: manifest.files.filter { $0.path != converted.path } + [converted])
         }
         try JSONEncoder().encode(manifest).write(to: model.directory.appendingPathComponent(".installed.json"), options: .atomic)
         progress[model.id] = 1
@@ -213,6 +226,7 @@ actor ModelStore {
     }
 
     private static func fetchManifest(_ model: ModelDefinition) async throws -> ModelManifest {
+        if let pinned = model.pinnedManifest { return addingSupplements(to: pinned, model: model) }
         guard let info = try await json("https://huggingface.co/api/models/\(model.repo)") as? [String: Any], let revision = info["sha"] as? String else { throw WorkerError("invalid_manifest", "Missing model revision.") }
         let tree = try await json("https://huggingface.co/api/models/\(model.repo)/tree/\(revision)?recursive=true&blobs=true") as? [[String: Any]] ?? []
         let files = tree.compactMap { item -> ModelFile? in

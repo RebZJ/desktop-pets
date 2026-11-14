@@ -4,6 +4,31 @@ import AVFoundation
 actor TranscriptionService {
     static let shared = TranscriptionService()
     private var busy = false
+    private var dictationModel: MoonshineASR?
+    private var dictationModelID: String?
+
+    func prepareDictation(language: String) throws -> [String: Any]? {
+        try Task.checkCancellation()
+        let language = MoonshineBundle.language(language)
+        guard !busy, let id = MoonshineBundle.modelID(for: language),
+              let model = try? ModelDefinition.find(id), ModelStore.isInstalled(model) else { return nil }
+        let (_, cold, loadMs) = try loadDictationModel(model, language: language)
+        return ["model": id, "cold": cold, "loadMs": loadMs]
+    }
+
+    private func loadDictationModel(_ model: ModelDefinition, language: String) throws -> (MoonshineASR, Bool, Double) {
+        try Task.checkCancellation()
+        let started = Date()
+        let cold = dictationModelID != model.id || dictationModel == nil
+        if cold {
+            dictationModel = nil; dictationModelID = nil
+            dictationModel = try MoonshineASR(model: model, language: language)
+            dictationModelID = model.id
+        }
+        guard let runtime = dictationModel else { throw WorkerError("model_load_failed", "The dictation model did not load.") }
+        return (runtime, cold, Date().timeIntervalSince(started) * 1000)
+    }
+
     func transcribe(params: [String: Any]) async throws -> [String: Any] {
         guard !busy else { throw WorkerError("busy", "A transcription is already running.") }
         guard let path = params["path"] as? String, path.hasPrefix("/"), FileManager.default.fileExists(atPath: path) else { throw WorkerError("invalid_params", "Provide an existing absolute WAV path.") }
@@ -11,12 +36,23 @@ actor TranscriptionService {
         guard input.pathExtension.lowercased() == "wav" else { throw WorkerError("invalid_params", "Transcription accepts WAV files.") }
         let audio = try AVAudioFile(forReading: input)
         guard audio.fileFormat.sampleRate == 16000, audio.fileFormat.channelCount == 1, audio.length > 0 else { throw WorkerError("invalid_audio", "Audio must be nonempty mono 16 kHz WAV.") }
+        let dictation = params["purpose"] as? String == "dictation"
+        let rawLanguage = params["language"] as? String ?? "auto"
+        let language = dictation ? MoonshineBundle.language(rawLanguage) : rawLanguage
+        guard language == "auto" || language.range(of: "^[a-z]{2,3}$", options: .regularExpression) != nil else { throw WorkerError("invalid_params", "Use an ISO language code such as en, zh, ja or es.") }
+        let vocabulary = dictation ? try MoonshineBundle.vocabulary(params["dictationVocabulary"]) : []
+        if dictation, let id = MoonshineBundle.modelID(for: language), let model = try? ModelDefinition.find(id), ModelStore.isInstalled(model) {
+            busy = true; defer { busy = false }
+            let (runtime, cold, loadMs) = try loadDictationModel(model, language: language)
+            try Task.checkCancellation()
+            var result = try runtime.transcribe(input, language: language, vocabulary: vocabulary)
+            result["cold"] = cold; result["loadMs"] = loadMs
+            return result
+        }
         let model = try ModelStore.require("whisper-turbo")
         let vadModel = model.directory.appendingPathComponent(SileroVAD.filename)
         let executable = try Self.executable()
         let detector = try Self.executable(named: "whisper-vad-speech-segments", override: "PACE_VAD_BIN")
-        let language = params["language"] as? String ?? "auto"
-        guard language == "auto" || language.range(of: "^[a-z]{2,3}$", options: .regularExpression) != nil else { throw WorkerError("invalid_params", "Use an ISO language code such as en, zh, ja or es.") }
         busy = true; defer { busy = false }
         try FileManager.default.createDirectory(at: NativePaths.generated, withIntermediateDirectories: true)
         let work = NativePaths.generated.appendingPathComponent("transcript-\(UUID().uuidString)")
@@ -53,7 +89,9 @@ actor TranscriptionService {
                     try waveData(Self.readWindow(pcm, window: regionWindow)).write(to: speechAudio)
                 }
                 let base = work.appendingPathComponent("words")
-                _ = try await Self.run(executable, arguments: ["-m", model.directory.appendingPathComponent(model.singleFile!).path, "-f", speechAudio.path, "-l", language, "-ojf", "-of", base.path, "-np", "-t", "4", "-dtw", "large.v3.turbo", "-nfa"], directory: work, name: "whisper")
+                var arguments = ["-m", model.directory.appendingPathComponent(model.singleFile!).path, "-f", speechAudio.path, "-l", language, "-ojf", "-of", base.path, "-np", "-t", "4", "-dtw", "large.v3.turbo", "-nfa"]
+                if !vocabulary.isEmpty { arguments += ["--prompt", vocabulary.joined(separator: ", ")] }
+                _ = try await Self.run(executable, arguments: arguments, directory: work, name: "whisper")
                 let object = try JSONSerialization.jsonObject(with: Data(contentsOf: base.appendingPathExtension("json"))) as? [String: Any] ?? [:]
                 if let value = (object["result"] as? [String: Any])?["language"] as? String { detected = value }
                 let words = try Self.alignedSegments(from: object)

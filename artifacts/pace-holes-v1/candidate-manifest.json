@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "id": "pace-holes-review",
+  "name": "Pace hole animation candidates",
+  "actions": [
+    {"id": "summon", "src": "summon-v1.webp", "frameWidth": 256, "frameHeight": 256, "frameCount": 8, "fps": 8},
+    {"id": "burrow", "src": "burrow-v1.webp", "frameWidth": 256, "frameHeight": 256, "frameCount": 8, "fps": 8}
+  ]
+}

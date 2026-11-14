@@ -2,6 +2,7 @@ name: Checks
 on:
   push:
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -27,18 +28,40 @@ jobs:
           path: |
             test-results/
             playwright-report/
-  mac-host:
-    runs-on: macos-latest
+  desktop-host:
+    name: Rust · ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2022, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: 22
           cache: npm
+      - name: Install Linux audio and Tauri build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config clang libclang-dev libasound2-dev libpipewire-0.3-dev libspa-0.2-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libxkbcommon-dev patchelf
       - run: npm ci
       - run: npm run build
       - run: rustup update stable --no-self-update
-      - name: Prepare generated directories for host-only tests
-        run: mkdir -p native/bin native/lib native/share
+      - name: Prepare generated directories for host tests
+        run: |
+          node -e "for (const name of ['bin', 'lib', 'share']) require('fs').mkdirSync('native/' + name, { recursive: true })"
+      - name: Check portable build scripts
+        run: |
+          node --check native/scripts/build-native.mjs
+          python native/scripts/build-portable-speech.py --self-test
+          python -m py_compile native/scripts/build-portable-speech.py native/scripts/build-portable-moonshine.py native/scripts/build-portable-llama.py native/scripts/build-platform-macos.py
       - run: cargo +stable fmt --manifest-path src-tauri/Cargo.toml --check
-      - run: cargo +stable test --manifest-path src-tauri/Cargo.toml --locked
+      - run: cargo +stable test --manifest-path src-tauri/Cargo.toml --all-targets --locked
+      - name: Build and smoke-test bundled native runtimes
+        run: npm run native:build
+      - name: Check macOS bridge and audio conversion regressions
+        if: runner.os == 'macOS'
+        run: bash native/scripts/test-bridge.sh

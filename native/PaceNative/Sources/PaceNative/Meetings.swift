@@ -30,7 +30,27 @@ final class AudioSink: @unchecked Sendable {
     private var closed = false
     private var failure: String?
     private var firstOffsetMs: Int?
+    private var level = ["rms": 0.0, "peak": 0.0]
+    private var levelAt = Date.distantPast
     private let startDate: Date
+
+    var offsetMs: Int? {
+        lock.lock(); defer { lock.unlock() }
+        return firstOffsetMs
+    }
+
+    func recordFailure(_ message: String) {
+        lock.lock(); defer { lock.unlock() }
+        if failure == nil { failure = message }
+    }
+
+    func status() -> [String: Any] {
+        lock.lock(); defer { lock.unlock() }
+        var result: [String: Any] = ["track": track, "frames": frames, "level": Date().timeIntervalSince(levelAt) < 0.25 ? level : ["rms": 0.0, "peak": 0.0]]
+        if let firstOffsetMs { result["offsetMs"] = firstOffsetMs }
+        if let failure { result["error"] = failure }
+        return result
+    }
 
     init(url: URL, sessionId: String, track: String, startDate: Date, emit: @escaping ([String: Any]) -> Void) throws {
         self.url = url; self.sessionId = sessionId; self.track = track; self.emit = emit; self.startDate = startDate
@@ -45,11 +65,15 @@ final class AudioSink: @unchecked Sendable {
         do {
             if firstOffsetMs == nil {
                 firstOffsetMs = max(0, Int(Date().timeIntervalSince(startDate) * 1000 - Double(input.frameLength) / input.format.sampleRate * 1000))
+                if let offsetMs = firstOffsetMs {
+                    emit(["event": "audio.offset", "data": ["sessionId": sessionId, "track": track, "offsetMs": offsetMs]])
+                }
             }
             if sourceFormat != input.format {
                 try flushConverter()
                 sourceFormat = input.format
                 converter = AVAudioConverter(from: input.format, to: target)
+                converter?.downmix = true
             }
             guard let converter else { throw BridgeError("audio_format", "Unable to convert the audio input to 16 kHz mono.") }
             let capacity = AVAudioFrameCount(ceil(Double(input.frameLength) * 16_000 / input.format.sampleRate)) + 64
@@ -83,6 +107,18 @@ final class AudioSink: @unchecked Sendable {
     private func appendPCM(_ pcm: Data) throws {
         guard frames * 2 + Int64(pcm.count) < Int64(UInt32.max) - 44 else { throw BridgeError("recording_too_long", "Recording reached the WAV size limit.") }
         try file.write(contentsOf: pcm)
+        if !pcm.isEmpty {
+            var squares = 0.0, peak = 0.0
+            pcm.withUnsafeBytes { bytes in
+                for index in stride(from: 0, to: bytes.count, by: 2) {
+                    let sample = Double(Int16(littleEndian: bytes.loadUnaligned(fromByteOffset: index, as: Int16.self))) / 32768
+                    squares += sample * sample
+                    peak = max(peak, abs(sample))
+                }
+            }
+            level = ["rms": sqrt(squares / Double(pcm.count / 2)), "peak": peak]
+            levelAt = Date()
+        }
         frames += Int64(pcm.count / 2)
         pending.append(pcm)
         while pending.count >= 480_000 {
@@ -187,13 +223,16 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unc
 
     func start() async throws {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+        try Task.checkCancellation()
         guard let display = content.displays.first else { throw BridgeError("display_unavailable", "No display is available for system audio capture.") }
         let filter: SCContentFilter
         if let applicationBundleId {
-            guard let application = content.applications.first(where: { $0.bundleIdentifier == applicationBundleId }) else {
+            let applications = content.applications.filter { $0.bundleIdentifier == applicationBundleId }
+            guard !applications.isEmpty else {
                 throw BridgeError("meeting_app_unavailable", "The selected meeting application is not running or cannot be captured.")
             }
-            filter = SCContentFilter(display: display, including: [application], exceptingWindows: [])
+            // Browsers can have multiple independently launched processes with the same app identity.
+            filter = SCContentFilter(display: display, including: applications, exceptingWindows: [])
         } else {
             filter = SCContentFilter(display: display, excludingWindows: [])
         }
@@ -208,8 +247,15 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unc
         let stream = SCStream(filter: filter, configuration: config, delegate: self)
         try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: queue)
         self.stream = stream
-        do { try await stream.startCapture() }
-        catch { self.stream = nil; throw error }
+        do {
+            try Task.checkCancellation()
+            try await stream.startCapture()
+            try Task.checkCancellation()
+        } catch {
+            try? await stream.stopCapture()
+            self.stream = nil
+            throw error
+        }
     }
 
     func stop() async throws -> [String: Any] {
@@ -239,6 +285,7 @@ final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unc
     }
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
+        sink.recordFailure(error.localizedDescription)
         emit(["event": "meeting.error", "data": ["sessionId": sessionId, "track": "system", "message": error.localizedDescription]])
     }
 }
@@ -251,6 +298,11 @@ enum MeetingService {
     private static var startDate: Date?
     private static var dictation: MicrophoneCapture?
     private static var dictationId: String?
+    private static var dictationRequestId: String?
+    private static var meetingRequestId: String?
+    private static var pendingRequestId: String?
+    private static var pendingMicrophone: MicrophoneCapture?
+    private static var pendingSystem: SystemAudioCapture?
     private static var starting = false
 
     static func handle(method: String, params: [String: Any], emit: @escaping ([String: Any]) -> Void) async throws -> [String: Any]? {
@@ -260,18 +312,25 @@ enum MeetingService {
         case "meeting.stop": return try await stop(emit: emit)
         case "audio.start":
             guard dictation == nil, sessionId == nil, !starting else { throw BridgeError("audio_busy", "Stop the active recording before starting dictation.") }
-            starting = true; defer { starting = false }
+            starting = true; pendingRequestId = params["_requestId"] as? String
+            defer { starting = false; pendingRequestId = nil; pendingMicrophone = nil }
             try await requireMicrophone()
             let id = UUID().uuidString
             let directory = try recordingDirectory(params, id: id)
             let sink = try AudioSink(url: directory.appendingPathComponent("dictation.wav"), sessionId: id, track: "dictation", startDate: Date(), emit: { _ in })
             let capture = MicrophoneCapture(sink: sink)
-            do { try capture.start() } catch { _ = try? sink.finish(); throw error }
-            dictation = capture; dictationId = id
+            pendingMicrophone = capture
+            do {
+                try Task.checkCancellation()
+                try capture.start()
+                try Task.checkCancellation()
+            } catch { _ = try? capture.stop(); throw error }
+            dictation = capture; dictationId = id; dictationRequestId = params["_requestId"] as? String
             return ["recording": true, "sessionId": id]
         case "audio.stop":
             guard let capture = dictation else { throw BridgeError("not_recording", "Dictation is not recording.") }
             dictation = nil
+            dictationRequestId = nil
             var result = try capture.stop()
             result["sessionId"] = dictationId
             dictationId = nil
@@ -282,7 +341,11 @@ enum MeetingService {
     }
 
     private static func requireMicrophone() async throws {
-        if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined { _ = await AVCaptureDevice.requestAccess(for: .audio) }
+        try Task.checkCancellation()
+        if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+            _ = try await capturePermission { await AVCaptureDevice.requestAccess(for: .audio) }
+        }
+        try Task.checkCancellation()
         guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else { throw BridgeError("permission_required", "Enable Microphone access in System Settings to record audio.") }
     }
 
@@ -301,38 +364,47 @@ enum MeetingService {
 
     private static func start(_ params: [String: Any], emit: @escaping ([String: Any]) -> Void) async throws -> [String: Any] {
         guard sessionId == nil, dictation == nil, !starting else { throw BridgeError("audio_busy", "A recording is already active.") }
-        starting = true; defer { starting = false }
+        starting = true; pendingRequestId = params["_requestId"] as? String
+        defer { starting = false; pendingRequestId = nil; pendingMicrophone = nil; pendingSystem = nil }
         let captureMic = params["captureMicrophone"] as? Bool ?? true
         let captureSystem = params["captureSystem"] as? Bool ?? true
         let applicationBundleId = (params["applicationBundleId"] as? String).flatMap { $0.isEmpty ? nil : $0 }
         guard captureMic || captureSystem else { throw BridgeError("no_audio_source", "Choose microphone or system audio for this meeting.") }
         if captureMic { try await requireMicrophone() }
+        try Task.checkCancellation()
         if captureSystem && !CGPreflightScreenCaptureAccess() {
             throw BridgeError("permission_required", "Enable Screen & System Audio Recording in System Settings before capturing meeting audio.")
         }
-        let id = UUID().uuidString
-        let date = Date()
+        let (id, date) = try meetingIdentity(params)
         let directory = try recordingDirectory(params, id: id)
         var mic: MicrophoneCapture?
         var sys: SystemAudioCapture?
         do {
             if captureMic {
+                try Task.checkCancellation()
                 let sink = try AudioSink(url: directory.appendingPathComponent("microphone.wav"), sessionId: id, track: "microphone", startDate: date, emit: emit)
                 mic = MicrophoneCapture(sink: sink)
+                pendingMicrophone = mic
                 try mic?.start()
             }
             if captureSystem {
+                try Task.checkCancellation()
                 let sink = try AudioSink(url: directory.appendingPathComponent("system.wav"), sessionId: id, track: "system", startDate: date, emit: emit)
                 sys = SystemAudioCapture(sink: sink, sessionId: id, applicationBundleId: applicationBundleId, emit: emit)
+                pendingSystem = sys
                 try await sys?.start()
             }
+            try Task.checkCancellation()
         } catch {
             if let mic { _ = try? mic.stop() }
             if let sys { _ = try? await sys.stop() }
             throw error
         }
-        microphone = mic; system = sys; sessionId = id; startDate = date
-        let result: [String: Any] = ["recording": true, "sessionId": id, "startedAt": ISO8601DateFormatter().string(from: date), "directory": directory.path, "captureMicrophone": captureMic, "captureSystem": captureSystem,
+        microphone = mic; system = sys; sessionId = id; startDate = date; meetingRequestId = params["_requestId"] as? String
+        var offsets: [String: Int] = [:]
+        if let offset = mic?.sink.offsetMs { offsets["microphone"] = offset }
+        if let offset = sys?.sink.offsetMs { offsets["system"] = offset }
+        let result: [String: Any] = ["recording": true, "sessionId": id, "startedAt": ISO8601DateFormatter().string(from: date), "directory": directory.path, "captureMicrophone": captureMic, "captureSystem": captureSystem, "trackOffsets": offsets,
                                    "systemAudioScope": applicationBundleId ?? "all-system-audio"]
         emit(["event": "meeting.started", "data": result])
         return result
@@ -341,7 +413,7 @@ enum MeetingService {
     private static func stop(emit: @escaping ([String: Any]) -> Void) async throws -> [String: Any] {
         guard let id = sessionId else { throw BridgeError("not_recording", "No meeting is recording.") }
         let mic = microphone; let sys = system; let date = startDate
-        microphone = nil; system = nil; sessionId = nil; startDate = nil
+        microphone = nil; system = nil; sessionId = nil; startDate = nil; meetingRequestId = nil
         var tracks: [[String: Any]] = []
         if let mic {
             do { tracks.append(try mic.stop()) }
@@ -360,6 +432,49 @@ enum MeetingService {
         var result: [String: Any] = ["recording": sessionId != nil, "starting": starting, "dictating": dictation != nil]
         if let sessionId { result["sessionId"] = sessionId }
         if let startDate { result["startedAt"] = ISO8601DateFormatter().string(from: startDate) }
+        if sessionId != nil {
+            let tracks = [microphone?.sink.status(), system?.sink.status()].compactMap { $0 }
+            result["tracks"] = tracks
+            result["mode"] = "meeting"
+            result["durationMs"] = Int(Date().timeIntervalSince(startDate ?? Date()) * 1000)
+            result["level"] = ["rms": tracks.compactMap { ($0["level"] as? [String: Double])?["rms"] }.max() ?? 0,
+                               "peak": tracks.compactMap { ($0["level"] as? [String: Double])?["peak"] }.max() ?? 0]
+        }
         return result
     }
+
+    static func cancelCapture(requestId: String) async {
+        if pendingRequestId == requestId { await stopPendingCapture() }
+        if dictationRequestId == requestId, let capture = dictation {
+            dictation = nil; dictationId = nil; dictationRequestId = nil
+            _ = try? capture.stop()
+        }
+        if meetingRequestId == requestId { _ = try? await stop(emit: { _ in }) }
+    }
+
+    static func shutdown() async {
+        await stopPendingCapture()
+        if let capture = dictation {
+            dictation = nil; dictationId = nil; dictationRequestId = nil
+            _ = try? capture.stop()
+        }
+        if sessionId != nil { _ = try? await stop(emit: { _ in }) }
+    }
+
+    private static func stopPendingCapture() async {
+        let mic = pendingMicrophone; let sys = pendingSystem
+        pendingMicrophone = nil; pendingSystem = nil
+        if let mic { _ = try? mic.stop() }
+        if let sys { _ = try? await sys.stop() }
+    }
+}
+
+func meetingIdentity(_ params: [String: Any]) throws -> (String, Date) {
+    if params["_sessionId"] == nil && params["_originUnixMs"] == nil { return (UUID().uuidString, Date()) }
+    guard let id = params["_sessionId"] as? String, UUID(uuidString: id) != nil,
+          let milliseconds = params["_originUnixMs"] as? Double, milliseconds.isFinite,
+          abs(Date().timeIntervalSince1970 - milliseconds / 1000) < 3600 else {
+        throw BridgeError("invalid_session", "A valid shared meeting session and origin are required.")
+    }
+    return (id, Date(timeIntervalSince1970: milliseconds / 1000))
 }

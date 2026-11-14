@@ -1,0 +1,23 @@
+--- a/core/voice-activity-detector.cpp
++++ b/core/voice-activity-detector.cpp
+@@ -55,9 +55,9 @@
+   samples_processed_count = 0;
+   segments.clear();
+   current_segment_audio_buffer.resize(0);
+-  look_behind_audio_buffer.resize(look_behind_sample_count, 0.0f);
++  look_behind_audio_buffer.assign(look_behind_sample_count, 0.0f);
+   processing_remainder_audio_buffer.resize(0);
+-  probability_window.resize(window_size, 0.0f);
++  probability_window.assign(window_size, 0.0f);
+   probability_window_index = 0;
+   previous_is_voice = false;
+ }
+@@ -198,7 +198,7 @@
+                                         audio_data + audio_data_size);
+     on_voice_end();
+     current_segment_audio_buffer.resize(0);
+-    look_behind_audio_buffer.resize(look_behind_sample_count, 0.0f);
++    look_behind_audio_buffer.assign(look_behind_sample_count, 0.0f);
+   } else if (current_is_voice && previous_is_voice) {
+     current_segment_audio_buffer.insert(current_segment_audio_buffer.end(),
+                                         audio_data,

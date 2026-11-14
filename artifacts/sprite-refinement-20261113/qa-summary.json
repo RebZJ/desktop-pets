@@ -1,0 +1,259 @@
+{
+  "generationCount": 5,
+  "originalStripsUnchanged": [
+    "idle",
+    "wave",
+    "think",
+    "type",
+    "create",
+    "review",
+    "schedule",
+    "sprint",
+    "celebrate",
+    "sleep",
+    "happy",
+    "annoyed"
+  ],
+  "geometryErrors": [],
+  "before": {
+    "idle": {
+      "sha256": "76b0d0b4c74860969caa5164d02ea2299eab8c06a0cac192306fa70c52181799",
+      "frameCount": 24,
+      "frameCanvas": [
+        256,
+        256
+      ],
+      "fps": 12,
+      "foregroundRgbColorRange": [
+        16,
+        16
+      ],
+      "partialAlphaPercentRange": [
+        0.0,
+        0.0
+      ],
+      "minimumGridAlignedFraction": 1.0,
+      "floorPixelRange": [
+        224,
+        224
+      ],
+      "maxPaletteMeanChannelDistance": 0.0
+    },
+    "talk": {
+      "sha256": "483f86596f39777e25ca1907559fe895c5e410f6d226f9393cf5ff93bcd1713a",
+      "frameCount": 8,
+      "frameCanvas": [
+        256,
+        256
+      ],
+      "fps": 8,
+      "foregroundRgbColorRange": [
+        7670,
+        8118
+      ],
+      "partialAlphaPercentRange": [
+        99.56815,
+        99.80931
+      ],
+      "minimumGridAlignedFraction": 0.500105,
+      "floorPixelRange": [
+        224,
+        224
+      ],
+      "maxPaletteMeanChannelDistance": 6.9488
+    },
+    "listen": {
+      "sha256": "091cabe3fa2fb5182a470b95de5b656c4a91719aae0ab8544bf150a634181f9d",
+      "frameCount": 8,
+      "frameCanvas": [
+        256,
+        256
+      ],
+      "fps": 8,
+      "foregroundRgbColorRange": [
+        7498,
+        7903
+      ],
+      "partialAlphaPercentRange": [
+        99.634,
+        99.90484
+      ],
+      "minimumGridAlignedFraction": 0.500643,
+      "floorPixelRange": [
+        224,
+        224
+      ],
+      "maxPaletteMeanChannelDistance": 8.7462
+    },
+    "dictate": {
+      "sha256": "8204c4d145cf1f9cc886c8eda36c6ecb28a18cb99fed377048bb03d05934fdda",
+      "frameCount": 8,
+      "frameCanvas": [
+        256,
+        256
+      ],
+      "fps": 8,
+      "foregroundRgbColorRange": [
+        8309,
+        8477
+      ],
+      "partialAlphaPercentRange": [
+        99.75452,
+        99.85029
+      ],
+      "minimumGridAlignedFraction": 0.500435,
+      "floorPixelRange": [
+        224,
+        224
+      ],
+      "maxPaletteMeanChannelDistance": 7.1163
+    }
+  },
+  "after": {
+    "talk": {
+      "sha256": "41d9e0723f7f4892c97ca809b7b77aecd33435d8cc67d943e8e498b3e5a537e9",
+      "frameCount": 8,
+      "frameCanvas": [
+        256,
+        256
+      ],
+      "fps": 8,
+      "foregroundRgbColorRange": [
+        15,
+        16
+      ],
+      "partialAlphaPercentRange": [
+        0.0,
+        0.0
+      ],
+      "minimumGridAlignedFraction": 1.0,
+      "floorPixelRange": [
+        224,
+        224
+      ],
+      "maxPaletteMeanChannelDistance": 0.0,
+      "exactRgbaRoundtrip": true,
+      "allFramesBinaryAlpha": true,
+      "allFramesExact2x2Blocks": true,
+      "headbandWidthRange": [
+        88,
+        88
+      ],
+      "shoeCenterXRange": [
+        149.0,
+        150.0
+      ],
+      "maxAdjacentBodyContourChebyshevPixels": 2,
+      "loopBodyContourChebyshevPixels": 2
+    },
+    "listen": {
+      "sha256": "8553f9c5fd713629dd05cd2e2b625f7403fc3b6c160b825cef9ca9016da9eabb",
+      "frameCount": 8,
+      "frameCanvas": [
+        256,
+        256
+      ],
+      "fps": 8,
+      "foregroundRgbColorRange": [
+        16,
+        16
+      ],
+      "partialAlphaPercentRange": [
+        0.0,
+        0.0
+      ],
+      "minimumGridAlignedFraction": 1.0,
+      "floorPixelRange": [
+        224,
+        224
+      ],
+      "maxPaletteMeanChannelDistance": 0.0,
+      "exactRgbaRoundtrip": true,
+      "allFramesBinaryAlpha": true,
+      "allFramesExact2x2Blocks": true,
+      "headbandWidthRange": [
+        88,
+        90
+      ],
+      "shoeCenterXRange": [
+        150.0,
+        151.0
+      ],
+      "maxAdjacentBodyContourChebyshevPixels": 2,
+      "loopBodyContourChebyshevPixels": 2
+    },
+    "dictate": {
+      "sha256": "aa1e4a10db6fae3400ceaea3a9e57b136a9b9cbf1428bd39cc826190a784d1fe",
+      "frameCount": 8,
+      "frameCanvas": [
+        256,
+        256
+      ],
+      "fps": 8,
+      "foregroundRgbColorRange": [
+        16,
+        16
+      ],
+      "partialAlphaPercentRange": [
+        0.0,
+        0.0
+      ],
+      "minimumGridAlignedFraction": 1.0,
+      "floorPixelRange": [
+        224,
+        224
+      ],
+      "maxPaletteMeanChannelDistance": 0.0,
+      "exactRgbaRoundtrip": true,
+      "allFramesBinaryAlpha": true,
+      "allFramesExact2x2Blocks": true,
+      "headbandWidthRange": [
+        82,
+        86
+      ],
+      "shoeCenterXRange": [
+        149.0,
+        149.0
+      ],
+      "maxAdjacentBodyContourChebyshevPixels": 4,
+      "loopBodyContourChebyshevPixels": 2
+    },
+    "hush": {
+      "sha256": "48b8307ef524a2705bca68ad0c5875f283dad08f823f232b478b056da5a38e85",
+      "frameCount": 8,
+      "frameCanvas": [
+        256,
+        256
+      ],
+      "fps": 8,
+      "foregroundRgbColorRange": [
+        16,
+        16
+      ],
+      "partialAlphaPercentRange": [
+        0.0,
+        0.0
+      ],
+      "minimumGridAlignedFraction": 1.0,
+      "floorPixelRange": [
+        224,
+        224
+      ],
+      "maxPaletteMeanChannelDistance": 0.0,
+      "exactRgbaRoundtrip": true,
+      "allFramesBinaryAlpha": true,
+      "allFramesExact2x2Blocks": true,
+      "headbandWidthRange": [
+        88,
+        90
+      ],
+      "shoeCenterXRange": [
+        151.0,
+        151.0
+      ],
+      "maxAdjacentBodyContourChebyshevPixels": 2,
+      "loopBodyContourChebyshevPixels": 2
+    }
+  },
+  "scope": "Asset QA only; runtime checks owned by app integration."
+}

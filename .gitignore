@@ -19,7 +19,13 @@ __pycache__/
 .env*
 !*.example
 artifacts/runtime/
+artifacts/research/
 artifacts/release/
 artifacts/*.log
 *.dmg
 *.app/
+artifacts/deferred-writing-*/
+artifacts/permission-ui-*/
+
+artifacts/meeting-delete-ui-*/
+artifacts/meeting-sources-*/

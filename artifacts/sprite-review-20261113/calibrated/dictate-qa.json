@@ -1,0 +1,143 @@
+{
+  "action": "dictate",
+  "sourceFrameSequence": [
+    0,
+    1,
+    5,
+    7,
+    5,
+    1,
+    0,
+    0
+  ],
+  "frameSize": [
+    256,
+    256
+  ],
+  "fps": 8,
+  "frames": [
+    {
+      "frame": 0,
+      "bbox128": [
+        68,
+        40,
+        242,
+        224
+      ],
+      "floor": 224,
+      "footCenter": 151.0,
+      "visibleHeightIncludingEar": 184
+    },
+    {
+      "frame": 1,
+      "bbox128": [
+        69,
+        38,
+        245,
+        224
+      ],
+      "floor": 224,
+      "footCenter": 151.5,
+      "visibleHeightIncludingEar": 186
+    },
+    {
+      "frame": 2,
+      "bbox128": [
+        69,
+        38,
+        245,
+        224
+      ],
+      "floor": 224,
+      "footCenter": 151.5,
+      "visibleHeightIncludingEar": 186
+    },
+    {
+      "frame": 3,
+      "bbox128": [
+        69,
+        38,
+        244,
+        224
+      ],
+      "floor": 224,
+      "footCenter": 151.5,
+      "visibleHeightIncludingEar": 186
+    },
+    {
+      "frame": 4,
+      "bbox128": [
+        69,
+        38,
+        245,
+        224
+      ],
+      "floor": 224,
+      "footCenter": 151.5,
+      "visibleHeightIncludingEar": 186
+    },
+    {
+      "frame": 5,
+      "bbox128": [
+        69,
+        38,
+        245,
+        224
+      ],
+      "floor": 224,
+      "footCenter": 151.5,
+      "visibleHeightIncludingEar": 186
+    },
+    {
+      "frame": 6,
+      "bbox128": [
+        68,
+        40,
+        242,
+        224
+      ],
+      "floor": 224,
+      "footCenter": 151.0,
+      "visibleHeightIncludingEar": 184
+    },
+    {
+      "frame": 7,
+      "bbox128": [
+        68,
+        40,
+        242,
+        224
+      ],
+      "floor": 224,
+      "footCenter": 151.0,
+      "visibleHeightIncludingEar": 184
+    }
+  ],
+  "alphaDistribution": {
+    "1\u201315": 24952,
+    "16\u201364": 3097,
+    "65\u2013192": 3914,
+    "193\u2013239": 3631,
+    "240\u2013254": 135635,
+    "255": 366
+  },
+  "foregroundOpacityLoss": 0.018941045129491952,
+  "coreOpacityLoss": 0.010466733880705318,
+  "maxAdjacentBodySilhouetteDisplacement256px": 3,
+  "maxAdjacentBodySilhouetteDisplacement160px": 1.875,
+  "adjacentBodyDisplacement": [
+    3,
+    2,
+    1,
+    1,
+    2,
+    3,
+    0,
+    0
+  ],
+  "native160BackgroundReview": [
+    "cream #e9e7df",
+    "dark #171c24"
+  ],
+  "result": "accepted"
+}

@@ -63,12 +63,13 @@ def request(id, method, params, error=None):
 
 try:
     status = request("models", "models.status", {})
-    assert all(item["installed"] for item in status), "Install the model pack first."
+    baseline = {"qwen3.5-4b", "qwen3-tts-0.6b", "whisper-turbo", "nemotron-diarization"}
+    assert all(item["installed"] for item in status if item["id"] in baseline), "Install the baseline model pack first."
     request("chat", "chat.generate", {"messages": [{"role": "user", "content": "Say hello as Pace, a little desktop pet."}], "maxTokens": 48})
     request("precise-invalid", "chat.generate", {"messages": [{"role": "user", "content": "Hello"}], "precise": 1, "maxTokens": 16}, "invalid_params")
     request("precise-invalid-string", "chat.generate", {"messages": [{"role": "user", "content": "Hello"}], "precise": "true", "maxTokens": 16}, "invalid_params")
     request("precise", "chat.generate", {"messages": [{"role": "user", "content": "Amina will prepare release notes by Friday. She will write a tutorial with no agreed deadline. List these two tasks separately, preserving each deadline."}], "precise": True, "maxTokens": 128})
-    voice = request("voice", "voice.speak", {"text": "Hello! I am Pace, your little desktop friend.", "voice": "Ono_Anna", "language": "en", "play": False})
+    voice = request("voice", "voice.speak", {"text": "Hello! I am Pace, your little desktop friend.", "voiceEngine": "qwen", "voice": "Ono_Anna", "language": "en", "play": False})
     assert pathlib.Path(voice["path"]).stat().st_size > 10000
     wav = OUT / "roundtrip-16k.wav"
     subprocess.run(["/usr/bin/afconvert", "-f", "WAVE", "-d", "LEI16@16000", "-c", "1", voice["path"], str(wav)], check=True)

@@ -91,3 +91,27 @@
 @media(max-width:900px) and (min-width:761px){.onboarding-shell{padding-left:12px;padding-right:12px}.onboarding-layout{grid-template-columns:minmax(240px,.75fr) minmax(420px,1fr)}.onboarding-dialogue{padding-left:25px;padding-right:25px}.onboarding-world-caption{left:12px;right:12px;padding:12px;font-size:10px}.onboarding-world-caption>svg{display:none}.onboarding-location{left:12px;font-size:10px;padding:9px}.onboarding-pet-position{left:50%}.onboarding-brand{font-size:18px}}
 @media(max-width:760px){.onboarding-shell{padding:8px 10px 0;height:auto;min-height:100dvh;overflow:visible}.onboarding-header{padding:6px 3px 14px;gap:8px}.onboarding-brand{font-size:16px;gap:7px}.onboarding-brand>svg{height:20px;width:20px}.onboarding-brand-dot{margin-left:-7px}.onboarding-header-actions{gap:8px}.onboarding-skip{font-size:11px}.onboarding-layout{display:flex;flex-direction:column;min-height:0;border-width:3px;flex:none}.onboarding-world{min-height:290px;border-right:0;border-bottom:3px solid var(--camp-forest)}.onboarding-landscape{object-position:50% 49%}.onboarding-location{left:13px;top:13px;padding:7px 10px;font-size:10px}.onboarding-pet-position{top:57%;left:51%}.onboarding-pet{width:174px;height:174px}.onboarding-pet .pace-sprite{--pace-bound:174px!important}.onboarding-pet-cue{font-size:9px;padding:7px 9px}.onboarding-pet-ground{bottom:18px;width:73px;height:10px}.onboarding-world-caption{display:none}.onboarding-dialogue{padding:23px 22px}.onboarding-dialogue-body{overflow:visible;padding-right:0}.onboarding-stops{margin-bottom:25px}.onboarding-dialogue h1{font-size:26px;max-width:18ch;margin-bottom:18px}.onboarding-lead{font-size:14px}.onboarding-hello{margin-top:23px}.onboarding-controls{margin-top:24px}.onboarding-primary{padding:11px 13px;font-size:10px}.onboarding-time{font-size:10px;max-width:12ch}.onboarding-footer{font-size:9px;min-height:42px}.onboarding-footer>span:last-child{display:none}.onboarding-model{gap:10px}.onboarding-model p{font-size:11px}.onboarding-model>div>span{font-size:9px}.onboarding-item-button{padding:7px 9px;font-size:10px}.onboarding-item-button>svg{display:none}.onboarding-shortcuts>div{gap:8px}.onboarding-shortcuts dt{font-size:11px}.onboarding-shortcuts kbd{font-size:10px}}
 @media(prefers-reduced-motion:reduce){.onboarding-dialogue-body{animation:none}}
+
+.onboarding-field-label{display:block;margin:15px 0 6px;color:var(--camp-forest);font-size:11px;font-weight:650}
+.onboarding-field-label>span{color:var(--camp-muted);font-weight:400}
+.onboarding-select,.onboarding-practice{width:100%;max-width:100%;border:2px solid #8b9677;border-radius:0;background:var(--camp-cream);color:var(--camp-ink);font:12px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:8px 10px}
+.onboarding-select{min-height:38px}
+.onboarding-practice{min-height:76px;resize:vertical;margin:0 0 8px}
+.onboarding-practice::placeholder{color:#596046;opacity:1}
+.onboarding-shortcut-list{margin:14px 0 10px;border-top:1px solid var(--camp-line)}
+.onboarding-shortcut-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:7px 0;border-bottom:1px solid var(--camp-line);font-size:12px;color:var(--camp-ink)}
+.onboarding-shortcut-row>span{display:flex;flex-direction:column;gap:3px}
+.onboarding-shortcut-row small{color:var(--camp-muted);font-size:10px}
+.onboarding-shortcut-row .shortcut-selector{width:230px;max-width:60%;flex:none}
+.onboarding-shortcut-row .shortcut-input{background:var(--camp-cream);border-color:#8b9677}
+.onboarding-shortcut-row .shortcut-input input{font:11px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--camp-ink)}
+.onboarding-shortcut-row .shortcut-error{color:#942318}
+.onboarding-key-try{display:flex;align-items:center;gap:12px;margin:10px 0 15px}
+.onboarding-key-try>span{font-size:10px;line-height:1.5;color:var(--camp-muted)}
+.onboarding-setting-status{font-size:11px;color:var(--camp-forest);margin:5px 0}
+.onboarding-hear,.onboarding-dictate,.onboarding-save-vocabulary{margin:0 0 12px}
+.onboarding-vocabulary{min-height:54px}
+.onboarding-dictate{min-height:36px}
+.onboarding-save-vocabulary{margin-top:-2px}
+@media(max-width:600px){.onboarding-shortcut-row .shortcut-selector{min-width:0;width:60%}.onboarding-shortcut-row .shortcut-input input{font-size:10px}.onboarding-key-try{align-items:flex-start;flex-direction:column;gap:6px}.onboarding-practice{min-height:68px}}
+@media(min-width:761px){.onboarding-stop-2 .onboarding-stops{margin-bottom:16px}.onboarding-stop-2 .onboarding-dialogue h1{font-size:26px;margin-bottom:12px}.onboarding-stop-2 .onboarding-lead{font-size:13px;line-height:1.5}.onboarding-stop-2 .onboarding-shortcut-list{margin:8px 0}.onboarding-stop-2 .onboarding-shortcut-row{min-height:38px;padding:4px 0}.onboarding-stop-2 .onboarding-key-try{margin:6px 0 9px}}

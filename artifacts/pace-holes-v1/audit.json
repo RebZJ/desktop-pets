@@ -1,0 +1,1277 @@
+{
+  "manifest": "/Users/rebzj/Documents/swprojs/desk-pet/artifacts/pace-holes-v1/candidate-manifest.json",
+  "reference": "artifacts/sprite-review-20261113/idle-reference.png",
+  "referenceRgbColors": 16,
+  "nominalSize": 256,
+  "actions": [
+    {
+      "id": "summon",
+      "src": "summon-v1.webp",
+      "sha256": "9d0a5fe4242b06b98d68eaaf3c27300a3642f3dfce257b50de1ef7d5c6479e2a",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "fps": 8,
+      "frames": [
+        {
+          "bboxAlpha128": [
+            90,
+            208,
+            194,
+            224
+          ],
+          "floorRatio": 0.875,
+          "visiblePixels": 1032,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 2,
+          "dominantColors": [
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 540
+            },
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 492
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 94
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 316
+              }
+            }
+          ],
+          "frame": 0
+        },
+        {
+          "bboxAlpha128": [
+            90,
+            158,
+            198,
+            224
+          ],
+          "floorRatio": 0.875,
+          "visiblePixels": 5436,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 14,
+          "dominantColors": [
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 1876
+            },
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 1676
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 852
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 344
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 220
+            },
+            {
+              "rgb": [
+                159,
+                97,
+                8
+              ],
+              "pixels": 160
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 834
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 1144
+              }
+            }
+          ],
+          "frame": 1
+        },
+        {
+          "bboxAlpha128": [
+            92,
+            128,
+            198,
+            224
+          ],
+          "floorRatio": 0.875,
+          "visiblePixels": 8072,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 16,
+          "dominantColors": [
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 2828
+            },
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 2676
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 712
+            },
+            {
+              "rgb": [
+                251,
+                229,
+                176
+              ],
+              "pixels": 520
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 452
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 332
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 1396
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 1694
+              }
+            }
+          ],
+          "frame": 2
+        },
+        {
+          "bboxAlpha128": [
+            92,
+            90,
+            198,
+            224
+          ],
+          "floorRatio": 0.875,
+          "visiblePixels": 10668,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 16,
+          "dominantColors": [
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 3724
+            },
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 3348
+            },
+            {
+              "rgb": [
+                251,
+                229,
+                176
+              ],
+              "pixels": 1088
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 892
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 584
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 476
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 1848
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2190
+              }
+            }
+          ],
+          "frame": 3
+        },
+        {
+          "bboxAlpha128": [
+            74,
+            84,
+            200,
+            224
+          ],
+          "floorRatio": 0.875,
+          "visiblePixels": 11948,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 16,
+          "dominantColors": [
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 4156
+            },
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 3884
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 900
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 876
+            },
+            {
+              "rgb": [
+                251,
+                229,
+                176
+              ],
+              "pixels": 812
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 420
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2188
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2532
+              }
+            }
+          ],
+          "frame": 4
+        },
+        {
+          "bboxAlpha128": [
+            70,
+            36,
+            202,
+            224
+          ],
+          "floorRatio": 0.875,
+          "visiblePixels": 13776,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 16,
+          "dominantColors": [
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 5048
+            },
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 4156
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 1176
+            },
+            {
+              "rgb": [
+                251,
+                229,
+                176
+              ],
+              "pixels": 1108
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 928
+            },
+            {
+              "rgb": [
+                159,
+                97,
+                8
+              ],
+              "pixels": 424
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2436
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2998
+              }
+            }
+          ],
+          "frame": 5
+        },
+        {
+          "bboxAlpha128": [
+            70,
+            62,
+            198,
+            224
+          ],
+          "floorRatio": 0.875,
+          "visiblePixels": 13324,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 15,
+          "dominantColors": [
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 4836
+            },
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 4296
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 1064
+            },
+            {
+              "rgb": [
+                251,
+                229,
+                176
+              ],
+              "pixels": 1060
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 792
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 432
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2370
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2676
+              }
+            }
+          ],
+          "frame": 6
+        },
+        {
+          "bboxAlpha128": [
+            64,
+            48,
+            198,
+            224
+          ],
+          "floorRatio": 0.875,
+          "visiblePixels": 14684,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 16,
+          "dominantColors": [
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 5280
+            },
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 5188
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 2072
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 1152
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 372
+            },
+            {
+              "rgb": [
+                254,
+                195,
+                16
+              ],
+              "pixels": 236
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2376
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2438
+              }
+            }
+          ],
+          "frame": 7
+        }
+      ]
+    },
+    {
+      "id": "burrow",
+      "src": "burrow-v1.webp",
+      "sha256": "2bd690ceb0816fde14e0f31be6ba77ce3000e2c154b9030378f71389578ce30c",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "fps": 8,
+      "frames": [
+        {
+          "bboxAlpha128": [
+            64,
+            48,
+            198,
+            224
+          ],
+          "floorRatio": 0.875,
+          "visiblePixels": 14684,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 16,
+          "dominantColors": [
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 5280
+            },
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 5188
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 2072
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 1152
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 372
+            },
+            {
+              "rgb": [
+                254,
+                195,
+                16
+              ],
+              "pixels": 236
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2376
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2438
+              }
+            }
+          ],
+          "frame": 0
+        },
+        {
+          "bboxAlpha128": [
+            62,
+            66,
+            202,
+            226
+          ],
+          "floorRatio": 0.8828125,
+          "visiblePixels": 14084,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 16,
+          "dominantColors": [
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 4824
+            },
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 4692
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 1180
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 1020
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 840
+            },
+            {
+              "rgb": [
+                251,
+                229,
+                176
+              ],
+              "pixels": 536
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2666
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2978
+              }
+            }
+          ],
+          "frame": 1
+        },
+        {
+          "bboxAlpha128": [
+            58,
+            80,
+            204,
+            226
+          ],
+          "floorRatio": 0.8828125,
+          "visiblePixels": 13172,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 16,
+          "dominantColors": [
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 4352
+            },
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 4128
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 1444
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 992
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 856
+            },
+            {
+              "rgb": [
+                251,
+                229,
+                176
+              ],
+              "pixels": 544
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2516
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2700
+              }
+            }
+          ],
+          "frame": 2
+        },
+        {
+          "bboxAlpha128": [
+            68,
+            96,
+            194,
+            226
+          ],
+          "floorRatio": 0.8828125,
+          "visiblePixels": 11436,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 16,
+          "dominantColors": [
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 3592
+            },
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 3584
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 1264
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 980
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 848
+            },
+            {
+              "rgb": [
+                251,
+                229,
+                176
+              ],
+              "pixels": 504
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 1950
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2282
+              }
+            }
+          ],
+          "frame": 3
+        },
+        {
+          "bboxAlpha128": [
+            84,
+            110,
+            202,
+            226
+          ],
+          "floorRatio": 0.8828125,
+          "visiblePixels": 10100,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 15,
+          "dominantColors": [
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 3360
+            },
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 3096
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 968
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 788
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 636
+            },
+            {
+              "rgb": [
+                251,
+                229,
+                176
+              ],
+              "pixels": 548
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 1772
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 2128
+              }
+            }
+          ],
+          "frame": 4
+        },
+        {
+          "bboxAlpha128": [
+            84,
+            134,
+            192,
+            226
+          ],
+          "floorRatio": 0.8828125,
+          "visiblePixels": 7920,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 16,
+          "dominantColors": [
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 2684
+            },
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 2312
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 900
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 860
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 424
+            },
+            {
+              "rgb": [
+                251,
+                229,
+                176
+              ],
+              "pixels": 248
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 1214
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 1538
+              }
+            }
+          ],
+          "frame": 5
+        },
+        {
+          "bboxAlpha128": [
+            84,
+            172,
+            192,
+            224
+          ],
+          "floorRatio": 0.875,
+          "visiblePixels": 4248,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 13,
+          "dominantColors": [
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 1172
+            },
+            {
+              "rgb": [
+                249,
+                168,
+                12
+              ],
+              "pixels": 1088
+            },
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 840
+            },
+            {
+              "rgb": [
+                220,
+                12,
+                31
+              ],
+              "pixels": 652
+            },
+            {
+              "rgb": [
+                251,
+                238,
+                197
+              ],
+              "pixels": 156
+            },
+            {
+              "rgb": [
+                251,
+                229,
+                176
+              ],
+              "pixels": 136
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 570
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 828
+              }
+            }
+          ],
+          "frame": 6
+        },
+        {
+          "bboxAlpha128": [
+            86,
+            210,
+            182,
+            224
+          ],
+          "floorRatio": 0.875,
+          "visiblePixels": 740,
+          "partialAlphaPixels": 0,
+          "partialAlphaPercent": 0.0,
+          "foregroundRgbColors": 2,
+          "dominantColors": [
+            {
+              "rgb": [
+                84,
+                39,
+                11
+              ],
+              "pixels": 728
+            },
+            {
+              "rgb": [
+                22,
+                4,
+                4
+              ],
+              "pixels": 12
+            }
+          ],
+          "paletteMeanChannelDistance": 0.0,
+          "gridPixels": 2,
+          "gridAlignment": [
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 64
+              }
+            },
+            {
+              "bestPhase": 0,
+              "alignedFraction": 1.0,
+              "edgeCountByPhase": {
+                "0": 192
+              }
+            }
+          ],
+          "frame": 7
+        }
+      ]
+    }
+  ],
+  "geometryErrors": []
+}

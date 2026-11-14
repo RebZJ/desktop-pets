@@ -1,5 +1,6 @@
 # Synthetic 60-minute meeting validation — 13 November 2026
 
+Historical implementation/research record. For the current three-feature portable architecture and its verified limits, see [portable validation](portable-native-validation-2026-11-14.md).
 The paced workload completed on the real packaged Tauri debug host and its release-built native worker: **240 of 240 chunks processed over 3,600.013 actual seconds**, with **zero core runtime errors**. The complete recording subsequently passed through Whisper, Nemotron diarization and hierarchical notes on the same worker. The initial final notes failed a completeness check. A separately timed notes-only regeneration on the unchanged transcript now passes all nine factual/format checks; the original failure remains preserved below.
 
 ## Workload and timing

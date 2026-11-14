@@ -8,8 +8,9 @@ pub struct Database(Mutex<Connection>);
 
 pub fn defaults() -> Value {
     json!({
-        "onboardingCompleted":false,
-        "language":"auto", "voice":"Ono_Anna", "speechEnabled":false,
+        "onboardingCompleted":false, "theme":"camp", "interfaceFont":"pixel", "captureProtectionEnabled":true,
+        "language":"auto", "voice":"Kiki", "voiceEngine":"auto", "speechEnabled":false,
+        "dictationShortcut":"Alt+Shift+D", "completionShortcut":"Alt+Shift+Enter", "dictationLanguage":"en", "dictationVocabulary":"", "writingExamples":"",
         "soundEnabled":true, "petSize":160, "activePack":"pace", "volume":0.65, "pitch":1.05, "rate":1.0,
         "memoryEnabled":false, "allowedApps":[], "allowedDomains":[],
         "retentionDays":30, "meetingTips":true, "clickThrough":false,
@@ -77,6 +78,41 @@ impl Database {
                 return Err(format!("Invalid value for {key}"));
             }
             match key.as_str() {
+                "theme"
+                    if !["camp", "night", "handheld"].contains(&value.as_str().unwrap_or("")) =>
+                {
+                    return Err("Unsupported theme".into())
+                }
+                "interfaceFont"
+                    if !["pixel", "inter", "fira"].contains(&value.as_str().unwrap_or("")) =>
+                {
+                    return Err("Unsupported interface font".into())
+                }
+                "dictationLanguage"
+                    if !["auto", "en", "zh", "ja", "es"]
+                        .contains(&value.as_str().unwrap_or("")) =>
+                {
+                    return Err("Unsupported dictation language".into())
+                }
+                "dictationVocabulary"
+                    if value
+                        .as_str()
+                        .is_some_and(|text| text.chars().count() > 4000) =>
+                {
+                    return Err("Keep custom vocabulary below 4,000 characters".into())
+                }
+                "writingExamples"
+                    if value
+                        .as_str()
+                        .is_some_and(|text| text.chars().count() > 8000) =>
+                {
+                    return Err("Keep writing examples below 8,000 characters".into())
+                }
+                "voiceEngine"
+                    if !["auto", "kitten", "qwen"].contains(&value.as_str().unwrap_or("")) =>
+                {
+                    return Err("Unsupported voice engine".into())
+                }
                 "volume" if !(0.0..=1.0).contains(&value.as_f64().unwrap_or(-1.0)) => {
                     return Err("Volume must be between 0 and 1".into())
                 }
@@ -153,27 +189,56 @@ impl Database {
         Ok(())
     }
 
+    pub fn delete_meeting(&self, id: &str) -> Result<(), String> {
+        let mut conn = self.0.lock().map_err(|error| error.to_string())?;
+        let transaction = conn.transaction().map_err(|error| error.to_string())?;
+        transaction
+            .execute("DELETE FROM documents WHERE kind='meeting' AND id=?1", [id])
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "DELETE FROM messages WHERE conversation_id=?1",
+                [format!("meeting-{id}")],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())
+    }
+
     pub fn add_message(
         &self,
         conversation: &str,
         role: &str,
         content: &str,
     ) -> Result<Value, String> {
+        let conn = self.0.lock().map_err(|error| error.to_string())?;
+        Self::insert_message(&conn, conversation, role, content, None)
+    }
+
+    pub fn add_meeting_message(
+        &self,
+        id: &str,
+        role: &str,
+        content: &str,
+    ) -> Result<Value, String> {
+        let conn = self.0.lock().map_err(|error| error.to_string())?;
+        Self::insert_message(&conn, &format!("meeting-{id}"), role, content, Some(id))
+    }
+
+    fn insert_message(
+        conn: &Connection,
+        conversation: &str,
+        role: &str,
+        content: &str,
+        meeting: Option<&str>,
+    ) -> Result<Value, String> {
         let message = json!({"id":Uuid::new_v4().to_string(),"conversationId":conversation,"role":role,"content":content,"createdAt":Utc::now().to_rfc3339()});
-        self.0
-            .lock()
-            .map_err(|e| e.to_string())?
-            .execute(
-                "INSERT INTO messages VALUES(?1,?2,?3,?4,?5)",
-                params![
-                    message["id"].as_str(),
-                    conversation,
-                    role,
-                    content,
-                    message["createdAt"].as_str()
-                ],
-            )
-            .map_err(|e| e.to_string())?;
+        let inserted = conn.execute(
+            "INSERT INTO messages SELECT ?1,?2,?3,?4,?5 WHERE ?6 IS NULL OR EXISTS(SELECT 1 FROM documents WHERE kind='meeting' AND id=?6)",
+            params![message["id"].as_str(), conversation, role, content, message["createdAt"].as_str(), meeting],
+        ).map_err(|error| error.to_string())?;
+        if inserted == 0 {
+            return Err("This meeting was deleted; the message was not saved.".into());
+        }
         Ok(message)
     }
 
@@ -184,6 +249,7 @@ impl Database {
         rows.map(|r| r.map_err(|e| e.to_string())).collect()
     }
 
+    #[cfg(any(test, debug_assertions))]
     pub fn add_memory(&self, app: &str, title: &str, text: &str) -> Result<bool, String> {
         let conn = self.0.lock().map_err(|e| e.to_string())?;
         Self::insert_memory(&conn, app, title, text)
@@ -333,6 +399,43 @@ mod tests {
         assert_eq!(db.settings().unwrap()["onboardingCompleted"], true);
     }
     #[test]
+    fn appearance_and_capture_settings_are_persisted_and_validated() {
+        let db = database();
+        db.0.lock()
+            .unwrap()
+            .execute(
+                "UPDATE settings SET data=?1 WHERE id=1",
+                [json!({"language":"ja"}).to_string()],
+            )
+            .unwrap();
+        let defaults = db.settings().unwrap();
+        assert_eq!(defaults["language"], "ja");
+        assert_eq!(defaults["theme"], "camp");
+        assert_eq!(defaults["interfaceFont"], "pixel");
+        assert_eq!(defaults["captureProtectionEnabled"], true);
+        for theme in ["camp", "night", "handheld"] {
+            for font in ["pixel", "inter", "fira"] {
+                db.update_settings(
+                    &json!({"theme":theme,"interfaceFont":font,"captureProtectionEnabled":false}),
+                )
+                .unwrap();
+                let settings = db.settings().unwrap();
+                assert_eq!(settings["theme"], theme);
+                assert_eq!(settings["interfaceFont"], font);
+                assert_eq!(settings["captureProtectionEnabled"], false);
+            }
+        }
+        for patch in [
+            json!({"theme":"unknown"}),
+            json!({"interfaceFont":"comic"}),
+            json!({"captureProtectionEnabled":"yes"}),
+        ] {
+            assert!(db.update_settings(&patch).is_err());
+        }
+        assert_eq!(db.settings().unwrap()["theme"], "handheld");
+        assert_eq!(db.settings().unwrap()["captureProtectionEnabled"], false);
+    }
+    #[test]
     fn concurrent_settings_patches_preserve_each_other() {
         use std::sync::{Arc, Barrier};
         let db = Arc::new(database());
@@ -417,6 +520,78 @@ mod tests {
         db.delete_memory(None, None).unwrap();
         assert!(db.search_memory("", 10).unwrap().is_empty());
     }
+    #[test]
+    fn deleting_a_meeting_removes_only_its_document_and_conversation() {
+        let db = database();
+        for id in ["selected", "other"] {
+            db.put("meeting", id, &json!({"id":id,"status":"completed"}))
+                .unwrap();
+            db.add_meeting_message(id, "user", "Question").unwrap();
+            db.add_meeting_message(id, "assistant", "Answer").unwrap();
+        }
+        db.put("dictation", "selected", &json!({"path":"keep.wav"}))
+            .unwrap();
+        db.add_message("general-chat", "user", "Keep my old chat")
+            .unwrap();
+        db.add_memory("test", "Keep", "Unrelated saved memory")
+            .unwrap();
+        let settings = db.update_settings(&json!({"language":"ja"})).unwrap();
+        let other = db.get("meeting", "other").unwrap();
+        let other_messages = db.messages("meeting-other").unwrap();
+        let old_chat = db.messages("general-chat").unwrap();
+        db.delete_meeting("selected").unwrap();
+        assert!(db.get("meeting", "selected").is_err());
+        assert!(db.messages("meeting-selected").unwrap().is_empty());
+        assert_eq!(db.get("meeting", "other").unwrap(), other);
+        assert_eq!(db.messages("meeting-other").unwrap(), other_messages);
+        assert_eq!(db.messages("general-chat").unwrap(), old_chat);
+        assert_eq!(db.get("dictation", "selected").unwrap()["path"], "keep.wav");
+        assert_eq!(db.settings().unwrap(), settings);
+        assert_eq!(db.search_memory("", 10).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn delayed_meeting_answer_cannot_recreate_a_deleted_conversation() {
+        let db = std::sync::Arc::new(database());
+        db.put("meeting", "selected", &json!({"id":"selected"}))
+            .unwrap();
+        db.add_meeting_message("selected", "user", "An in-flight question")
+            .unwrap();
+        let (deleted, wait_for_delete) = std::sync::mpsc::channel();
+        let pending_db = db.clone();
+        let pending_answer = std::thread::spawn(move || {
+            wait_for_delete.recv().unwrap();
+            pending_db.add_meeting_message("selected", "assistant", "A late answer")
+        });
+        db.delete_meeting("selected").unwrap();
+        deleted.send(()).unwrap();
+        assert!(pending_answer
+            .join()
+            .unwrap()
+            .unwrap_err()
+            .contains("deleted"));
+        assert!(db
+            .add_meeting_message("selected", "user", "A late question")
+            .is_err());
+        assert!(db.messages("meeting-selected").unwrap().is_empty());
+    }
+
+    #[test]
+    fn failed_conversation_delete_rolls_back_the_meeting_delete() {
+        let db = database();
+        db.put("meeting", "selected", &json!({"id":"selected"}))
+            .unwrap();
+        db.add_meeting_message("selected", "user", "Keep on failed delete")
+            .unwrap();
+        db.0.lock().unwrap().execute_batch("CREATE TEMP TRIGGER reject_message_delete BEFORE DELETE ON messages BEGIN SELECT RAISE(ABORT,'synthetic delete failure'); END;").unwrap();
+        assert!(db
+            .delete_meeting("selected")
+            .unwrap_err()
+            .contains("synthetic delete failure"));
+        assert_eq!(db.get("meeting", "selected").unwrap()["id"], "selected");
+        assert_eq!(db.messages("meeting-selected").unwrap().len(), 1);
+    }
+
     #[test]
     fn preserves_message_order_and_documents() {
         let db = database();
