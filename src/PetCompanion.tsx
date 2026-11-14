@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Copy, FileText, LoaderCircle, MessageCircle, Mic, RotateCcw, Settings as SettingsIcon, Square, X } from 'lucide-react';
+import { Copy, FileText, LoaderCircle, MessageCircle, Mic, RotateCcw, Settings as SettingsIcon, Square, Undo2, X } from 'lucide-react';
 import { api, copyText, errorText, isNative, subscribe, type AppState } from './api';
 import { Pace, playPetSound, usePetMood, validAction } from './Pace';
 
@@ -10,8 +10,8 @@ function dictationModelMissing(state: AppState) {
   return whisper?.installed === false && (!['en', 'zh', 'ja', 'es'].includes(language) || moonshine?.installed === false);
 }
 
-type DictationState = { phase?: string; text?: string; error?: string; savedAudio?: boolean };
-type Recovery = { message: string; text?: string; retry?: boolean; models?: boolean };
+type DictationState = { phase?: string; text?: string; error?: string; savedAudio?: boolean; dispatched?: boolean; clipboardRecoveryId?: string };
+type Recovery = { message: string; text?: string; retry?: boolean; models?: boolean; clipboard?: string };
 
 export function DesktopPet({ state }: { state: AppState }) {
   const mood = usePetMood(validAction(state.pet.action));
@@ -28,6 +28,8 @@ export function DesktopPet({ state }: { state: AppState }) {
   const [micPending, setMicPending] = useState(false);
   const [recovery, setRecovery] = useState<Recovery>();
   const [copied, setCopied] = useState(false);
+  const [clipboardRecovery, setClipboardRecovery] = useState<string>();
+  const [restoringClipboard, setRestoringClipboard] = useState(false);
   const recoveryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const recoveryEpoch = useRef(0);
   const recognized = useRef(sessionStorage.getItem('pace.dictation-source') || '');
@@ -42,7 +44,8 @@ export function DesktopPet({ state }: { state: AppState }) {
   };
   const acceptDictation = (value: DictationState) => {
     const phase = value?.phase || 'idle'; setDictationPhase(phase); dismissRecovery();
-    if (['starting', 'recording', 'transcribing', 'idle'].includes(phase) || phase === 'inserted' && !value.error) return;
+    if (value.clipboardRecoveryId) setClipboardRecovery(value.clipboardRecoveryId);
+    if (['starting', 'recording', 'transcribing', 'idle'].includes(phase) || ['inserted', 'dispatched'].includes(phase) && !value.error) return;
     const words = value.text?.trim();
     if (words) {
       const draft = sessionStorage.getItem('pace.dictation-draft') || '';
@@ -52,8 +55,8 @@ export function DesktopPet({ state }: { state: AppState }) {
       }
     }
     const models = /Local models|install.*(pack|model)/i.test(value.error || '');
-    const message = words ? value.error ? /not confirm|text was inserted|before copying|uncertain/i.test(value.error) ? 'Check your text.' : 'Couldn’t type here.' : 'Words ready.' : value.savedAudio ? 'Audio saved.' : /No speech|No words/i.test(value.error || '') ? 'No words caught.' : models ? 'Speech model needed.' : /microphone|permission/i.test(value.error || '') ? 'Microphone unavailable.' : 'Dictation needs attention.';
-    setRecovery({ message, text: words, retry: value.savedAudio, models });
+    const message = words ? value.error ? value.dispatched || /not confirm|text was inserted|before copying|uncertain/i.test(value.error) ? 'Check your text.' : 'Couldn’t type here.' : 'Words ready.' : value.savedAudio ? 'Audio saved.' : /No speech|No words/i.test(value.error || '') ? 'No words caught.' : models ? 'Speech model needed.' : /microphone|permission/i.test(value.error || '') ? 'Microphone unavailable.' : 'Dictation needs attention.';
+    setRecovery({ message, text: words, retry: value.savedAudio, models, clipboard: value.clipboardRecoveryId });
     if (!words && !value.savedAudio && !models) {
       const epoch = recoveryEpoch.current;
       recoveryTimer.current = setTimeout(() => { if (recoveryEpoch.current === epoch) setRecovery(undefined); }, 4200);
@@ -95,6 +98,25 @@ export function DesktopPet({ state }: { state: AppState }) {
     }, 420);
   };
   const open = (method: string, params = {}) => { dismissRecovery(); const epoch = recoveryEpoch.current; if (method.startsWith('window.') || method === 'pet.toggle') resetControls(); else setMenu(false); void api(method, params).catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }); };
+  const restoreClipboard = async (id: string) => {
+    if (restoringClipboard) return;
+    setRestoringClipboard(true);
+    const epoch = recoveryEpoch.current;
+    try {
+      const result = await api<{ restored: boolean }>('dictation.clipboard.restore', { recoveryId: id });
+      if (recoveryEpoch.current !== epoch) return;
+      if (!result.restored) {
+        setClipboardRecovery(undefined);
+        setRecovery(current => ({ message: 'Clipboard changed.', text: current?.text }));
+        return;
+      }
+      setClipboardRecovery(undefined); dismissRecovery(); resetControls();
+    } catch {
+      if (recoveryEpoch.current === epoch) {
+        setRecovery(current => ({ ...current, message: 'Couldn’t restore. Try again.', clipboard: id }));
+      }
+    } finally { setRestoringClipboard(false); }
+  };
   const dictate = async () => {
     if (micPending) return;
     if (dictationPhase !== 'recording' && dictationModelMissing(state)) { open('window.main', { page: 'models' }); return; }
@@ -116,9 +138,9 @@ export function DesktopPet({ state }: { state: AppState }) {
       if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
       const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
       const current = buttons.indexOf(document.activeElement as HTMLButtonElement); event.preventDefault(); buttons[(current + (event.key === 'ArrowLeft' ? -1 : 1) + buttons.length) % buttons.length]?.focus();
-    }}><span>{copied ? 'Copied.' : recovery.message}</span><button className="pet-recovery-dismiss" aria-label="Dismiss dictation notice" onClick={() => { dismissRecovery(); if (!keyboardMode.current) { hovered.current = false; closeControls(); } overlay.current?.querySelector<HTMLButtonElement>('.overlay-pet-button')?.focus(); }}><X size={11} /></button><div>{recovery.text && <button onClick={() => { const epoch = recoveryEpoch.current; void copyText(recovery.text!).then(() => { if (recoveryEpoch.current === epoch) setCopied(true); }).catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }); }}><Copy size={10} />Copy words</button>}{recovery.retry && <button disabled={micPending} onClick={() => { setMicPending(true); const epoch = recoveryEpoch.current; void api('dictation.retry').catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }).finally(() => setMicPending(false)); }}><RotateCcw size={10} />Retry audio</button>}{recovery.models && !recovery.text && <button onClick={() => open('window.main', { page: 'models' })}>Open models</button>}</div></div>}
+    }}><span>{copied ? 'Copied.' : recovery.message}</span><button className="pet-recovery-dismiss" aria-label="Dismiss dictation notice" onClick={() => { dismissRecovery(); if (!keyboardMode.current) { hovered.current = false; closeControls(); } overlay.current?.querySelector<HTMLButtonElement>('.overlay-pet-button')?.focus(); }}><X size={11} /></button><div>{recovery.clipboard && <button aria-label="Restore original clipboard" title="Restore original clipboard" disabled={restoringClipboard} onClick={() => void restoreClipboard(recovery.clipboard!)}><Undo2 size={10} /></button>}{recovery.text && <button onClick={() => { const epoch = recoveryEpoch.current; void copyText(recovery.text!).then(() => { if (recoveryEpoch.current === epoch) { setCopied(true); setClipboardRecovery(undefined); setRecovery(current => current ? { ...current, clipboard: undefined } : current); } }).catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }); }}><Copy size={10} />Copy words</button>}{recovery.retry && <button disabled={micPending} onClick={() => { setMicPending(true); const epoch = recoveryEpoch.current; void api('dictation.retry').catch(cause => { if (recoveryEpoch.current === epoch) showError(cause); }).finally(() => setMicPending(false)); }}><RotateCcw size={10} />Retry audio</button>}{recovery.models && !recovery.text && <button onClick={() => open('window.main', { page: 'models' })}>Open models</button>}</div></div>}
 
-    {menu && <div className="pet-menu"><button onClick={() => open('window.chat')}><MessageCircle size={14} />Chat with Pace</button><button onClick={() => open('window.meeting')}><FileText size={14} />Meeting notes</button><button onClick={() => open('window.main', { page: 'settings', section: 'shortcuts' })}>Controls & look</button><button onClick={() => { mood.setAction('celebrate'); if (state.settings.soundEnabled && !state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status))) playPetSound('celebrate', state.settings.volume); open('pet.action', { action: 'celebrate' }); }}>A tiny victory!</button><button onClick={() => open('pet.toggle', { visible: false })}>Hide Pace</button></div>}
+    {menu && <div className="pet-menu"><button onClick={() => open('window.chat')}><MessageCircle size={14} />Chat with Pace</button><button onClick={() => open('window.meeting')}><FileText size={14} />Meeting notes</button>{clipboardRecovery && <button disabled={restoringClipboard} onClick={() => void restoreClipboard(clipboardRecovery)}><Undo2 size={14} />Restore original clipboard</button>}<button onClick={() => open('window.main', { page: 'settings', section: 'shortcuts' })}>Controls & look</button><button onClick={() => { mood.setAction('celebrate'); if (state.settings.soundEnabled && !state.meetings.some(meeting => ['recording', 'finalizing'].includes(meeting.status))) playPetSound('celebrate', state.settings.volume); open('pet.action', { action: 'celebrate' }); }}>A tiny victory!</button><button onClick={() => open('pet.toggle', { visible: false })}>Hide Pace</button></div>}
     <button className="overlay-pet-button" aria-label="Pet Pace; drag to move; right-click for menu" aria-controls="pace-actions" aria-expanded={toolsVisible} onPointerEnter={() => { hovered.current = true; revealControls(); }} onPointerLeave={() => { hovered.current = false; leaveControls(); }} disabled={hiding || ['summon', 'burrow'].includes(state.pet.action)} onKeyDown={event => {
       if (!event.nativeEvent.isTrusted) return;
       if (event.key !== 'ArrowUp' && event.key !== 'ArrowRight' && !(event.key === 'Tab' && !event.shiftKey)) return;

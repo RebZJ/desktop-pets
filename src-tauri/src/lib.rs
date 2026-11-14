@@ -887,6 +887,9 @@ async fn dispatch(app: AppHandle, method: String, params: Option<Value>) -> Resu
             .lock()
             .map_err(|e| e.to_string())?
             .clone()),
+        "dictation.clipboard.current" | "dictation.clipboard.restore" => {
+            state.native.request(&app, &method, params).await
+        }
         "shortcut.status" => shortcut_status(&app),
         "dictation.retry" => retry_dictation(&app, &state).await,
         "voice.stop" => {

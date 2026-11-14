@@ -75,7 +75,7 @@ with tempfile.TemporaryDirectory(prefix='pace-synthetic-cursor-') as folder:
     subprocess.run(['swiftc', str(source), '-o', str(mac / 'Fixture')], check=True, capture_output=True)
     helper = d / 'BridgeHelper.swift'
     helper.write_text(helper_source)
-    subprocess.run(['swiftc', '-swift-version', '5', str(ROOT / 'native/PaceNative/Sources/PaceNative/Bridge.swift'), str(ROOT / 'native/PaceNative/Sources/PaceNative/Dictation.swift'), str(helper), '-o', str(d / 'bridge-helper')], check=True, capture_output=True)
+    subprocess.run(['swiftc', '-swift-version', '5', str(ROOT / 'native/PaceNative/Sources/PaceNative/Bridge.swift'), str(ROOT / 'native/PaceNative/Sources/PaceNative/Dictation.swift'), str(ROOT / 'native/PaceNative/Sources/PaceNative/DictationPasteboard.swift'), str(helper), '-o', str(d / 'bridge-helper')], check=True, capture_output=True)
     host = subprocess.Popen([str(mac / 'Fixture'), str(d / 'state'), str(d / 'command')], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     worker = subprocess.Popen([str(d / 'bridge-helper')], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
 

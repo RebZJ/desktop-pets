@@ -35,7 +35,7 @@ enum PlatformWorker {
             return ["cancelled": cancelled]
         }
         if method == "voice.stop" || method == "runtime.releaseVoice" { return ["stopped": true, "released": true] }
-        let methods: Set<String> = ["permissions.status", "permissions.request", "apps.list", "dictation.capture", "dictation.insert", "dictation.discard", "meeting.start", "meeting.stop", "meeting.status"]
+        let methods: Set<String> = ["permissions.status", "permissions.request", "apps.list", "dictation.capture", "dictation.insert", "dictation.discard", "dictation.clipboard.current", "dictation.clipboard.restore", "meeting.start", "meeting.stop", "meeting.status"]
         guard methods.contains(method) else { throw BridgeError("unsupported", "This macOS helper provides dictation insertion and scoped meeting capture only.") }
         guard let result = try await BridgeService.handle(method: method, params: params, emit: emit) else {
             throw BridgeError("unsupported", "This macOS operation is unavailable.")

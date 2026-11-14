@@ -44,6 +44,10 @@ enum BridgeService {
         case "dictation.capture": return try DictationService.capture(params)
         case "dictation.insert": return try await DictationService.insert(params)
         case "dictation.discard": return DictationService.discard(params)
+        case "dictation.clipboard.current": return DictationPasteboard.shared.current()
+        case "dictation.clipboard.restore":
+            guard let id = params["recoveryId"] as? String else { throw BridgeError("invalid_params", "Provide the clipboard recovery identifier.") }
+            return try DictationPasteboard.shared.restore(id)
         case "completion.available": return CompletionService.availability()
         case "completion.capture": return try CompletionService.capture()
         case "completion.apply": return try await CompletionService.apply(params)

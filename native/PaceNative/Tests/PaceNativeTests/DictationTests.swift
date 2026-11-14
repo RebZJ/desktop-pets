@@ -3,6 +3,19 @@ import ApplicationServices
 @testable import PaceNative
 
 final class DictationTests: XCTestCase {
+    func testOnlyExplicitZeroCharacterCountCanInferAnUnreadableEmptyField() {
+        let empty = dictationReadableState(value: nil, range: nil, characters: 0)
+        XCTAssertEqual(empty.value, ""); XCTAssertEqual(empty.range, NSRange(location: 0, length: 0))
+        for count in [nil, 1, -1] as [Int?] {
+            let unknown = dictationReadableState(value: nil, range: nil, characters: count)
+            XCTAssertNil(unknown.value); XCTAssertNil(unknown.range)
+        }
+        let existing = dictationReadableState(value: "existing", range: nil, characters: 0)
+        XCTAssertEqual(existing.value, "existing"); XCTAssertNil(existing.range)
+        XCTAssertTrue(dictationPasteConfirmed(value: "dictated", range: nil, expectedValue: "dictated", expectedCaret: NSRange(location: 8, length: 0)))
+        XCTAssertFalse(dictationPasteConfirmed(value: nil, range: nil, expectedValue: "dictated", expectedCaret: NSRange(location: 8, length: 0)))
+        XCTAssertFalse(dictationPasteConfirmed(value: "dictated", range: NSRange(location: 0, length: 0), expectedValue: "dictated", expectedCaret: NSRange(location: 8, length: 0)))
+    }
     func testWebFieldClassificationRequiresAWebAreaOrVerifiedNativeRoot() {
         let native = ["AXTextArea", "AXScrollArea", "AXWindow", kAXApplicationRole]
         XCTAssertEqual(dictationWebFieldClassification(0, role: { native[$0] }, parent: { $0 + 1 }), false)
@@ -64,12 +77,15 @@ final class DictationTests: XCTestCase {
         } catch { XCTAssertEqual((error as? BridgeError)?.code, "stale_target") }
         XCTAssertEqual(writes, 3)
     }
-    func testInsertionPrefersSelectedTextAndRequiresValueAndCaretForFallback() {
-        func unnecessaryProbe() -> Bool { XCTFail("The existing selected-text path must not probe fallback attributes"); return false }
-        XCTAssertEqual(dictationInsertionAttribute(selectedTextWritable: true, valueWritable: unnecessaryProbe(), rangeWritable: unnecessaryProbe()), kAXSelectedTextAttribute)
-        XCTAssertEqual(dictationInsertionAttribute(selectedTextWritable: false, valueWritable: true, rangeWritable: true), kAXValueAttribute)
-        XCTAssertNil(dictationInsertionAttribute(selectedTextWritable: false, valueWritable: true, rangeWritable: false))
-        XCTAssertNil(dictationInsertionAttribute(selectedTextWritable: false, valueWritable: false, rangeWritable: unnecessaryProbe()))
+    func testNativeEditableRolesAndOptionalCapturedStateRemainGuarded() {
+        for role in [kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole] { XCTAssertTrue(dictationEditableRole(role)) }
+        XCTAssertFalse(dictationEditableRole(kAXStaticTextRole))
+        XCTAssertTrue(dictationCapturedStateMatches(originalValue: nil, currentValue: nil, originalRange: nil, currentRange: nil))
+        XCTAssertTrue(dictationCapturedStateMatches(originalValue: "before", currentValue: "before", originalRange: nil, currentRange: nil))
+        XCTAssertFalse(dictationCapturedStateMatches(originalValue: "before", currentValue: "changed", originalRange: nil, currentRange: nil))
+        XCTAssertFalse(dictationCapturedStateMatches(originalValue: nil, currentValue: nil, originalRange: NSRange(location: 0, length: 0), currentRange: nil))
+        XCTAssertThrowsError(try dictationUnicodeChunks("x"))
+        XCTAssertEqual(try dictationUnicodeChunks(String(repeating: "x", count: 21)), [String(repeating: "x", count: 19), "xx"])
     }
     func testCursorInsertionPreservesPrefixSuffixAndUTF16Selection() {
         let value = "before 🐾 after"

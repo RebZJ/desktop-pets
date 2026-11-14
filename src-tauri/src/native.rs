@@ -182,12 +182,27 @@ impl NativeManager {
         #[cfg(not(target_os = "macos"))]
         if matches!(
             method,
-            "dictation.capture" | "dictation.insert" | "dictation.discard"
+            "dictation.capture"
+                | "dictation.insert"
+                | "dictation.discard"
+                | "dictation.clipboard.current"
+                | "dictation.clipboard.restore"
         ) {
             let insertion = self.insertion.clone();
             let method = method.to_owned();
+            let inserting = method == "dictation.insert";
+            let handle = app.clone();
+            let epoch = params["_uiEpoch"].as_u64().unwrap_or_else(|| {
+                app.state::<crate::AppState>()
+                    .ui_epoch
+                    .load(Ordering::SeqCst)
+            });
             return tauri::async_runtime::spawn_blocking(move || {
-                insertion.request(&method, params)
+                insertion.request(&method, params, || {
+                    let state = handle.state::<crate::AppState>();
+                    (!inserting || state.ui_epoch.load(Ordering::SeqCst) == epoch)
+                        && !state.shutting_down.load(Ordering::SeqCst)
+                })
             })
             .await
             .map_err(|error| error.to_string())?;
@@ -205,20 +220,70 @@ impl NativeManager {
         {
             return self.portable.request(app, method, params).await;
         }
+        let insertion_epoch = (method == "dictation.insert").then(|| {
+            params["_uiEpoch"].as_u64().unwrap_or_else(|| {
+                app.state::<crate::AppState>()
+                    .ui_epoch
+                    .load(Ordering::SeqCst)
+            })
+        });
+        let insertion_current = || {
+            let state = app.state::<crate::AppState>();
+            insertion_epoch.is_none_or(|epoch| state.ui_epoch.load(Ordering::SeqCst) == epoch)
+                && !state.shutting_down.load(Ordering::SeqCst)
+        };
+        if insertion_epoch.is_some() && !insertion_current() {
+            return Err(
+                "Dictation insertion was cancelled. Your words are available to copy.".into(),
+            );
+        }
         let worker = self.connect(app).await?;
+        if insertion_epoch.is_some() && !insertion_current() {
+            return Err(
+                "Dictation insertion was cancelled. Your words are available to copy.".into(),
+            );
+        }
         let id = Uuid::new_v4().to_string();
-        let (tx, rx) = oneshot::channel();
+        let (tx, mut rx) = oneshot::channel();
         worker.pending.lock().await.insert(id.clone(), tx);
         let payload = format!("{}\n", json!({"id":id,"method":method,"params":params}));
-        let write = async {
-            let mut input = worker.input.lock().await;
-            input.write_all(payload.as_bytes()).await?;
-            input.flush().await
-        }
+        let input = acquire_input(&worker.input, Duration::from_secs(2), || {
+            insertion_epoch.is_none() || insertion_current()
+        })
         .await;
-        if let Err(e) = write {
+        let Some(mut input) = input else {
             worker.pending.lock().await.remove(&id);
-            return Err(format!("The local assistant disconnected: {e}"));
+            if insertion_epoch.is_some() {
+                return Ok(undispatched_insertion(
+                    "Input was cancelled or could not be queued.",
+                ));
+            }
+            return Err("The local assistant input is busy.".into());
+        };
+        if insertion_epoch.is_some() && !insertion_current() {
+            worker.pending.lock().await.remove(&id);
+            return Ok(undispatched_insertion(
+                "Input was cancelled before dispatch.",
+            ));
+        }
+        // Finish a frame once writing starts; cancellation then uses the scoped reply path.
+        let written = matches!(
+            tokio::time::timeout(Duration::from_secs(2), async {
+                input.write_all(payload.as_bytes()).await?;
+                input.flush().await
+            })
+            .await,
+            Ok(Ok(()))
+        );
+        drop(input);
+        if !written {
+            worker.pending.lock().await.remove(&id);
+            // A partial JSON frame cannot safely share the next request's input stream.
+            let _ = worker.child.lock().await.kill().await;
+            if insertion_epoch.is_some() {
+                return Ok(uncertain_insertion("The input connection stopped."));
+            }
+            return Err("The local assistant input stopped responding.".into());
         }
         let seconds = if method == "models.install" {
             7200
@@ -232,24 +297,35 @@ impl NativeManager {
         } else {
             60
         };
-        match tokio::time::timeout(Duration::from_secs(seconds), rx).await {
+        let response = if insertion_epoch.is_some() {
+            tokio::select! {
+                result = tokio::time::timeout(Duration::from_secs(seconds), &mut rx) => result,
+                _ = wait_until_cancelled(insertion_current) => {
+                    return settle_cancelled_insertion(&worker, &id, &mut rx, "Input was cancelled and may be partial.").await;
+                }
+            }
+        } else {
+            tokio::time::timeout(Duration::from_secs(seconds), &mut rx).await
+        };
+        match response {
             Ok(Ok(result)) => result,
+            Ok(Err(_)) if insertion_epoch.is_some() => {
+                Ok(uncertain_insertion("The input connection stopped."))
+            }
             Ok(Err(_)) => Err("The local assistant disconnected".into()),
             Err(_) => {
+                if insertion_epoch.is_some() {
+                    return settle_cancelled_insertion(
+                        &worker,
+                        &id,
+                        &mut rx,
+                        "Input confirmation took too long.",
+                    )
+                    .await;
+                }
                 worker.pending.lock().await.remove(&id);
                 // Cancellation is scoped to this request, including a capture that just committed.
-                let cancel = async {
-                    let payload = format!("{}\n", cancellation_message(&id));
-                    let mut input = worker.input.lock().await;
-                    input.write_all(payload.as_bytes()).await?;
-                    input.flush().await
-                };
-                if !matches!(
-                    tokio::time::timeout(Duration::from_secs(2), cancel).await,
-                    Ok(Ok(()))
-                ) {
-                    let _ = worker.child.lock().await.kill().await;
-                }
+                cancel_worker_request(&worker, &id).await;
                 Err(format!(
                     "{method} took too long. Saved work was preserved; cancel or retry."
                 ))
@@ -278,12 +354,152 @@ impl NativeManager {
     }
 }
 
+fn uncertain_insertion(reason: &str) -> Value {
+    json!({"inserted":false,"dispatched":true,"verified":false,"insertionError":format!("{reason} Check the field before copying; Pace will not retry automatically.")})
+}
+
+fn undispatched_insertion(reason: &str) -> Value {
+    json!({"inserted":false,"dispatched":false,"verified":false,"insertionError":format!("{reason} Your words are available to copy.")})
+}
+
+async fn acquire_input<'a, T>(
+    input: &'a Mutex<T>,
+    timeout: Duration,
+    current: impl FnMut() -> bool,
+) -> Option<tokio::sync::MutexGuard<'a, T>> {
+    tokio::select! {
+        biased;
+        _ = wait_until_cancelled(current) => None,
+        guard = tokio::time::timeout(timeout, input.lock()) => guard.ok(),
+    }
+}
+
+async fn wait_until_cancelled(mut current: impl FnMut() -> bool) {
+    while current() {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+async fn settle_cancelled_insertion(
+    worker: &Worker,
+    id: &str,
+    reply: &mut oneshot::Receiver<Result<Value, String>>,
+    reason: &str,
+) -> Result<Value, String> {
+    cancel_worker_request(worker, id).await;
+    let result = tokio::time::timeout(Duration::from_secs(2), reply).await;
+    worker.pending.lock().await.remove(id);
+    match result {
+        Ok(Ok(Ok(value))) => Ok(value),
+        _ => Ok(uncertain_insertion(reason)),
+    }
+}
+
+async fn cancel_worker_request(worker: &Worker, id: &str) {
+    let Some(mut input) = acquire_input(&worker.input, Duration::from_secs(2), || true).await
+    else {
+        // A queued cancel has not changed the stream and must not destroy another turn's recovery.
+        return;
+    };
+    let payload = format!("{}\n", cancellation_message(id));
+    let cancel = async {
+        input.write_all(payload.as_bytes()).await?;
+        input.flush().await
+    };
+    let written = matches!(
+        tokio::time::timeout(Duration::from_secs(2), cancel).await,
+        Ok(Ok(()))
+    );
+    drop(input);
+    if !written {
+        let _ = worker.child.lock().await.kill().await;
+    }
+}
+
 fn cancellation_message(request_id: &str) -> Value {
     json!({"id":Uuid::new_v4().to_string(),"method":"runtime.cancel","params":{"id":request_id}})
 }
 
 #[cfg(test)]
 mod tests {
+    #[tokio::test]
+    async fn cancelled_request_waiting_for_input_never_acquires_or_writes() {
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+        let input = Arc::new(tokio::sync::Mutex::new(Vec::<u8>::new()));
+        let held = input.lock().await;
+        let current = Arc::new(AtomicBool::new(true));
+        let queued_input = input.clone();
+        let queued_current = current.clone();
+        let queued = tokio::spawn(async move {
+            if let Some(mut guard) =
+                super::acquire_input(&queued_input, std::time::Duration::from_secs(2), || {
+                    queued_current.load(Ordering::SeqCst)
+                })
+                .await
+            {
+                guard.push(1);
+                return true;
+            }
+            false
+        });
+        tokio::task::yield_now().await;
+        current.store(false, Ordering::SeqCst);
+        assert!(
+            !tokio::time::timeout(std::time::Duration::from_millis(200), queued)
+                .await
+                .unwrap()
+                .unwrap()
+        );
+        assert!(held.is_empty());
+        drop(held);
+        assert!(input.lock().await.is_empty());
+        assert_eq!(
+            super::undispatched_insertion("cancelled")["dispatched"],
+            false
+        );
+    }
+
+    #[tokio::test]
+    async fn input_lock_timeout_preserves_owner_and_later_requests_can_write() {
+        let input = tokio::sync::Mutex::new(vec![7_u8]);
+        let held = input.lock().await;
+        assert!(
+            super::acquire_input(&input, std::time::Duration::from_millis(10), || true)
+                .await
+                .is_none()
+        );
+        assert_eq!(&*held, &[7]);
+        drop(held);
+        assert!(
+            super::acquire_input(&input, std::time::Duration::from_millis(10), || false)
+                .await
+                .is_none()
+        );
+        super::acquire_input(&input, std::time::Duration::from_millis(10), || true)
+            .await
+            .unwrap()
+            .push(8);
+        assert_eq!(&*input.lock().await, &[7, 8]);
+    }
+
+    #[tokio::test]
+    async fn insertion_guard_stops_waiting_when_the_owner_cancels() {
+        let current = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let watched = current.clone();
+        let task = tokio::spawn(super::wait_until_cancelled(move || {
+            watched.load(std::sync::atomic::Ordering::SeqCst)
+        }));
+        tokio::task::yield_now().await;
+        assert!(!task.is_finished());
+        current.store(false, std::sync::atomic::Ordering::SeqCst);
+        tokio::time::timeout(std::time::Duration::from_millis(200), task)
+            .await
+            .unwrap()
+            .unwrap();
+    }
     #[test]
     fn queued_events_from_a_previous_worker_are_stale() {
         use std::sync::atomic::Ordering;

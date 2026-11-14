@@ -28,21 +28,28 @@ impl Gesture {
             return None;
         }
         self.down = Some((now, false));
+        let action = self.toggle(recording, busy);
+        if matches!(action, Some(Action::Start(_))) {
+            self.down = Some((now, true));
+        }
+        action
+    }
+
+    pub fn toggle(&mut self, recording: bool, busy: bool) -> Option<Action> {
         match self.session {
             Some((id, Stage::Starting { .. })) => {
                 self.session = Some((id, Stage::Starting { stop: true }));
                 None
             }
             Some((_, Stage::Finishing)) => None,
+            _ if busy => None,
             _ if recording => {
                 self.next += 1;
                 self.session = Some((self.next, Stage::Finishing));
                 Some(Action::Stop(self.next))
             }
-            _ if busy => None,
             _ => {
                 self.next += 1;
-                self.down = Some((now, true));
                 self.session = Some((self.next, Stage::Starting { stop: false }));
                 Some(Action::Start(self.next))
             }
@@ -114,6 +121,52 @@ impl Gesture {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ordinary_toggle_remembers_startup_stop_and_does_not_restart_while_finishing() {
+        let mut state = Gesture::default();
+        assert_eq!(state.toggle(false, false), Some(Action::Start(1)));
+        assert_eq!(state.toggle(false, true), None);
+        assert_eq!(state.toggle(true, true), None);
+        assert_eq!(state.started(1, true), Some(Action::Stop(1)));
+        assert_eq!(state.toggle(false, true), None);
+        state.finished(1);
+        assert_eq!(state.toggle(false, true), None);
+        assert_eq!(state.toggle(false, false), Some(Action::Start(2)));
+    }
+
+    #[test]
+    fn failed_or_cancelled_ordinary_start_does_not_leave_a_pending_stop_latched() {
+        let mut state = Gesture::default();
+        assert_eq!(state.toggle(false, false), Some(Action::Start(1)));
+        assert_eq!(state.toggle(true, true), None);
+        assert_eq!(state.started(1, false), None);
+        assert!(!state.current(1));
+        assert_eq!(state.toggle(false, false), Some(Action::Start(2)));
+    }
+
+    #[test]
+    fn toggle_and_hold_share_startup_stop_rebind_and_cancel_guards() {
+        let now = Instant::now();
+        let mut state = Gesture::default();
+        assert_eq!(state.toggle(false, false), Some(Action::Start(1)));
+        assert_eq!(state.press(now, false, true), None);
+        assert_eq!(state.release(now + HOLD), None);
+        assert_eq!(state.started(1, true), Some(Action::Stop(1)));
+        state.finished(1);
+        assert_eq!(state.press(now, false, false), Some(Action::Start(2)));
+        assert_eq!(state.toggle(true, true), None);
+        assert_eq!(state.started(2, true), Some(Action::Stop(2)));
+        state.clear();
+        state.release(now + HOLD);
+        assert_eq!(state.toggle(false, false), Some(Action::Start(3)));
+        assert_eq!(state.reset(), None);
+        assert_eq!(state.started(3, true), Some(Action::Stop(3)));
+        state.clear();
+        assert_eq!(state.started(3, true), None);
+        assert_eq!(state.toggle(false, false), Some(Action::Start(4)));
+        assert!(!state.current(3));
+    }
 
     #[test]
     fn tap_latches_and_next_press_stops_even_before_microphone_opens() {

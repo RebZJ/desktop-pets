@@ -3,7 +3,7 @@ import { Square, X } from 'lucide-react';
 import { api, subscribe, type AppState } from './api';
 import './dictation-cloud.css';
 
-type DictationState = { phase: 'idle' | 'starting' | 'recording' | 'transcribing' | 'draft' | 'inserted' | 'error' };
+type DictationState = { phase: 'idle' | 'starting' | 'recording' | 'transcribing' | 'draft' | 'inserted' | 'dispatched' | 'error' };
 
 export function DictationCloud({ state }: { state: AppState }) {
   const [current, setCurrent] = useState<DictationState>();

@@ -21,7 +21,7 @@ def main():
     source = NATIVE / "PaceNative/Sources/PaceNative"
     output = NATIVE / "bin/PaceNative"
     temporary = output.with_suffix(".partial")
-    subprocess.run(["xcrun", "swiftc", "-swift-version", "5", "-O", "-D", "PACE_PLATFORM_ONLY", "-target", f"{arch}-apple-macos15.0", *[str(source / name) for name in ("Bridge.swift", "Dictation.swift", "Meetings.swift", "RequestTasks.swift")], str(NATIVE / "Platform/main.swift"), "-o", str(temporary)], check=True)
+    subprocess.run(["xcrun", "swiftc", "-swift-version", "5", "-O", "-D", "PACE_PLATFORM_ONLY", "-target", f"{arch}-apple-macos15.0", *[str(source / name) for name in ("Bridge.swift", "Dictation.swift", "DictationPasteboard.swift", "Meetings.swift", "RequestTasks.swift")], str(NATIVE / "Platform/main.swift"), "-o", str(temporary)], check=True)
     # No capture or permission request: check JSON framing, cancellation and the narrowed method boundary.
     worker = subprocess.Popen([str(temporary)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:

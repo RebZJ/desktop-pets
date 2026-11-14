@@ -1,6 +1,9 @@
 use crate::{action, dictation_shortcut::Action, emit, set_pet_visible, stop_dictation, AppState};
 use serde_json::{json, Value};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::{
+    future::Future,
+    sync::atomic::{AtomicU64, Ordering},
+};
 use tauri::{AppHandle, Manager};
 
 async fn start(app: &AppHandle, state: &AppState, ui_epoch: u64) -> Result<Value, String> {
@@ -92,91 +95,130 @@ fn run_shortcut(app: &AppHandle, action: Action) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let state = app.state::<AppState>();
-        let _guard = state.dictation_lock.lock().await;
-        let id = match action {
-            Action::Start(id) | Action::Stop(id) => id,
-        };
-        if !state
-            .dictation_gesture
-            .lock()
-            .is_ok_and(|gesture| gesture.current(id))
-        {
-            return;
-        }
-        match action {
-            Action::Start(_) => {
-                if state.dictating.load(Ordering::SeqCst) {
-                    if let Ok(mut gesture) = state.dictation_gesture.lock() {
-                        gesture.finished(id);
-                    }
-                    return;
-                }
-                let result = start_global(&app, &state).await;
-                let stop = state
-                    .dictation_gesture
-                    .lock()
-                    .ok()
-                    .and_then(|mut gesture| gesture.started(id, result.is_ok()));
-                if stop.is_some() && state.dictating.load(Ordering::SeqCst) {
-                    let _ = finish_locked(&app, &state, true).await;
-                    if let Ok(mut gesture) = state.dictation_gesture.lock() {
-                        gesture.finished(id);
-                    }
-                }
-            }
-            Action::Stop(_) => {
-                if state.dictating.load(Ordering::SeqCst) {
-                    let _ = finish_locked(&app, &state, true).await;
-                }
+        let _ = run_action(&app, &state, action).await;
+    });
+}
+
+async fn run_action(app: &AppHandle, state: &AppState, action: Action) -> Result<Value, String> {
+    let _guard = state.dictation_lock.lock().await;
+    let id = match action {
+        Action::Start(id) | Action::Stop(id) => id,
+    };
+    if !state
+        .dictation_gesture
+        .lock()
+        .is_ok_and(|gesture| gesture.current(id))
+    {
+        return Ok(json!({"busy":true}));
+    }
+    match action {
+        Action::Start(_) => {
+            if state.dictating.load(Ordering::SeqCst) {
                 if let Ok(mut gesture) = state.dictation_gesture.lock() {
                     gesture.finished(id);
                 }
+                return Ok(json!({"busy":true}));
             }
+            let mut result = start_global(app, state).await;
+            let recording = state.dictating.load(Ordering::SeqCst);
+            if let Ok(value) = result.as_mut() {
+                value["recording"] = json!(recording);
+            }
+            let stop = state
+                .dictation_gesture
+                .lock()
+                .ok()
+                .and_then(|mut gesture| gesture.started(id, result.is_ok() && recording));
+            if stop.is_some() {
+                let result = if state.dictating.load(Ordering::SeqCst) {
+                    finish_locked(app, state, true).await
+                } else {
+                    result
+                };
+                if let Ok(mut gesture) = state.dictation_gesture.lock() {
+                    gesture.finished(id);
+                }
+                return result;
+            }
+            result
         }
-    });
+        Action::Stop(_) => {
+            let result = if state.dictating.load(Ordering::SeqCst) {
+                finish_locked(app, state, true).await
+            } else {
+                Ok(json!({"recording":false}))
+            };
+            if let Ok(mut gesture) = state.dictation_gesture.lock() {
+                gesture.finished(id);
+            }
+            result
+        }
+    }
 }
 
 pub async fn toggle(app: AppHandle) -> Result<Value, String> {
     let state = app.state::<AppState>();
-    let Ok(_guard) = state.dictation_lock.try_lock() else {
-        let action = state
-            .dictation_gesture
-            .lock()
-            .ok()
-            .and_then(|mut gesture| gesture.stop());
-        if let Some(action) = action {
-            run_shortcut(&app, action);
-        }
-        return Ok(json!({"busy":true}));
-    };
-    if state.dictating.load(Ordering::SeqCst) {
-        return finish_locked(&app, &state, true).await;
+    let busy = state.dictation_lock.try_lock().is_err();
+    let action = state
+        .dictation_gesture
+        .lock()
+        .map_err(|e| e.to_string())?
+        .toggle(state.dictating.load(Ordering::SeqCst), busy);
+    match action {
+        Some(action) => run_action(&app, &state, action).await,
+        None => Ok(json!({"busy":true})),
     }
-    start_global(&app, &state).await
+}
+
+async fn capture_during_start<T, S, F>(target: T, start: S) -> (Result<Value, String>, Value)
+where
+    T: Future<Output = Value>,
+    S: FnOnce() -> F,
+    F: Future<Output = Result<Value, String>>,
+{
+    tokio::pin!(target);
+    // Dispatch target capture before UI changes, without waiting for slow AX or a cold helper.
+    let ready = tokio::select! {
+        biased;
+        value = &mut target => Some(value),
+        _ = tokio::task::yield_now() => None,
+    };
+    tokio::join!(start(), async {
+        match ready {
+            Some(value) => value,
+            None => target.await,
+        }
+    })
 }
 
 async fn start_global(app: &AppHandle, state: &AppState) -> Result<Value, String> {
-    let _ = set_pet_visible(&app, true, true);
-    let ui_epoch = state.ui_epoch.load(Ordering::SeqCst);
-    emit(app, "dictation.state", json!({"phase":"starting"}));
-    match start(app, state, ui_epoch).await {
+    let target = async {
+        match tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            state.native.request(app, "dictation.capture", json!({})),
+        )
+        .await
+        {
+            Ok(Ok(target)) => target,
+            Ok(Err(error)) => json!({"captureError":error}),
+            Err(_) => {
+                json!({"captureError":"The text field took too long to respond. Your words will be ready to copy."})
+            }
+        }
+    };
+    let mut ui_epoch = 0;
+    let (result, target) = capture_during_start(target, || {
+        let _ = set_pet_visible(app, true, true);
+        ui_epoch = state.ui_epoch.load(Ordering::SeqCst);
+        emit(app, "dictation.state", json!({"phase":"starting"}));
+        start(app, state, ui_epoch)
+    })
+    .await;
+    match result {
         Ok(mut result) => {
-            // Recording already runs; slow accessibility must not delay the microphone.
-            let target = match tokio::time::timeout(
-                std::time::Duration::from_secs(1),
-                state.native.request(&app, "dictation.capture", json!({})),
-            )
-            .await
-            {
-                Ok(Ok(target)) => target,
-                Ok(Err(error)) => json!({"captureError":error}),
-                Err(_) => {
-                    json!({"captureError":"The text field took too long to respond. Your words will be ready to copy."})
-                }
-            };
             *state.dictation_target.lock().map_err(|e| e.to_string())? = Some(target.clone());
             if !request_is_current(&state.ui_epoch, ui_epoch) {
-                return finish_locked(&app, &state, false).await;
+                return finish_locked(app, state, false).await;
             }
             result["target"] = target;
             Ok(result)
@@ -187,8 +229,9 @@ async fn start_global(app: &AppHandle, state: &AppState) -> Result<Value, String
                 .lock()
                 .map_err(|e| e.to_string())?
                 .take();
+            discard_target(app, state, Some(&target)).await;
             emit(
-                &app,
+                app,
                 "dictation.state",
                 json!({"phase":"error","error":error}),
             );
@@ -243,6 +286,8 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
         }
     };
     data["inserted"] = json!(false);
+    data["dispatched"] = json!(false);
+    data["verified"] = json!(false);
     if let Some(target) = target.as_ref() {
         if insert && request_is_current(&state.ui_epoch, ui_epoch) {
             if let Some(id) = target["targetId"].as_str() {
@@ -252,11 +297,11 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
                         .request(
                             app,
                             "dictation.insert",
-                            json!({"targetId":id,"text":data["text"]}),
+                            json!({"targetId":id,"text":data["text"],"_uiEpoch":ui_epoch}),
                         )
                         .await
                     {
-                        Ok(result) => data["inserted"] = result["inserted"].clone(),
+                        Ok(result) => merge_insertion_outcome(&mut data, &result),
                         Err(error) => data["insertionError"] = json!(error),
                     }
                 } else {
@@ -269,16 +314,59 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
         }
     }
     discard_target(app, state, target.as_ref()).await;
-    let inserted = data["inserted"] == true;
-    emit(
-        app,
-        "dictation.state",
-        finished_state(&data["text"], inserted, &data["insertionError"]),
-    );
+    if let Err(error) = state.db.put("dictation", "last", &data) {
+        data["storageError"] = json!(format!("The last dictation could not be saved: {error}"));
+    }
+    emit(app, "dictation.state", finished_result(&data));
     if target.is_some() {
         emit(app, "dictation.finished", data.clone());
     }
     Ok(data)
+}
+
+fn merge_insertion_outcome(data: &mut Value, result: &Value) {
+    for key in ["inserted", "dispatched", "verified", "clipboardRecoveryId"] {
+        if let Some(value) = result.get(key) {
+            data[key] = value.clone();
+        }
+    }
+    data["insertionError"] = result
+        .get("insertionError")
+        .filter(|error| !error.is_null())
+        .or_else(|| result.get("error"))
+        .cloned()
+        .unwrap_or(Value::Null);
+}
+
+fn finished_result(data: &Value) -> Value {
+    let mut state = finished_state(
+        &data["text"],
+        data["inserted"] == true,
+        &data["insertionError"],
+    );
+    for key in [
+        "inserted",
+        "dispatched",
+        "verified",
+        "insertionError",
+        "clipboardRecoveryId",
+        "storageError",
+    ] {
+        if let Some(value) = data.get(key) {
+            state[key] = value.clone();
+        }
+    }
+    if state["phase"] != "error" && data["inserted"] != true && data["dispatched"] == true {
+        state["phase"] = json!(if data["insertionError"]
+            .as_str()
+            .is_some_and(|error| !error.trim().is_empty())
+        {
+            "error"
+        } else {
+            "dispatched"
+        });
+    }
+    state
 }
 
 pub fn finished_state(text: &Value, inserted: bool, error: &Value) -> Value {
@@ -354,11 +442,15 @@ fn request_is_current(epoch: &AtomicU64, requested_epoch: u64) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{finished_state, request_is_current};
+    use super::{
+        capture_during_start, finished_result, finished_state, merge_insertion_outcome,
+        request_is_current,
+    };
+    use crate::dictation_shortcut::{Action, Gesture};
     use serde_json::{json, Value};
     use std::sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc, Mutex,
     };
 
     #[test]
@@ -393,6 +485,108 @@ mod tests {
             finished_state(&text, true, &Value::Null),
             json!({"phase":"inserted","text":text,"error":null})
         );
+    }
+
+    #[test]
+    fn dispatched_and_uncertain_outcomes_never_claim_verified_insertion() {
+        let mut result = json!({"text":"Words kept for recovery.","inserted":false,"dispatched":true,"verified":false,"clipboardRecoveryId":"clipboard-1"});
+        let state = finished_result(&result);
+        assert_eq!(state["phase"], "dispatched");
+        assert_eq!(state["inserted"], false);
+        assert_eq!(state["verified"], false);
+        assert_eq!(state["text"], result["text"]);
+        assert_eq!(state["clipboardRecoveryId"], "clipboard-1");
+        assert!(state["error"].is_null());
+        result["insertionError"] =
+            json!("The text may have been inserted. Check your text before copying.");
+        let state = finished_result(&result);
+        assert_eq!(state["phase"], "error");
+        assert_eq!(state["dispatched"], true);
+        assert_eq!(state["verified"], false);
+        assert_eq!(state["clipboardRecoveryId"], "clipboard-1");
+        assert_eq!(state["error"], result["insertionError"]);
+        result["inserted"] = json!(true);
+        result["verified"] = json!(true);
+        result["insertionError"] = Value::Null;
+        assert_eq!(finished_result(&result)["phase"], "inserted");
+        result["text"] = json!("");
+        assert_eq!(finished_result(&result)["phase"], "error");
+    }
+
+    #[test]
+    fn native_error_aliases_keep_dispatched_uncertainty_without_retrying() {
+        for key in ["insertionError", "error"] {
+            let mut result = json!({"inserted":false,"dispatched":true,"verified":false,"clipboardRecoveryId":"original-clipboard"});
+            result[key] = json!("Check the original text before copying.");
+            let mut data = json!({"text":"Recognized words."});
+            merge_insertion_outcome(&mut data, &result);
+            let state = finished_result(&data);
+            assert_eq!(state["phase"], "error");
+            assert_eq!(state["error"], result[key]);
+            assert_eq!(state["clipboardRecoveryId"], "original-clipboard");
+            assert_eq!(state["inserted"], false);
+        }
+    }
+
+    #[test]
+    fn latest_dispatch_preserves_saved_audio_recovery_record() {
+        let directory = tempfile::tempdir().unwrap();
+        let db = crate::db::Database::open(&directory.path().join("test.sqlite")).unwrap();
+        let audio = json!({"wavPath":"keep.wav","sessionId":"recovery-session"});
+        db.put("dictation", "recovery", &audio).unwrap();
+        db.put("dictation", "last", &json!({"text":"Old words."}))
+            .unwrap();
+        let latest = json!({"text":"New words.","dispatched":true,"verified":false});
+        db.put("dictation", "last", &latest).unwrap();
+        assert_eq!(db.get("dictation", "last").unwrap()["text"], latest["text"]);
+        assert_eq!(
+            db.get("dictation", "recovery").unwrap()["wavPath"],
+            "keep.wav"
+        );
+    }
+
+    #[tokio::test]
+    async fn target_starts_before_ui_and_slow_target_does_not_delay_mic_or_lose_toggle_stop() {
+        let requested = Arc::new(AtomicBool::new(false));
+        let pending_target = requested.clone();
+        let gesture = Arc::new(Mutex::new(Gesture::default()));
+        assert_eq!(
+            gesture.lock().unwrap().toggle(false, false),
+            Some(Action::Start(1))
+        );
+        let (release_target, target) = tokio::sync::oneshot::channel();
+        let (mic_opened, microphone) = tokio::sync::oneshot::channel();
+        let pending_gesture = gesture.clone();
+        let pending = tokio::spawn(async move {
+            let (recording, target) = capture_during_start(
+                async move {
+                    pending_target.store(true, Ordering::SeqCst);
+                    target.await.unwrap()
+                },
+                || {
+                    // This is the point where production shows the pet/starting indicator.
+                    assert!(requested.load(Ordering::SeqCst));
+                    async move {
+                        mic_opened.send(()).unwrap();
+                        Ok(json!({"recording":true}))
+                    }
+                },
+            )
+            .await;
+            assert_eq!(target["targetId"], "original-target");
+            pending_gesture
+                .lock()
+                .unwrap()
+                .started(1, recording.is_ok())
+        });
+        microphone.await.unwrap();
+        assert!(!pending.is_finished());
+        assert_eq!(gesture.lock().unwrap().toggle(true, true), None);
+        release_target
+            .send(json!({"targetId":"original-target"}))
+            .unwrap();
+        assert_eq!(pending.await.unwrap(), Some(Action::Stop(1)));
+        assert_eq!(gesture.lock().unwrap().toggle(true, true), None);
     }
 
     #[tokio::test]

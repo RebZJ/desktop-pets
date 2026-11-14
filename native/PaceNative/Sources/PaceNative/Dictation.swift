@@ -5,15 +5,24 @@ struct DictationSnapshot {
     let id: String
     let element: AXUIElement
     let pid: pid_t
-    let bundleId: String?
-    let isWebField: Bool
     let value: String
     let range: NSRange
 }
 
+struct DictationTarget {
+    let id: String
+    let element: AXUIElement
+    let pid: pid_t
+    let bundleId: String?
+    let role: String
+    let isWebField: Bool
+    let value: String?
+    let range: NSRange?
+}
+
 @MainActor
 enum DictationService {
-    private static var target: DictationSnapshot?
+    private static var target: DictationTarget?
 
     static func capture(_ params: [String: Any] = [:]) throws -> [String: Any] {
         target = nil
@@ -23,25 +32,21 @@ enum DictationService {
                 throw BridgeError("invalid_params", "expectedBundleId must be a nonempty application bundle identifier.")
             }
             expectedBundleId = bundle
-        } else {
-            expectedBundleId = nil
-        }
+        } else { expectedBundleId = nil }
         let (app, element, _) = try BridgeService.focused(allowCompanion: true, expectedBundleId: expectedBundleId)
-        guard let isWebField = isWebTextField(element) else {
-            throw BridgeError("insertion_unavailable", "This editor could not be safely identified. Your dictation will be available to copy.")
+        let role = BridgeService.ax(element, kAXRoleAttribute) as? String ?? ""
+        guard dictationEditableRole(role), BridgeService.ax(element, kAXEnabledAttribute) as? Bool != false else {
+            throw BridgeError("insertion_unavailable", "Place the cursor in an enabled text field. Your dictation will be available to copy.")
         }
-        guard let value = BridgeService.ax(element, kAXValueAttribute) as? String,
-              value.utf16.count <= 100_000,
-              let range = BridgeService.selectionRange(element), validDictationRange(range, in: value),
-              let attribute = dictationInsertionAttribute(
-                selectedTextWritable: BridgeService.isSettable(element, kAXSelectedTextAttribute),
-                valueWritable: BridgeService.isSettable(element, kAXValueAttribute),
-                rangeWritable: BridgeService.isSettable(element, kAXSelectedTextRangeAttribute)) else {
-            throw BridgeError("insertion_unavailable", "This field does not support cursor insertion. Your dictation will be available to copy.")
+        let (value, range) = readableState(element)
+        guard value.map({ $0.utf16.count <= 100_000 }) ?? true,
+              dictationCapturedStateMatches(originalValue: value, currentValue: value, originalRange: range, currentRange: range) else {
+            throw BridgeError("insertion_unavailable", "The text field could not be safely captured. Your dictation will be available to copy.")
         }
+        let isWebField = isWebTextField(element) == true
         let id = UUID().uuidString
-        target = DictationSnapshot(id: id, element: element, pid: app.processIdentifier, bundleId: app.bundleIdentifier, isWebField: isWebField, value: value, range: range)
-        return ["targetId": id, "app": app.localizedName ?? "App", "canInsert": true, "insertionMethod": isWebField ? "unicode" : attribute]
+        target = DictationTarget(id: id, element: element, pid: app.processIdentifier, bundleId: app.bundleIdentifier, role: role, isWebField: isWebField, value: value, range: range)
+        return ["targetId": id, "app": app.localizedName ?? "App", "canInsert": true, "insertionMethod": isWebField ? "unicode-or-paste" : "paste"]
     }
 
     static func discard(_ params: [String: Any] = [:]) -> [String: Any] {
@@ -56,108 +61,132 @@ enum DictationService {
               text.utf16.count <= 100_000 else {
             throw BridgeError("invalid_target", "Capture a dictation target before inserting text.")
         }
-        // Consume before writing: uncertain AX responses must never cause automatic duplicate insertion.
+        // Consume before dispatch: an uncertain response must never cause a duplicate insertion.
         target = nil
-        guard AXIsProcessTrusted(), NSWorkspace.shared.frontmostApplication?.processIdentifier == snapshot.pid,
+        guard dictationSafeText(text) else {
+            throw BridgeError("insertion_unavailable", "This dictation contains a line break or control character. Copy it yourself to avoid sending an editor or terminal command.")
+        }
+        guard AXIsProcessTrusted(), CGPreflightPostEventAccess(),
+              NSWorkspace.shared.frontmostApplication?.processIdentifier == snapshot.pid,
               let app = NSRunningApplication(processIdentifier: snapshot.pid), !app.isTerminated,
               app.bundleIdentifier == snapshot.bundleId else {
-            throw BridgeError("stale_target", "The original app lost focus. Copy your dictation instead.")
+            throw BridgeError("stale_target", "The original app lost focus or Accessibility access. Copy your dictation instead.")
         }
         let application = AXUIElementCreateApplication(snapshot.pid)
         AXUIElementSetMessagingTimeout(application, 0.3)
-        guard let focused = BridgeService.axElement(BridgeService.ax(application, kAXFocusedUIElementAttribute)),
-              CFEqual(focused, snapshot.element),
-              !isSecureTextField(BridgeService.ax(snapshot.element, kAXSubroleAttribute) as? String),
-              let current = BridgeService.ax(snapshot.element, kAXValueAttribute) as? String,
-              let range = BridgeService.selectionRange(snapshot.element),
-              dictationTargetMatches(originalValue: snapshot.value, currentValue: current, originalRange: snapshot.range, currentRange: range),
-              let attribute = dictationInsertionAttribute(
-                selectedTextWritable: BridgeService.isSettable(snapshot.element, kAXSelectedTextAttribute),
-                valueWritable: BridgeService.isSettable(snapshot.element, kAXValueAttribute),
-                rangeWritable: BridgeService.isSettable(snapshot.element, kAXSelectedTextRangeAttribute)) else {
+        guard targetMatches(snapshot, application: application, app: app) else {
             throw BridgeError("stale_target", "The original text field or cursor changed. Copy your dictation instead.")
         }
-        if snapshot.isWebField {
-            return try await insertUnicode(text, snapshot: snapshot, application: application, app: app)
-        }
-        let expected = (snapshot.value as NSString).replacingCharacters(in: snapshot.range, with: text)
-        let replacement = attribute == kAXValueAttribute ? expected : text
-        let confirmed = try await performDictationWrite(write: {
-            guard originalFieldFocused(snapshot, application: application, app: app),
-                  let value = BridgeService.ax(snapshot.element, kAXValueAttribute) as? String,
-                  let range = BridgeService.selectionRange(snapshot.element),
-                  dictationTargetMatches(originalValue: snapshot.value, currentValue: value, originalRange: snapshot.range, currentRange: range) else { return .cannotComplete }
-            return AXUIElementSetAttributeValue(snapshot.element, attribute as CFString, replacement as CFString)
-        }, confirm: {
-            guard originalFieldFocused(snapshot, application: application, app: app) else {
-                throw BridgeError("insertion_unconfirmed", "The original field lost focus while insertion was being confirmed. Check the field before copying; Pace will not retry automatically.")
+        if snapshot.value == nil || snapshot.range == nil {
+            guard dictationKeyboardIsPlainLayout(), let chunks = try? dictationUnicodeChunks(text) else {
+                throw BridgeError("insertion_unavailable", "This editor cannot safely confirm paste or receive this text directly. Your words are available to copy.")
             }
-            return BridgeService.ax(snapshot.element, kAXValueAttribute) as? String == expected
-        })
-        guard confirmed else {
-            throw BridgeError("insertion_unconfirmed", "The app did not confirm insertion. Check the field before copying; Pace will not retry automatically.")
+            try await waitForDictationModifiers()
+            return try await insertOpaqueUnicode(chunks, snapshot: snapshot, application: application, app: app)
         }
-        if attribute == kAXValueAttribute {
-            var caret = CFRange(location: snapshot.range.location + text.utf16.count, length: 0)
-            guard originalFieldFocused(snapshot, application: application, app: app),
-                  BridgeService.ax(snapshot.element, kAXValueAttribute) as? String == expected,
-                  let value = AXValueCreate(.cfRange, &caret) else {
-                throw BridgeError("insertion_unconfirmed", "The text was inserted, but the original field changed. Check the field before copying; Pace will not retry automatically.")
-            }
-            let positioned = try await performDictationWrite(write: {
-                guard originalFieldFocused(snapshot, application: application, app: app),
-                      BridgeService.ax(snapshot.element, kAXValueAttribute) as? String == expected else { return .cannotComplete }
-                return AXUIElementSetAttributeValue(snapshot.element, kAXSelectedTextRangeAttribute as CFString, value)
-            }, confirm: {
-                guard originalFieldFocused(snapshot, application: application, app: app) else {
-                    throw BridgeError("insertion_unconfirmed", "The text was inserted, but the original field lost focus. Check the field before copying; Pace will not retry automatically.")
-                }
-                return BridgeService.ax(snapshot.element, kAXValueAttribute) as? String == expected
-                    && BridgeService.selectionRange(snapshot.element) == NSRange(location: caret.location, length: 0)
-            })
-            guard positioned else {
-                throw BridgeError("insertion_unconfirmed", "The text was inserted, but the app did not confirm the cursor position. Check the field before copying; Pace will not retry automatically.")
-            }
+        if snapshot.isWebField, snapshot.value != nil, snapshot.range != nil,
+           dictationKeyboardIsPlainLayout(), let chunks = try? dictationUnicodeChunks(text) {
+            try await waitForDictationModifiers()
+            return try await insertUnicode(chunks, snapshot: snapshot, application: application, app: app)
         }
-        return ["inserted": true, "insertionMethod": attribute]
+        guard let key = dictationPasteKey(), let source = CGEventSource(stateID: .privateState),
+              let down = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true),
+              let up = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false) else {
+            throw BridgeError("insertion_unavailable", "The current keyboard layout does not expose Paste. Your dictation is available to copy.")
+        }
+        down.flags = .maskCommand; up.flags = .maskCommand
+        return try await DictationPasteboard.shared.paste(text, validate: {
+            targetMatches(snapshot, application: application, app: app)
+        }, verify: {
+            guard let value = snapshot.value, let range = snapshot.range else { return nil }
+            guard originalFieldFocused(snapshot, application: application, app: app) else { return false }
+            let expected = (value as NSString).replacingCharacters(in: range, with: text)
+            let current = readableState(snapshot.element)
+            return dictationPasteConfirmed(value: current.value, range: current.range, expectedValue: expected,
+                expectedCaret: NSRange(location: range.location + text.utf16.count, length: 0))
+        }, post: { down.postToPid(snapshot.pid); up.postToPid(snapshot.pid) })
     }
 
-    private static func insertUnicode(_ text: String, snapshot: DictationSnapshot, application: AXUIElement, app: NSRunningApplication) async throws -> [String: Any] {
-        let chunks = try dictationUnicodeChunks(text)
-        guard CGPreflightPostEventAccess() else {
+    private static func targetMatches(_ snapshot: DictationTarget, application: AXUIElement, app: NSRunningApplication) -> Bool {
+        guard originalFieldFocused(snapshot, application: application, app: app) else { return false }
+        let current = readableState(snapshot.element)
+        return dictationCapturedStateMatches(originalValue: snapshot.value, currentValue: current.value,
+            originalRange: snapshot.range, currentRange: current.range)
+    }
+
+    private static func readableState(_ element: AXUIElement) -> (value: String?, range: NSRange?) {
+        let count = BridgeService.ax(element, kAXNumberOfCharactersAttribute) as? NSNumber
+        let characters = count.flatMap { CFGetTypeID($0) != CFBooleanGetTypeID() ? $0.intValue : nil }
+        return dictationReadableState(value: BridgeService.ax(element, kAXValueAttribute) as? String,
+            range: BridgeService.selectionRange(element), characters: characters)
+    }
+
+    private static func insertOpaqueUnicode(_ chunks: [String], snapshot: DictationTarget, application: AXUIElement, app: NSRunningApplication) async throws -> [String: Any] {
+        var dispatched = false
+        do {
+            for chunk in chunks {
+                try Task.checkCancellation()
+                guard originalFieldFocused(snapshot, application: application, app: app),
+                      dispatched || targetMatches(snapshot, application: application, app: app),
+                      let (down, up) = dictationUnicodeEvents(chunk) else {
+                    throw BridgeError("stale_target", "The original field changed during text dispatch. Check the editor before copying.")
+                }
+                dispatched = true
+                down.postToPid(snapshot.pid); up.postToPid(snapshot.pid)
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            guard originalFieldFocused(snapshot, application: application, app: app) else {
+                throw BridgeError("stale_target", "The original field changed during text dispatch. Check the editor before copying.")
+            }
+            return ["inserted": false, "verified": false, "dispatched": true, "insertionMethod": "unicode"]
+        } catch {
+            guard dispatched else { throw error }
+            return ["inserted": false, "verified": false, "dispatched": true, "insertionError": error.localizedDescription]
+        }
+    }
+
+    private static func insertUnicode(_ chunks: [String], snapshot: DictationTarget, application: AXUIElement, app: NSRunningApplication) async throws -> [String: Any] {
+        guard CGPreflightPostEventAccess(), let initial = snapshot.value, let initialRange = snapshot.range else {
             throw BridgeError("permission_required", "Allow Pace Accessibility access to insert text. Your dictation is available to copy.")
         }
-        var previous = snapshot.value
-        var previousRange = snapshot.range
-        for chunk in chunks {
-            let expected = (previous as NSString).replacingCharacters(in: previousRange, with: chunk)
-            let caret = NSRange(location: previousRange.location + chunk.utf16.count, length: 0)
-            guard let (down, up) = dictationUnicodeEvents(chunk) else {
-                throw BridgeError("insertion_unconfirmed", "Text insertion could not be prepared. Check the field before copying; Pace will not retry automatically.")
-            }
-            let confirmed = try await performDictationWrite(write: {
-                guard originalFieldFocused(snapshot, application: application, app: app),
-                      let current = BridgeService.ax(snapshot.element, kAXValueAttribute) as? String,
-                      let range = BridgeService.selectionRange(snapshot.element),
-                      dictationTargetMatches(originalValue: previous, currentValue: current, originalRange: previousRange, currentRange: range) else { return .cannotComplete }
-                // Target the captured process; never broadcast keystrokes or touch the clipboard.
-                down.postToPid(snapshot.pid)
-                up.postToPid(snapshot.pid)
-                return .success
-            }, confirm: {
-                guard originalFieldFocused(snapshot, application: application, app: app) else {
-                    throw BridgeError("insertion_unconfirmed", "The original field lost focus during insertion. Check the field before copying; Pace will not retry automatically.")
+        var previous = initial
+        var previousRange = initialRange
+        var dispatched = false
+        do {
+            for chunk in chunks {
+                let expected = (previous as NSString).replacingCharacters(in: previousRange, with: chunk)
+                let caret = NSRange(location: previousRange.location + chunk.utf16.count, length: 0)
+                guard let (down, up) = dictationUnicodeEvents(chunk) else {
+                    throw BridgeError("insertion_unconfirmed", "Text insertion could not be prepared. Check the field before copying; Pace will not retry automatically.")
                 }
-                return BridgeService.ax(snapshot.element, kAXValueAttribute) as? String == expected
-                    && BridgeService.selectionRange(snapshot.element) == caret
-            })
-            guard confirmed else {
-                throw BridgeError("insertion_unconfirmed", "The app did not confirm insertion. Check the field before copying; Pace will not retry automatically.")
+                let confirmed = try await performDictationWrite(write: {
+                    guard originalFieldFocused(snapshot, application: application, app: app) else { return .cannotComplete }
+                    let state = readableState(snapshot.element)
+                    guard let current = state.value, let range = state.range,
+                          dictationTargetMatches(originalValue: previous, currentValue: current, originalRange: previousRange, currentRange: range) else { return .cannotComplete }
+                    // Target the captured process; never broadcast keystrokes or touch the clipboard.
+                    dispatched = true
+                    down.postToPid(snapshot.pid)
+                    up.postToPid(snapshot.pid)
+                    return .success
+                }, confirm: {
+                    guard originalFieldFocused(snapshot, application: application, app: app) else {
+                        throw BridgeError("insertion_unconfirmed", "The original field lost focus during insertion. Check the field before copying; Pace will not retry automatically.")
+                    }
+                    let current = readableState(snapshot.element)
+                    return current.value == expected && current.range == caret
+                })
+                guard confirmed else {
+                    throw BridgeError("insertion_unconfirmed", "The app did not confirm insertion. Check the field before copying; Pace will not retry automatically.")
+                }
+                previous = expected
+                previousRange = caret
             }
-            previous = expected
-            previousRange = caret
+            return ["inserted": true, "verified": true, "dispatched": true, "insertionMethod": "unicode"]
+        } catch {
+            guard dispatched else { throw error }
+            return ["inserted": false, "verified": false, "dispatched": true, "insertionMethod": "unicode", "insertionError": error.localizedDescription]
         }
-        return ["inserted": true, "insertionMethod": "unicode"]
     }
 
     private static func isWebTextField(_ element: AXUIElement) -> Bool? {
@@ -170,11 +199,13 @@ enum DictationService {
         }, parent: { BridgeService.axElement(BridgeService.ax($0, kAXParentAttribute)) })
     }
 
-    private static func originalFieldFocused(_ snapshot: DictationSnapshot, application: AXUIElement, app: NSRunningApplication) -> Bool {
+    private static func originalFieldFocused(_ snapshot: DictationTarget, application: AXUIElement, app: NSRunningApplication) -> Bool {
         guard AXIsProcessTrusted(), !app.isTerminated, app.bundleIdentifier == snapshot.bundleId,
               NSWorkspace.shared.frontmostApplication?.processIdentifier == snapshot.pid else { return false }
         guard let focused = BridgeService.axElement(BridgeService.ax(application, kAXFocusedUIElementAttribute)),
               CFEqual(focused, snapshot.element),
+              BridgeService.ax(snapshot.element, kAXRoleAttribute) as? String == snapshot.role,
+              BridgeService.ax(snapshot.element, kAXEnabledAttribute) as? Bool != false,
               !isSecureTextField(BridgeService.ax(snapshot.element, kAXSubroleAttribute) as? String) else { return false }
         return true
     }
@@ -188,7 +219,7 @@ func dictationWebFieldClassification<Node>(_ element: Node, role: (Node) -> Stri
         if currentRole == kAXApplicationRole { return false }
         ancestor = parent(current)
     }
-    // An incomplete ancestry must never enable a full-value write to an unidentified rich editor.
+    // Incomplete ancestry uses guarded paste rather than guessing web typing semantics.
     return nil
 }
 
@@ -207,16 +238,35 @@ func performDictationWrite(timeout: Duration = .milliseconds(600), write: () -> 
     }
 }
 
-func dictationInsertionAttribute(selectedTextWritable: @autoclosure () -> Bool, valueWritable: @autoclosure () -> Bool, rangeWritable: @autoclosure () -> Bool) -> String? {
-    if selectedTextWritable() { return kAXSelectedTextAttribute }
-    return valueWritable() && rangeWritable() ? kAXValueAttribute : nil
+func dictationEditableRole(_ role: String) -> Bool {
+    [kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole].contains(role)
+}
+
+func dictationCapturedStateMatches(originalValue: String?, currentValue: String?, originalRange: NSRange?, currentRange: NSRange?) -> Bool {
+    if let originalValue, currentValue != originalValue { return false }
+    if let originalRange, currentRange != originalRange { return false }
+    if let originalValue, let originalRange { return validDictationRange(originalRange, in: originalValue) }
+    return true
+}
+
+func dictationReadableState(value: String?, range: NSRange?, characters: Int?) -> (value: String?, range: NSRange?) {
+    if characters == 0, value?.isEmpty != false { return (value ?? "", range ?? NSRange(location: 0, length: 0)) }
+    return (value, range)
+}
+
+func dictationPasteConfirmed(value: String?, range: NSRange?, expectedValue: String, expectedCaret: NSRange) -> Bool {
+    value == expectedValue && range.map { $0 == expectedCaret } != false
+}
+
+func dictationSafeText(_ text: String) -> Bool {
+    !text.isEmpty && !text.unicodeScalars.contains {
+        $0.properties.generalCategory == .control || CharacterSet.newlines.contains($0) || (0xF700...0xF8FF).contains($0.value)
+    }
 }
 
 func dictationUnicodeChunks(_ text: String) throws -> [String] {
-    guard !text.isEmpty, !text.unicodeScalars.contains(where: {
-        $0.properties.generalCategory == .control || CharacterSet.newlines.contains($0) || (0xF700...0xF8FF).contains($0.value)
-    }) else {
-        throw BridgeError("insertion_unavailable", "This dictation contains a line break or control character. Copy it into the editor to avoid sending a command.")
+    guard dictationSafeText(text), text.count > 1, text.utf16.count <= 2000 else {
+        throw BridgeError("insertion_unavailable", "This text needs the guarded paste path.")
     }
     var chunks: [String] = []
     var chunk = ""
@@ -230,6 +280,13 @@ func dictationUnicodeChunks(_ text: String) throws -> [String] {
         chunk += next
     }
     if !chunk.isEmpty { chunks.append(chunk) }
+    if chunks.count > 1, chunks[chunks.count - 1].count == 1, chunks[chunks.count - 2].count > 1 {
+        guard chunks[chunks.count - 1].utf16.count + String(chunks[chunks.count - 2].last!).utf16.count <= 20 else {
+            throw BridgeError("insertion_unavailable", "This text needs the guarded paste path.")
+        }
+        let moved = chunks[chunks.count - 2].removeLast()
+        chunks[chunks.count - 1].insert(moved, at: chunks[chunks.count - 1].startIndex)
+    }
     return chunks
 }
 
@@ -282,7 +339,7 @@ enum CompletionService {
             throw BridgeError("insertion_unavailable", "Place the cursor in an editable text field before asking Pace to continue.")
         }
         let id = UUID().uuidString
-        target = DictationSnapshot(id: id, element: element, pid: app.processIdentifier, bundleId: app.bundleIdentifier, isWebField: false, value: value, range: range)
+        target = DictationSnapshot(id: id, element: element, pid: app.processIdentifier, value: value, range: range)
         var result: [String: Any] = ["targetId": id, "app": app.localizedName ?? "App", "before": context["before"] ?? "", "selected": context["selected"] ?? "", "after": context["after"] ?? ""]
         if let bounds = caretBounds(element, range: range) { result["bounds"] = bounds }
         return result

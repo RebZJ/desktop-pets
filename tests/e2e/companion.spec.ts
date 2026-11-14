@@ -124,6 +124,7 @@ test('pointer exit and window blur close a selector even when focus-visible stay
   await page.evaluate(() => window.dispatchEvent(new Event('focus'))); await expect(chat).toBeHidden();
   await pet.focus(); await expect(chat).toBeHidden();
   await pet.press('ArrowUp'); await expect(page.getByRole('button', { name: 'Dictate into your app', exact: true })).toBeFocused();
+  await page.mouse.move(1, 1);
   await page.evaluate(() => (window as any).__companionFixture.emit('pet.visibility', { visible: false })); await expect(chat).toBeHidden();
   await page.evaluate(() => (window as any).__companionFixture.emit('pet.visibility', { visible: true })); await expect(chat).toBeHidden();
 });
