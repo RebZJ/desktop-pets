@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Pace uses your microphone only when you start voice chat, dictation or a meeting.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Pace captures system audio only when you start a meeting recording.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Pace captures meeting audio when you explicitly start a meeting. It does not store screen images.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Pace inserts dictated text only into the text field you explicitly selected.</string>
+	<key>CFBundleIdentifier</key>
+	<string>app.desktoppets.pace</string>
+</dict>
+</plist>

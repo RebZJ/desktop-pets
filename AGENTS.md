@@ -1,5 +1,6 @@
 # Desktop Pets engineering rules
 
+- Always implement, debug and test in **Desktop Pets Dev** with `npm run dev`. Keep experimental changes out of the installed app. Update the installed app only with validated changes when the user explicitly requests a release or deployment.
 - Keep the product cross-platform and independent of any coding agent, editor, browser extension or MCP runtime. Setup, builds and checks must be runnable with documented repository commands.
 - Prefer maintained Tauri plugins and existing shared Rust libraries for desktop capabilities. Check their supported platforms and actual capabilities before writing an OS-specific bridge.
 - Reuse the same capture, transcription and lifecycle code for dictation, voice chat and meetings wherever possible. Avoid separate implementations of the same microphone feature.
