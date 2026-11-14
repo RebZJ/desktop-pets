@@ -179,6 +179,25 @@ test('passive routes preserve drafts and only the explicit chat window shows a c
 });
 
 
+test('empty dictation reports no speech and offers a fresh explicit start without a blank draft', async ({ page }) => {
+  await page.setViewportSize({ width: 300, height: 200 });
+  await fixture(page, { phase: 'error', text: '', error: 'No speech was caught. Try the dictation shortcut again.' });
+  await page.goto('/?window=bubble');
+  await expect(page.getByRole('status')).toHaveText('Needs attention');
+  await expect(page.getByRole('alert')).toHaveText('No speech was caught. Try the dictation shortcut again.');
+  await expect(page.getByRole('textbox', { name: 'Dictation text' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Copy dictation|Review words/ })).toHaveCount(0);
+  const start = page.getByRole('button', { name: 'Start dictation', exact: true });
+  await expect(start).toBeEnabled();
+  expect((await calls(page)).some(call => /^(dictation\.(toggle|retry)|permissions\.request)$/.test(call.method))).toBe(false);
+  await start.click();
+  await expect(page.getByRole('status')).toHaveText('Listening…');
+  await expect(page.getByRole('button', { name: 'Stop dictation', exact: true })).toBeEnabled();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  expect((await calls(page)).filter(call => call.method === 'dictation.toggle')).toHaveLength(1);
+  expect((await calls(page)).some(call => call.method === 'permissions.request')).toBe(false);
+});
+
 test('failed ASR offers an explicit saved-audio retry without starting another recording', async ({ page }) => {
   await page.setViewportSize({ width: 300, height: 200 });
   await fixture(page, { phase: 'error', error: 'The speech model could not finish. Your audio is saved.', savedAudio: true }); await page.goto('/?window=bubble');

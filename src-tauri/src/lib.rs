@@ -1470,7 +1470,7 @@ async fn retry_dictation(app: &AppHandle, state: &AppState) -> Result<Value, Str
             emit(
                 app,
                 "dictation.state",
-                json!({"phase":"draft","text":transcript["text"],"error":recording["error"]}),
+                dictation::finished_state(&transcript["text"], false, &recording["error"]),
             );
             state
                 .engine

@@ -283,7 +283,7 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
     emit(
         app,
         "dictation.state",
-        json!({"phase":if inserted {"inserted"} else {"draft"},"text":data["text"],"error":data["insertionError"]}),
+        finished_state(&data["text"], inserted, &data["insertionError"]),
     );
     if target.is_some() {
         if insert && !inserted {
@@ -292,6 +292,16 @@ async fn finish_locked(app: &AppHandle, state: &AppState, insert: bool) -> Resul
         emit(app, "dictation.finished", data.clone());
     }
     Ok(data)
+}
+
+pub fn finished_state(text: &Value, inserted: bool, error: &Value) -> Value {
+    let empty = text.as_str().is_none_or(|text| text.trim().is_empty());
+    let error = if empty && error.as_str().is_none_or(|error| error.trim().is_empty()) {
+        json!("No speech was caught. Try the dictation shortcut again.")
+    } else {
+        error.clone()
+    };
+    json!({"phase":if empty {"error"} else if inserted {"inserted"} else {"draft"},"text":text,"error":error})
 }
 
 pub async fn cancel(app: &AppHandle, state: &AppState) -> Result<Value, String> {
@@ -357,11 +367,46 @@ fn request_is_current(epoch: &AtomicU64, requested_epoch: u64) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::request_is_current;
+    use super::{finished_state, request_is_current};
+    use serde_json::{json, Value};
     use std::sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
     };
+
+    #[test]
+    fn empty_asr_is_never_a_copyable_or_inserted_result() {
+        for text in [json!(""), json!(" \n\t"), Value::Null] {
+            for inserted in [false, true] {
+                let state = finished_state(&text, inserted, &Value::Null);
+                assert_eq!(state["phase"], "error");
+                assert_eq!(
+                    state["error"],
+                    "No speech was caught. Try the dictation shortcut again."
+                );
+            }
+        }
+        let state = finished_state(&json!(" "), false, &json!("Audio recovery warning"));
+        assert_eq!(state["phase"], "error");
+        assert_eq!(state["error"], "Audio recovery warning");
+    }
+
+    #[test]
+    fn recognized_drafts_keep_insertion_errors_and_inserted_results_keep_their_state() {
+        let text = json!("Please keep these words.");
+        assert_eq!(
+            finished_state(
+                &text,
+                false,
+                &json!("Allow Accessibility to type into this app.")
+            ),
+            json!({"phase":"draft","text":text,"error":"Allow Accessibility to type into this app."})
+        );
+        assert_eq!(
+            finished_state(&text, true, &Value::Null),
+            json!({"phase":"inserted","text":text,"error":null})
+        );
+    }
 
     #[tokio::test]
     async fn hide_invalidates_delayed_dictation_start_even_after_show() {

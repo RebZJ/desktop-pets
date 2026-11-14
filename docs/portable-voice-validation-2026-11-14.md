@@ -59,3 +59,13 @@ The final browser contract suite passed 91 Chromium and 91 WebKit tests. Rust pa
 End invalidates the session immediately, finalizes its microphone capture before runtime cancellation, and bounds each scoped cancellation request to 250ms. The owner gets two seconds to finish; a stalled owner is then aborted and joined, releasing its process/lock guards before a replacement session starts. A regression uses a deliberately stalled task holding a mutex and a drop marker to verify cleanup; a second verifies healthy owners are not aborted.
 
 A real isolated app host also rejected `voicechat.start` after its command window was hidden, leaving voice inactive, capture idle and no new audio file. Native desktop inspection and a live microphone/speaker conversation remain blocked by the locked Mac. No OS permission reset or new grant was requested.
+
+## Follow-up after the Mac was unlocked
+
+The installed signed app's little Chat button opened the native bubble, and Start reached real microphone capture, English recognition and a local generated reply. End returned the bubble to Start; a read-only process/file check found no open WAV handles or remaining voice-turn WAV files. Two message IDs were added and none removed. No transcript bodies or recordings were retained in the validation artifacts.
+
+Native settings navigation, campsite routing, send-home and summon controls responded. Opening the rebuilt chat remained passive and closing it returned to the pet. Kiki's physical audibility and automatic listening resumption still await the user's listening confirmation. Synthetic Quick Hide key injection did not establish a physical shortcut result, so that check remains unverified. The existing bindings and OS grants were left unchanged.
+
+The check exposed an empty-dictation status bug: blank recognition was marked as a copyable draft. Both normal completion and saved-audio retry now share terminal-state construction that reports an error for empty/whitespace text. Recognized drafts, insertion warnings and existing recovery behavior are preserved. The fix passed 102 Rust tests (five explicit fixtures ignored) and a new browser regression in Chromium and WebKit. The signed fix was installed with the same signing requirement; exact settings, document and message-ID baselines matched after replacement. No new meeting was recorded during this follow-up.
+
+Core voice commit `2f57802` passed interface checks, Rust tests and bundled native runtime build/smoke checks on all three desktop CI hosts: [Windows, macOS and Linux run](https://github.com/RebZJ/desktop-pets/actions/runs/43491187839). This does not establish live Windows/Linux audio-device behavior.
